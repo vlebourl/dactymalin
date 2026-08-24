@@ -1,4 +1,5 @@
-import { disposition, type IdDisposition, type Main, type Touche } from '../core/layouts';
+import { disposition, estProposable, type IdDisposition, type Main, type Touche } from '../core/layouts';
+import { ensembleTouches, PALIER_MAX } from '../core/paliers';
 import { Key, type EtatTouche } from './Key';
 import s from './ui.module.css';
 
@@ -40,14 +41,29 @@ function etatDe(t: Touche, o: OptionsClavier): EtatTouche {
   // Une touche est de la leçon si ce qu'elle produit y est — directement OU
   // sous Maj : au palier 7, la rangée des chiffres AZERTY porte « 1 » en `maj`,
   // pas en `base`, et restait éteinte alors que la leçon la réclamait.
-  if (t.morte || !t.base) return 'eteinte';
+  // Dessinable ≠ proposable : morte, inerte (Retour arrière, ²) ⇒ toujours éteinte.
+  if (!estProposable(t) || !t.base) return 'eteinte';
   if (o.ensemble.has(t.base) || (t.maj && o.ensemble.has(t.maj))) return 'ouverte';
   return 'eteinte';
+}
+
+/**
+ * Cadenas = « cette touche arrive PLUS TARD ». Il ne se pose donc que sur une
+ * touche dont un caractère appartient réellement au curriculum : `)`, `=` ou
+ * `²` n'arrivent jamais, ils restent simplement éteints.
+ */
+function verrouilleeDe(t: Touche, ensemble: Set<string>, final: Set<string>): boolean {
+  if (!estProposable(t)) return false;
+  // rien de verrouillé sur une touche dont un caractère est DÉJÀ disponible
+  if (ensemble.has(t.base ?? '') || ensemble.has(t.maj ?? '')) return false;
+  const aVenir = (c?: string) => !!c && final.has(c);
+  return aVenir(t.base) || aVenir(t.maj);
 }
 
 export function Keyboard(o: OptionsClavier) {
   const d = disposition(o.id);
   const taille = typeof o.taille === 'number' ? `${o.taille}px` : (o.taille ?? '46px');
+  const final = ensembleTouches(o.id, PALIER_MAX);
 
   const rangeeDe = (main: Main, i: number) => {
     const touches = d.rangees[i].filter((t) => t.main === main && (o.avecMaj || !t.modificateur));
@@ -58,7 +74,7 @@ export function Keyboard(o: OptionsClavier) {
             key={t.code}
             touche={t}
             etat={etatDe(t, o)}
-            verrouillee={i === 0 && !!t.base && !o.ensemble.has(t.base) && !o.ensemble.has(t.maj ?? '')}
+            verrouillee={i === 0 && verrouilleeDe(t, o.ensemble, final)}
           />
         ))}
       </div>

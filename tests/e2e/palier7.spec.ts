@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { motCourant, ouvrir } from './helpers/app';
-import { frapperCouple } from './helpers/keyboard';
+import { coteMajAttendu, coteMajHomolateral, frapper, frapperCouple } from './helpers/keyboard';
 import { toucheDe } from '../../src/core/layouts';
 
 /**
@@ -25,9 +25,7 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
       if (!mot) break;
       // on saute l'item en le tapant
       for (const c of mot) {
-        const t = toucheDe('fr-FR', c);
-        if (c === ' ') await frapperCouple(page, 'Space', ' ');
-        else if (t) await frapperCouple(page, t.code, c, { maj: !t.base || t.base !== c });
+        await frapper(page, 'fr-FR', c);
         await page.waitForTimeout(20);
       }
       await page.waitForTimeout(820);
@@ -85,9 +83,45 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
         return;
       }
       for (const c of mot) {
-        const t = toucheDe('fr-FR', c);
-        if (c === ' ') await frapperCouple(page, 'Space', ' ');
-        else if (t) await frapperCouple(page, t.code, c, { maj: t.base !== c });
+        await frapper(page, 'fr-FR', c);
+        await page.waitForTimeout(20);
+      }
+      await page.waitForTimeout(820);
+    }
+    throw new Error('aucun item numérique servi au palier 7');
+  });
+
+  /* Régression gate Codex n°5 : le hook n'exposait qu'un booléen `avecMaj`.
+     La Maj HOMOLATÉRALE (celle de la main qui tape déjà) validait donc la
+     frappe, alors que l'app affiche l'autre — la règle contralatérale n'était
+     enseignée qu'en peinture. */
+  test('la Maj HOMOLATÉRALE ne valide pas ; la contralatérale, si', async ({ page }) => {
+    test.slow();
+    for (let i = 0; i < 12; i++) {
+      const mot = await motCourant(page);
+      if (!mot) break;
+      if (/^[0-9]/.test(mot)) {
+        const chiffre = mot[0];
+        const porteuse = toucheDe('fr-FR', chiffre)!;
+
+        // mauvais côté : quasi-réussite, rien ne s'écrit, aucune touche fausse
+        await frapperCouple(page, porteuse.code, chiffre, {
+          maj: coteMajHomolateral('fr-FR', chiffre),
+        });
+        await page.waitForTimeout(60);
+        expect(await page.locator('[data-mot]').getAttribute('data-curseur')).toBe('0');
+        await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
+        await expect(page.locator('[data-etat="cible"]')).toHaveCount(2);
+
+        // bon côté : la frappe passe
+        await frapperCouple(page, porteuse.code, chiffre, {
+          maj: coteMajAttendu('fr-FR', chiffre),
+        });
+        await expect(page.locator('[data-mot]')).toHaveAttribute('data-curseur', '1');
+        return;
+      }
+      for (const c of mot) {
+        await frapper(page, 'fr-FR', c);
         await page.waitForTimeout(20);
       }
       await page.waitForTimeout(820);
@@ -116,14 +150,12 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
         await frapperCouple(page, porteuse.code, porteuse.base!);
         expect(await page.locator('[data-mot]').getAttribute('data-curseur')).toBe('0');
         // avec Maj : la capitale s'écrit
-        await frapperCouple(page, porteuse.code, mot[0], { maj: true });
+        await frapperCouple(page, porteuse.code, mot[0], { maj: coteMajAttendu('fr-FR', mot[0]) });
         await expect(page.locator('[data-mot]')).toHaveAttribute('data-curseur', '1');
         return;
       }
       for (const c of mot) {
-        const t = toucheDe('fr-FR', c);
-        if (c === ' ') await frapperCouple(page, 'Space', ' ');
-        else if (t) await frapperCouple(page, t.code, c, { maj: t.base !== c });
+        await frapper(page, 'fr-FR', c);
         await page.waitForTimeout(20);
       }
       await page.waitForTimeout(820);

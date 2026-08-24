@@ -49,7 +49,7 @@ export function V5FinDeBloc() {
           id={id}
           ensemble={ensembleTouches(id, app.palier)}
           illuminees={illuminees}
-          taille={44}
+          taille="clamp(13px, 3.4vw, 42px)"
         />
 
         {proposePause && <p className={v.pause}>{PROPOSITION_PAUSE}</p>}

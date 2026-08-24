@@ -41,7 +41,15 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
   test('aucun chiffre de performance, de temps ni de compteur sur la leçon', async ({ page }) => {
     await ouvrir(page);
     await page.getByRole('button', { name: 'On commence !' }).click();
-    const texte = (await page.locator('body').innerText()).toLowerCase();
+    /* La SÉRIGRAPHIE du clavier ne compte pas : `%` est gravé sur Maj+ù d'un
+       vrai AZERTY. On mesure le discours de l'app, pas les touches. */
+    const texte = (
+      await page.evaluate(() => {
+        const corps = document.body.cloneNode(true) as HTMLElement;
+        for (const t of corps.querySelectorAll('[data-code]')) t.remove();
+        return corps.innerText;
+      })
+    ).toLowerCase();
     for (const interdit of ['wpm', 'score', 'précision', 'vitesse', '%', 'erreur']) {
       expect(texte).not.toContain(interdit);
     }

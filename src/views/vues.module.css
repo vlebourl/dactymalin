@@ -381,7 +381,8 @@
   background: var(--fond-carte);
   border: 3px solid var(--liseré);
   box-shadow: var(--ombre-carte);
-  min-width: 300px;
+  min-width: min(300px, 100%);
+  max-width: 100%;
   text-align: center;
 }
 
@@ -396,15 +397,32 @@
   letter-spacing: 0.06em;
 }
 
+/* Le mini-clavier porte sa taille de touche en variable : sur un écran étroit,
+   c'est ELLE qui rétrécit, sans que la rangée déborde ni ne se coupe. */
+.miniClavier {
+  --echelle: 1;
+  /* la MÉDIA QUERY doit gagner : l'échelle vient du parent, la taille de base
+     du média — un `--mini` posé en style inline écrasait la version étroite. */
+  --mini: calc(30px * var(--echelle));
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 430px) {
+  .miniClavier {
+    --mini: calc(24px * var(--echelle));
+  }
+}
+
 .miniRangee {
   display: flex;
-  gap: 5px;
+  gap: calc(var(--mini) * 0.17);
   justify-content: center;
 }
 
 .miniTouche {
-  width: 30px;
-  height: 30px;
+  width: var(--mini);
+  height: var(--mini);
   border-radius: 6px;
   display: grid;
   place-items: center;
@@ -640,8 +658,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(30px, 8vw, 90px);
+  gap: clamp(6px, 3.5vw, 60px);
   width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* Les deux mains encadrent le clavier : elles cèdent la place AVANT lui.
+   Sans cette contrainte, V3 débordait horizontalement sous 1440 px. */
+.coteMain {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: clamp(52px, 11vw, 150px);
+}
+
+.coteMain svg {
+  width: 100%;
+  height: auto;
 }
 
 @media (max-height: 780px) {

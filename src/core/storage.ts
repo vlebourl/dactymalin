@@ -74,11 +74,36 @@ export function valider(brut: unknown): Sauvegarde {
   };
 }
 
-/** `true` si l'objet brut était déjà conforme — sert à ne sauvegarder en secours que du sain. */
-function estIntact(brut: unknown): boolean {
-  if (!brut || typeof brut !== 'object') return false;
+/**
+ * `true` si l'objet brut est conforme SUR TOUS SES CHAMPS.
+ * Une validation partielle laissait passer `{version:1, disposition:"fr-FR",
+ * palier:42}` : `valider()` écrasait alors la progression vers les défauts sans
+ * jamais consulter le backup, pourtant sain. Le contrôle porte donc désormais
+ * sur chaque champ, avec les MÊMES bornes que `valider()`.
+ */
+export function estIntact(brut: unknown): boolean {
+  if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return false;
   const o = brut as Record<string, unknown>;
-  return estDisposition(o.disposition) && typeof o.palier === 'number' && o.version === 1;
+  const entier = (v: unknown, min: number, max: number) =>
+    typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+  if (o.version !== 1) return false;
+  if (!estDisposition(o.disposition)) return false;
+  if (typeof o.dispositionChoisieALaMain !== 'boolean') return false;
+  if (!entier(o.palier, 1, PALIER_MAX)) return false;
+  if (!entier(o.blocsSurPalier, 0, 999)) return false;
+  if (typeof o.guideDoigtVu !== 'boolean') return false;
+  if (!o.maitrise || typeof o.maitrise !== 'object' || Array.isArray(o.maitrise)) return false;
+  for (const [cle, val] of Object.entries(o.maitrise as Record<string, unknown>)) {
+    if (cle.length !== 1) return false;
+    if (!Array.isArray(val)) return false;
+    if (!val.every((n) => typeof n === 'number' && Number.isFinite(n))) return false;
+  }
+  const r = o.reglages;
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
+  const reg = r as Record<string, unknown>;
+  return (['sons', 'texteEspace', 'animationsDouces'] as const).every(
+    (c) => typeof reg[c] === 'boolean',
+  );
 }
 
 function lireCle(cle: string): unknown {
@@ -101,9 +126,16 @@ export function charger(): Sauvegarde {
 
 /** Checkpoint : appelé en fin d'item ou de bloc, jamais à chaque frappe. */
 export function sauver(etat: Sauvegarde): void {
+  /* Deux écritures ISOLÉES : un QuotaExceededError sur le backup ne doit pas
+     emporter avec lui l'écriture de la clé principale (elle, seule, porte la
+     progression du moment). */
   try {
     const precedent = lireCle(CLE);
     if (estIntact(precedent)) localStorage.setItem(CLE_SECOURS, JSON.stringify(precedent));
+  } catch {
+    /* backup au mieux : son échec n'est jamais fatal */
+  }
+  try {
     localStorage.setItem(CLE, JSON.stringify(etat));
   } catch {
     /* quota plein ou navigation privée : la leçon continue sans persistance */

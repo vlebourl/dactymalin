@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import { charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
-import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
+import { estMaitrisee, noterOccurrence, palierFranchi, type Maitrise } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
@@ -49,7 +49,7 @@ export type Action =
   | { type: 'blocTermine'; bilan: BilanBloc }
   | { type: 'verrMaj'; actif: boolean };
 
-function reducer(etat: EtatApp, action: Action): EtatApp {
+export function reducer(etat: EtatApp, action: Action): EtatApp {
   switch (action.type) {
     case 'vue':
       return {
@@ -62,15 +62,21 @@ function reducer(etat: EtatApp, action: Action): EtatApp {
     case 'commencer':
       return { ...etat, vue: 'V4', premierLancement: false, palierOuvert: null };
 
-    case 'disposition':
+    case 'disposition': {
+      const change = action.id !== etat.disposition;
       return {
         ...etat,
         disposition: action.id,
         dispositionChoisieALaMain: action.manuel || etat.dispositionChoisieALaMain,
         // la maîtrise est indexée par caractère : changer de clavier repart proprement
-        maitrise: action.id === etat.disposition ? etat.maitrise : {},
-        palier: action.id === etat.disposition ? etat.palier : Math.min(etat.palier, PALIER_MAX),
+        maitrise: change ? {} : etat.maitrise,
+        palier: change ? Math.min(etat.palier, PALIER_MAX) : etat.palier,
+        /* Les blocs déjà joués l'ont été sur l'AUTRE clavier : les garder au
+           compteur ouvrait le palier suivant par le plafond anti-mur alors que
+           rien n'avait été prouvé sur la nouvelle disposition. */
+        blocsSurPalier: change ? 0 : etat.blocsSurPalier,
       };
+    }
 
     case 'reglage':
       return { ...etat, reglages: { ...etat.reglages, [action.cle]: action.valeur } };
@@ -104,19 +110,35 @@ function reducer(etat: EtatApp, action: Action): EtatApp {
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
         aReinjecter: action.bilan.aRevoir,
         itemsDuBloc: action.bilan.items,
-        touchesNouvelles: franchies.length ? franchies : [...new Set(action.bilan.propres)],
+        /* SEULES les touches nouvellement maîtrisées s'allument. Le repli sur
+           « toutes les frappes propres du bloc » illuminait un clavier entier
+           à chaque bloc et vidait le signal de son sens. */
+        touchesNouvelles: franchies,
       };
     }
   }
 }
 
-function etatDeDepart(): EtatApp {
+/**
+ * Numéro du PROCHAIN bloc, reconstruit depuis la maîtrise persistée.
+ * Repartir à 1 à chaque chargement écrasait la répartition : la maîtrise ne
+ * voyait plus qu'un seul numéro de bloc (`[1,1,1…]`), le critère « au moins
+ * 2 blocs distincts » n'était jamais rempli et la progression ne tenait plus
+ * que par le plafond anti-mur.
+ */
+export function blocDeDepart(maitrise: Maitrise): number {
+  let max = 0;
+  for (const blocs of Object.values(maitrise)) for (const b of blocs) if (b > max) max = b;
+  return max + 1;
+}
+
+export function etatDeDepart(): EtatApp {
   const sauve = charger();
   return {
     ...sauve,
     // Au tout premier lancement, on passe par le choix du clavier (cahier 4.1).
     vue: sauve.dispositionChoisieALaMain ? 'V1' : 'V2',
-    bloc: 1,
+    bloc: blocDeDepart(sauve.maitrise),
     blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),

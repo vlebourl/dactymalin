@@ -14,6 +14,11 @@ export type Touche = {
   maj?: string;
   main: Main;
   morte?: boolean;
+  /**
+   * Touche DESSINÉE mais sans aucun rôle : Retour arrière (rien à effacer,
+   * cahier 4.2 / spec F3). Comme `morte`, elle n'est jamais proposable.
+   */
+  inerte?: boolean;
   /** libellé des touches sans caractère (Maj, Entrée…) */
   nom?: string;
   /** touche modificatrice : dessinée seulement quand la leçon l'exige (palier 7) */
@@ -56,8 +61,27 @@ const d = (code: string, base: string, maj?: string, extra: Partial<Touche> = {}
   ...extra,
 });
 
+/* Les deux Majuscules. Elles n'ont pas de caractère : elles ne sont dessinées
+   qu'au palier où la leçon les réclame, et servent de SECONDE touche allumée
+   (règle contralatérale P8). */
+export const MAJ_GAUCHE = 'ShiftLeft';
+export const MAJ_DROITE = 'ShiftRight';
+
+const majG = (): Touche => ({
+  code: MAJ_GAUCHE, main: 'gauche', nom: 'Maj', large: 1.25, modificateur: true,
+});
+const majD = (): Touche => ({
+  code: MAJ_DROITE, main: 'droite', nom: 'Maj', large: 1.7, modificateur: true,
+});
+/* Retour arrière : DESSINÉE, éteinte, sans aucun rôle — rien ne s'écrit jamais
+   de faux, il n'y a donc rien à effacer (cahier 4.2, spec F3). */
+const retour = (): Touche => ({
+  code: 'Backspace', main: 'droite', nom: '⌫', large: 1.6, inerte: true,
+});
+
 /* ------------------------------------------------------------------ FR-FR */
-/* Rangée des chiffres : légende haute = chiffre (Maj), légende basse = caractère direct. */
+/* Matrice PHYSIQUE complète du bloc alphanumérique ISO, d'après kbdfr.
+   Rangée des chiffres : légende haute = chiffre (Maj), légende basse = direct. */
 const FR_FR: Disposition = {
   id: 'fr-FR',
   nom: 'Français (AZERTY)',
@@ -65,6 +89,7 @@ const FR_FR: Disposition = {
   explication: 'Sur ce clavier, les chiffres arrivent au palier de la touche Majuscule.',
   rangees: [
     [
+      g('Backquote', '²', undefined, { inerte: true }),
       g('Digit1', '&', '1'),
       g('Digit2', 'é', '2'),
       g('Digit3', '"', '3'),
@@ -75,6 +100,9 @@ const FR_FR: Disposition = {
       d('Digit8', '_', '8'),
       d('Digit9', 'ç', '9'),
       d('Digit0', 'à', '0'),
+      d('Minus', ')', '°'),
+      d('Equal', '=', '+'),
+      retour(),
     ],
     [
       g('KeyQ', 'a'),
@@ -87,6 +115,8 @@ const FR_FR: Disposition = {
       d('KeyI', 'i'),
       d('KeyO', 'o'),
       d('KeyP', 'p'),
+      d('BracketLeft', '^', '¨', { morte: true }),
+      d('BracketRight', '$', '£'),
     ],
     [
       g('KeyA', 'q'),
@@ -99,25 +129,30 @@ const FR_FR: Disposition = {
       d('KeyK', 'k'),
       d('KeyL', 'l'),
       d('Semicolon', 'm'),
-      d('Quote', 'ù'),
+      d('Quote', 'ù', '%'),
+      d('Backslash', '*', 'µ'),
     ],
     [
+      majG(),
+      g('IntlBackslash', '<', '>'),
       g('KeyZ', 'w'),
       g('KeyX', 'x'),
       g('KeyC', 'c'),
       g('KeyV', 'v'),
       g('KeyB', 'b'),
       d('KeyN', 'n'),
-      d('KeyM', ','),
+      d('KeyM', ',', '?'),
       d('Comma', ';', '.'), // le point exige Maj en FR-FR ⇒ palier 7
       d('Period', ':', '/'),
-      d('Slash', '!'),
+      d('Slash', '!', '§'),
+      majD(),
     ],
   ],
 };
 
 /* ------------------------------------------------------------------ FR-CH */
-/* Chiffres DIRECTS. ç = Maj+4. ù = touche morte (^) ⇒ hors MVP. Point direct. */
+/* Matrice PHYSIQUE complète d'après kbdsf_2. Chiffres DIRECTS. ç = Maj+4.
+   ù = touche morte (^) ⇒ hors MVP. Point direct. */
 const FR_CH: Disposition = {
   id: 'fr-CH',
   nom: 'Suisse romand (QWERTZ)',
@@ -125,6 +160,7 @@ const FR_CH: Disposition = {
   explication: 'Sur ce clavier, tu tapes des nombres dès la première leçon.',
   rangees: [
     [
+      g('Backquote', '§', '°'),
       g('Digit1', '1', '+'),
       g('Digit2', '2', '"'),
       g('Digit3', '3', '*'),
@@ -135,6 +171,9 @@ const FR_CH: Disposition = {
       d('Digit8', '8', '('),
       d('Digit9', '9', ')'),
       d('Digit0', '0', '='),
+      d('Minus', "'", '?'),
+      d('Equal', '^', '`', { morte: true }),
+      retour(),
     ],
     [
       g('KeyQ', 'q'),
@@ -147,7 +186,8 @@ const FR_CH: Disposition = {
       d('KeyI', 'i'),
       d('KeyO', 'o'),
       d('KeyP', 'p'),
-      d('BracketLeft', 'è'),
+      d('BracketLeft', 'è', 'ü'),
+      d('BracketRight', '¨', '!', { morte: true }),
     ],
     [
       g('KeyA', 'a'),
@@ -159,10 +199,13 @@ const FR_CH: Disposition = {
       d('KeyJ', 'j', undefined, { repere: true }),
       d('KeyK', 'k'),
       d('KeyL', 'l'),
-      d('Semicolon', 'é'),
-      d('Quote', 'à'),
+      d('Semicolon', 'é', 'ö'),
+      d('Quote', 'à', 'ä'),
+      d('Backslash', '$', '£'),
     ],
     [
+      majG(),
+      g('IntlBackslash', '<', '>'),
       g('KeyZ', 'y'),
       g('KeyX', 'x'),
       g('KeyC', 'c'),
@@ -170,26 +213,13 @@ const FR_CH: Disposition = {
       g('KeyB', 'b'),
       d('KeyN', 'n'),
       d('KeyM', 'm'),
-      d('Comma', ','),
-      d('Period', '.'),
-      d('Slash', '-'),
+      d('Comma', ',', ';'),
+      d('Period', '.', ':'),
+      d('Slash', '-', '_'),
+      majD(),
     ],
   ],
 };
-
-/* La touche morte `^` de CH-FR est déclarée ici pour être DESSINÉE mais jamais proposée. */
-FR_CH.rangees[1].push({ code: 'BracketRight', base: '¨', main: 'droite', morte: true });
-FR_FR.rangees[1].push({ code: 'BracketLeft', base: '^', main: 'droite', morte: true });
-
-/* Les deux Majuscules. Elles n'ont pas de caractère : elles ne sont dessinées
-   qu'au palier où la leçon les réclame, et servent de SECONDE touche allumée
-   (règle contralatérale P8). */
-export const MAJ_GAUCHE = 'ShiftLeft';
-export const MAJ_DROITE = 'ShiftRight';
-for (const d of [FR_FR, FR_CH]) {
-  d.rangees[3].unshift({ code: MAJ_GAUCHE, main: 'gauche', nom: 'Maj', large: 1.7, modificateur: true });
-  d.rangees[3].push({ code: MAJ_DROITE, main: 'droite', nom: 'Maj', large: 1.7, modificateur: true });
-}
 
 export const DISPOSITIONS: Record<IdDisposition, Disposition> = { 'fr-FR': FR_FR, 'fr-CH': FR_CH };
 
@@ -203,14 +233,24 @@ export function touches(id: IdDisposition): Touche[] {
   return DISPOSITIONS[id].rangees.flat();
 }
 
+/**
+ * DESSINABLE ≠ PROPOSABLE. Toute touche physique est dessinée ; seules celles
+ * qui produisent réellement un caractère utilisable peuvent devenir une cible.
+ * Sont dessinées mais jamais proposées : les touches mortes (`^`, `¨`), les
+ * inertes (Retour arrière, `²`) et les modificateurs.
+ */
+export function estProposable(t: Touche): boolean {
+  return !t.morte && !t.inerte && !t.modificateur;
+}
+
 /** Trouve la touche qui produit `caractere` SANS modificateur. */
 export function toucheDirecte(id: IdDisposition, caractere: string): Touche | undefined {
-  return touches(id).find((t) => !t.morte && t.base === caractere);
+  return touches(id).find((t) => estProposable(t) && t.base === caractere);
 }
 
 /** Trouve la touche qui produit `caractere` AVEC Maj. */
 export function toucheMaj(id: IdDisposition, caractere: string): Touche | undefined {
-  const declaree = touches(id).find((t) => !t.morte && t.maj === caractere);
+  const declaree = touches(id).find((t) => estProposable(t) && t.maj === caractere);
   if (declaree) return declaree;
   /* Maj + lettre = capitale sur TOUTE disposition : la déclarer 26 fois par
      table serait de la redite. Les accentuées sont exclues par le regex ASCII

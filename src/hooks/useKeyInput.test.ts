@@ -9,6 +9,10 @@ function frapper(init: KeyboardEventInit & { code: string }): KeyboardEvent {
   return e;
 }
 
+function relacher(init: KeyboardEventInit & { code: string }): void {
+  window.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, ...init }));
+}
+
 describe('useKeyInput', () => {
   /* Régression itération 001 : `Tab` était preventDefault, ce qui rendait
      toute l'application inatteignable au clavier. */
@@ -34,11 +38,82 @@ describe('useKeyInput', () => {
   it('rend le couple (code, key) brut et ignore les modificateurs seuls', () => {
     const vues: Frappe[] = [];
     renderHook(() => useKeyInput(true, (f) => vues.push(f)));
-    frapper({ code: 'ShiftLeft', key: 'Shift' });
+    frapper({ code: 'ShiftLeft', key: 'Shift', shiftKey: true });
+    relacher({ code: 'ShiftLeft', key: 'Shift', shiftKey: false });
     frapper({ code: 'KeyQ', key: 'a' });
     expect(vues).toEqual([
-      { code: 'KeyQ', key: 'a', repeat: false, avecMaj: false, avecAutreModificateur: false },
+      {
+        code: 'KeyQ',
+        key: 'a',
+        repeat: false,
+        avecMaj: false,
+        majGauche: false,
+        majDroite: false,
+        avecAutreModificateur: false,
+      },
     ]);
+  });
+
+  /* Gate Codex n°5 : seul un booléen `avecMaj` était transmis. L'app affichait
+     la Maj contralatérale mais ne pouvait pas la vérifier — n'importe laquelle
+     des deux validait. */
+  describe('côté réel de la touche Maj', () => {
+    const avecMajTenue = (cote: string): Frappe => {
+      const vues: Frappe[] = [];
+      renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+      frapper({ code: cote, key: 'Shift', shiftKey: true });
+      frapper({ code: 'Digit7', key: '7', shiftKey: true });
+      relacher({ code: cote, key: 'Shift', shiftKey: false });
+      return vues[0];
+    };
+
+    it('distingue ShiftLeft de ShiftRight', () => {
+      expect(avecMajTenue('ShiftLeft')).toMatchObject({ majGauche: true, majDroite: false });
+      expect(avecMajTenue('ShiftRight')).toMatchObject({ majGauche: false, majDroite: true });
+    });
+
+    it('oublie une Maj relâchée', () => {
+      const vues: Frappe[] = [];
+      renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+      frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true });
+      relacher({ code: 'ShiftRight', key: 'Shift', shiftKey: false });
+      frapper({ code: 'KeyE', key: 'e' });
+      expect(vues.at(-1)).toMatchObject({ majGauche: false, majDroite: false, avecMaj: false });
+    });
+
+    it("oublie les Maj fantômes quand la fenêtre perd le focus", () => {
+      const vues: Frappe[] = [];
+      renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+      frapper({ code: 'ShiftLeft', key: 'Shift', shiftKey: true });
+      window.dispatchEvent(new Event('blur'));
+      frapper({ code: 'KeyE', key: 'e' });
+      expect(vues.at(-1)).toMatchObject({ majGauche: false, majDroite: false });
+    });
+  });
+
+  /* Gate Codex n°8 : une touche pressée alors qu'un bouton a le focus comptait
+     À LA FOIS comme activation du bouton et comme frappe pédagogique. */
+  it('ignore une frappe partie d’un contrôle focalisé', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+    const bouton = document.createElement('button');
+    document.body.appendChild(bouton);
+    bouton.focus();
+    frapper({ code: 'Space', key: ' ' });
+    frapper({ code: 'KeyE', key: 'e' });
+    expect(vues).toEqual([]);
+    bouton.blur();
+    bouton.remove();
+    frapper({ code: 'KeyE', key: 'e' });
+    expect(vues).toHaveLength(1);
+  });
+
+  it('transmet le drapeau d’auto-répétition tel quel', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+    frapper({ code: 'KeyL', key: 'l' });
+    frapper({ code: 'KeyL', key: 'l', repeat: true });
+    expect(vues.map((f) => f.repeat)).toEqual([false, true]);
   });
 
   it('retire ses écouteurs au démontage', () => {

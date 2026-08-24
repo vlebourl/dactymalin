@@ -46,7 +46,7 @@ export function V1Accueil() {
         <Keyboard
           id={app.disposition}
           ensemble={ensembleTouches(app.disposition, app.palier)}
-          taille={38}
+          taille="clamp(13px, 2.7vw, 38px)"
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
