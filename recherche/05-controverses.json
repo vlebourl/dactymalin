@@ -1,0 +1,52 @@
+{
+  "decisions": [
+    {
+      "id": "perimetre-mode-4-doigts",
+      "titre": "Périmètre du mode 4 doigts : demi-clavier ou colonnes d'index",
+      "question": "En mode débutant, les index ont-ils le droit d'aller chercher n'importe quelle touche de leur moitié de clavier, ou seulement les colonnes qui leur appartiennent dans la méthode à 10 doigts ?",
+      "optionA": "Demi-clavier. L'index gauche couvre tout ce qui est à gauche de la ligne médiane, l'index droit tout ce qui est à droite. Le corpus s'ouvre immédiatement à de vrais mots français (chat, papa, école, maison) et l'enfant tape des choses qui ont du sens dès la première minute.",
+      "optionB": "Colonnes canoniques. L'index gauche ne touche que f g r t v b, l'index droit que h j y u n (+ espace aux pouces). Le mapping doigt→touche appris est exactement celui de la méthode cible, aucun geste ne sera à défaire, mais le vocabulaire typable se réduit à une poignée de mots (tu, un, vu, but, brut, futur) et repose surtout sur des syllabes.",
+      "enjeu": "C'est la décision qui détermine si le mode débutant est une vraie première leçon de dactylographie ou du hunt-and-peck à deux doigts déguisé. L'option A donne du plaisir et du sens tout de suite mais installe des associations doigt→touche qui contredisent la suite : l'enfant devra les inhiber au passage à 8 doigts, avec la chute de performance documentée. L'option B est propre mais austère, pauvre en mots, et risque d'ennuyer un enfant de 7 ans en trois séances. Tout le reste du produit (corpus, progression, sortie du mode débutant) découle de ce choix."
+    },
+    {
+      "id": "chiffres-azerty-shift",
+      "titre": "Les chiffres en AZERTY quand Shift est hors de portée",
+      "question": "L'énoncé impose de faire taper des nombres. En AZERTY, les chiffres exigent Shift, qu'aucun des quatre doigts du mode débutant ne peut tenir. Que fait l'app ?",
+      "optionA": "Pas de chiffres en mode débutant sur AZERTY. Les nombres n'apparaissent qu'après le déverrouillage de l'auriculaire gauche. L'enfant suisse romand tape des chiffres dès le jour 1, l'enfant français attend.",
+      "optionB": "Exception Shift assumée. On autorise l'auriculaire gauche uniquement pour Shift, présenté comme un cinquième doigt à part (\"la touche magique\") avec son propre code visuel, et les chiffres restent disponibles dès le début partout.",
+      "enjeu": "Impact direct sur ce que l'enfant peut faire le premier jour, et sur l'égalité entre les deux dispositions. L'option A crée deux produits nettement différents selon le clavier de la maison et retire au mode débutant la moitié du contenu imposé. L'option B casse la promesse « exactement 4 doigts », ajoute une combinaison à deux mains au moment où la charge cognitive est maximale, et transforme chaque chiffre en geste composé — mais garde les deux publics alignés et les nombres présents dès le départ."
+    },
+    {
+      "id": "faute-bloquante",
+      "titre": "Ce qui se passe exactement quand l'enfant frappe la mauvaise touche",
+      "question": "Une frappe erronée bloque-t-elle la progression jusqu'à la bonne touche, ou l'exercice avance-t-il quand même ?",
+      "optionA": "Blocage strict. Le curseur ne bouge pas, rien ne s'affiche, l'aide s'intensifie à chaque nouvel essai (surbrillance renforcée, puis doigt animé, puis flèche doigt→touche). L'enfant ne peut pas avancer sans avoir produit le bon geste.",
+      "optionB": "Non bloquant avec reprise. La lettre fausse est enregistrée et l'app enchaîne, puis fait retaper immédiatement la même lettre ou le même mot en fin de bloc. L'enfant n'est jamais coincé sur un écran.",
+      "enjeu": "C'est la décision qui décide si l'app est vécue comme un jeu ou comme un mur. Le blocage empêche l'ancrage du mauvais geste — argument moteur solide — mais un enfant de 7 ans qui ne trouve pas la touche reste coincé, et l'escalade d'aide devient une escalade de frustration si le doigt ne suit pas physiquement. Le non-bloquant préserve le flux et le sentiment d'avancer, au prix d'un risque réel : renforcer simultanément le bon et le mauvais programme moteur, ce qui plafonne la progression plus tard."
+    },
+    {
+      "id": "mains-dessinees",
+      "titre": "Comment se matérialise « le doigt à utiliser »",
+      "question": "L'indication du doigt passe-t-elle par des mains schématiques animées sous le clavier, ou entièrement par le clavier lui-même (touche colorée à la couleur du doigt) ?",
+      "optionA": "Mains dessinées. Deux mains vues de dessus sous le clavier, doigt actif rempli et animé. C'est le dispositif de Dance Mat et TypingClub : il montre le geste, ne demande aucune lecture, et fonctionne pour un enfant qui ne sait pas encore ce qu'est un annulaire.",
+      "optionB": "Clavier seul. Pas de mains ; chaque touche porte en permanence la couleur de son doigt, la touche cible passe en saturation pleine. Trois zones deviennent deux, l'écran est plus calme, le regard fait un trajet plus court, et l'enfant apprend la carte du clavier plutôt qu'une main abstraite.",
+      "enjeu": "Ça change la moitié de l'écran et la façon dont l'enfant apprend. Les mains enseignent le geste mais ajoutent une troisième zone à regarder, allongent le trajet du regard (effet de partage de l'attention) et représentent une main d'adulte qui ne ressemble pas à la sienne. Le clavier seul est plus sobre mais suppose que la couleur suffise à dire « ce doigt-là » — hypothèse fragile en mode 4 doigts, où la difficulté n'est justement pas de trouver la touche mais de choisir le doigt."
+    },
+    {
+      "id": "corpus-sens-ou-contrainte",
+      "titre": "Ce que l'enfant tape en premier : de vrais mots ou des suites contraintes",
+      "question": "Le corpus est-il piloté par le sens (des mots français reconnaissables dès la première leçon) ou par la contrainte de doigts (syllabes et suites de touches tant que les lettres nécessaires ne sont pas apprises) ?",
+      "optionA": "Le sens d'abord. On choisit des mots courts que l'enfant reconnaît (chat, lune, papa, vélo) et on introduit les doigts nécessaires pour les taper, quitte à casser l'ordre canonique rangée-de-repos-puis-le-reste.",
+      "optionB": "La contrainte d'abord. Chaque leçon déclare un ensemble de touches autorisées et le générateur ne produit que ce qui est typable avec les doigts déjà enseignés : syllabes (fa, ja, gu, tu), petits nombres, puis vrais mots quand le stock de lettres le permet.",
+      "enjeu": "C'est l'arbitrage entre motivation et rigueur posturale. L'option A garde l'enfant engagé — Keybr échoue avec les enfants précisément parce que ses pseudo-mots ne veulent rien dire — mais fait exploser l'ordre d'apprentissage des doigts et peut demander cinq doigts pour un mot de quatre lettres. L'option B garantit un mapping stable et une progression lisible, mais impose des semaines de syllabes sans signification à un enfant de 7 ans qui apprend encore à lire, avec un risque d'abandon élevé avant le premier vrai mot."
+    },
+    {
+      "id": "estompage-clavier",
+      "titre": "Le clavier virtuel s'efface-t-il, et qui décide",
+      "question": "Le clavier à l'écran reste-t-il visible en permanence, ou s'estompe-t-il automatiquement à mesure que l'enfant réussit ?",
+      "optionA": "Toujours visible. Le clavier reste affiché en entier pendant tout le MVP. L'enfant n'est jamais mis en difficulté par le retrait d'une aide, et le regard a toujours un refuge.",
+      "optionB": "Estompage piloté par la réussite. Trois états qui s'enchaînent tout seuls selon les frappes correctes : touche en surbrillance → clavier grisé sans indice de cible → clavier masqué, rappelable à la demande. L'app décide, pas un réglage.",
+      "enjeu": "C'est ce qui détermine si l'enfant apprendra un jour à taper sans regarder, ou si l'app devient une béquille permanente qu'il faudra abandonner pour progresser. L'estompage est la seule mécanique du panel qui fabrique réellement l'autonomie (ClaviGo), mais retirer l'aide à un enfant de 7 ans dont la carte mentale n'est pas encore formée peut faire s'effondrer la réussite d'un coup — et un retrait vécu comme arbitraire ressemble à une punition, exactement ce que le cadrage non compétitif veut éviter."
+    }
+  ]
+}
