@@ -30,3 +30,20 @@ Non traité assumé : 375 px au palier 7 (blocs chevauchant la barre d'espace).
 ### Files
 - gan-harness/spec.md, eval-rubric.md, feedback/feedback-001..004.md, generator-state.md, screenshots/ (~90 captures)
 - Commits : bfb1ce1 (iter 1) → 61dc55d (iter 2) → 3d46de7 (iter 3) → e0c4d48 (iter 4)
+
+---
+
+## Post-PASS : gates de sortie (2026-08-24)
+
+| Gate | Verdict | Suites |
+|---|---|---|
+| Revue sécurité (ecc:security-reviewer) | PASS avec 1 MEDIUM | Google Fonts → Lexend auto-hébergée (883e85d) + e2e réseau (8667d43) |
+| Revue adversariale Codex du code | REJET (9 findings) | iteration-005 (16dd40a) : 9 fixes + couverture |
+| Contre-vérification Codex | REJET (3 failles + 1 nouveau) | iteration-006 (e2ee3bf) : 4 fixes |
+| Verdict Codex final | REJET (2 défauts) | iteration-007 (87b98e5) : clamp BLOC_MAX + célébration gelée |
+| **Verdict Codex de clôture** | **LIVRABLE** | — |
+
+État final : 209 tests vitest, 40 e2e Playwright chromium, tsc propre, `vite build` OK,
+aucune requête réseau externe. Restent les 4 réserves visuelles mineures de feedback-004
+(photos de pastilles recadrées haut, signature visuelle du piège Maj, légendes 16 vs 18 px,
+main du barreau 3) — consignées, non bloquantes.
