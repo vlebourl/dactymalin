@@ -1,0 +1,522 @@
+.ecran {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.centre {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 2.4vh, 30px);
+  width: min(1180px, 96vw);
+  padding: 18px 0;
+  text-align: center;
+}
+
+/* Zone 1 puis zone 2 : axe vertical unique, réparti sans trou (P7). */
+.centreLecon {
+  justify-content: space-evenly;
+  gap: 0;
+  padding: 0;
+}
+
+/* ------------------------------------------------------------- bandeaux */
+
+.entete {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 14px;
+  padding: 10px clamp(12px, 3vw, 34px) 6px;
+  border-bottom: 1px solid var(--liseré);
+}
+
+.retour,
+.engrenage {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+}
+
+.retour:hover,
+.engrenage:hover {
+  border-color: var(--teal-vif);
+}
+
+.bandeauTouches {
+  text-align: center;
+  font-size: clamp(13px, 1.25vw, 16px);
+  color: var(--encre-doux);
+}
+
+.bandeauTouches strong {
+  color: var(--encre);
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  margin-left: 6px;
+}
+
+.avancement {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 7px;
+}
+
+.pastilleAvancement {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--liseré-fort);
+  background: transparent;
+  transition: background-color 240ms ease, transform 240ms ease;
+}
+
+.pastilleAvancementPleine {
+  background: var(--encre);
+  border-color: var(--encre);
+  transform: scale(1.25);
+}
+
+.bandeauVerrMaj {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 18px;
+  background: var(--orange-pale);
+  border-bottom: 2px solid var(--orange-pale-forte);
+  font-size: clamp(14px, 1.4vw, 18px);
+  font-weight: 500;
+}
+
+.toucheDessinee {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: var(--r-touche);
+  background: var(--fond-carte);
+  border: 2px solid var(--orange-vif);
+  border-bottom-width: 4px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------- zone 1 : mot */
+
+.zoneMot {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(16px, 3vw, 44px);
+  min-height: clamp(70px, 11vh, 108px);
+  width: 100%;
+}
+
+.motPrecedent {
+  font-size: clamp(24px, 3vw, 40px);
+  font-weight: 300;
+  color: var(--encre-eteinte);
+  letter-spacing: var(--interlettrage);
+}
+
+.mot {
+  font-size: clamp(48px, 6.2vw, 72px);
+  font-weight: 600;
+  letter-spacing: calc(var(--interlettrage) + 0.04em);
+  white-space: pre;
+  animation: arrivee-mot 320ms ease both;
+}
+
+.lettreTapee {
+  color: var(--encre-eteinte);
+  font-weight: 300;
+}
+
+.lettreCourante {
+  display: inline-block;
+  transform: scale(1.16);
+  border-bottom: 5px solid var(--teal-vif);
+  padding-bottom: 2px;
+}
+
+.lettreCouranteDroite {
+  border-bottom-color: var(--orange-vif);
+}
+
+.lettreAVenir {
+  color: var(--encre-doux);
+  font-weight: 500;
+}
+
+.espaceVisible {
+  display: inline-block;
+  min-width: 0.5em;
+}
+
+.etiquetteSyllabe {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--encre-doux);
+}
+
+.celebration {
+  position: absolute;
+  transform: translateY(-96px);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------- zone 2 : clavier */
+
+.zoneClavier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.clavierMasque {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.motMasque {
+  font-size: 14px;
+  color: var(--encre-doux);
+}
+
+.aideOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.aideNom {
+  position: absolute;
+  bottom: 74px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré-fort);
+  border-radius: var(--r-bouton);
+  padding: 3px 14px;
+}
+
+/* ------------------------------------------------------------- V1 accueil */
+
+.titre {
+  font-size: clamp(40px, 5.6vw, 68px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.sousTitre {
+  font-size: clamp(15px, 1.6vw, 19px);
+  color: var(--encre-doux);
+  max-width: 30ch;
+}
+
+.ligneClavier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(14px, 1.5vw, 17px);
+  color: var(--encre-doux);
+}
+
+.ligneClavier b {
+  color: var(--encre);
+  font-weight: 600;
+}
+
+.petitBouton {
+  padding: 6px 16px;
+  border-radius: var(--r-bouton);
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  font-size: 14px;
+}
+
+.petitBouton:hover {
+  border-color: var(--teal-vif);
+}
+
+.hautParleur {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  vertical-align: middle;
+  margin-left: 14px;
+  color: var(--teal-vif);
+}
+
+.hautParleur:hover {
+  border-color: var(--teal-vif);
+}
+
+.liens {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+/* --------------------------------------------------------------- V2 cartes */
+
+.cartes {
+  display: flex;
+  gap: clamp(16px, 3vw, 34px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.carte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background: var(--fond-carte);
+  border: 3px solid var(--liseré);
+  box-shadow: var(--ombre-carte);
+  min-width: 300px;
+  text-align: center;
+}
+
+.carteDetectee {
+  border-color: var(--teal-vif);
+}
+
+.coche {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal-vif);
+  letter-spacing: 0.06em;
+}
+
+.miniRangee {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.miniTouche {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--teal-pale);
+  border: 1.5px solid var(--teal-pale-forte);
+}
+
+.miniDroite {
+  background: var(--orange-pale);
+  border-color: var(--orange-pale-forte);
+}
+
+.explication {
+  font-size: clamp(14px, 1.4vw, 17px);
+  color: var(--encre-doux);
+  max-width: 46ch;
+  min-height: 3em;
+}
+
+.consigneGeante {
+  font-size: clamp(26px, 3.2vw, 40px);
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------------- V5 */
+
+.gainLexical {
+  font-size: clamp(18px, 2vw, 25px);
+  max-width: 34ch;
+}
+
+.gainLexical b {
+  font-weight: 600;
+  letter-spacing: var(--interlettrage);
+}
+
+.deuxBoutons {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pause {
+  font-size: clamp(15px, 1.6vw, 19px);
+  color: var(--encre-doux);
+}
+
+/* ------------------------------------------------------------------- V6 */
+
+.listePaliers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(560px, 92vw);
+  text-align: left;
+  max-height: 34vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.lignePalier {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré);
+}
+
+.lignePalierCourant {
+  border-color: var(--teal-vif);
+}
+
+.lignePalierVerrouille {
+  background: transparent;
+  color: var(--encre-doux);
+  border-style: dashed;
+}
+
+.nomPalier {
+  font-weight: 600;
+}
+
+.promessePalier {
+  font-size: 14px;
+  color: var(--encre-doux);
+}
+
+/* ------------------------------------------------------------------- V7 */
+
+.reglages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(560px, 92vw);
+  text-align: left;
+}
+
+.ligneReglage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 18px;
+  border-radius: 14px;
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré);
+}
+
+.interrupteur {
+  width: 60px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--fond-creux);
+  border: 2px solid var(--liseré-fort);
+  position: relative;
+  transition: background-color 200ms ease;
+  flex: 0 0 auto;
+}
+
+.interrupteurActif {
+  background: var(--teal-vif);
+  border-color: var(--teal-vif);
+}
+
+.interrupteur::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--fond-carte);
+  transition: transform 200ms ease;
+}
+
+.interrupteurActif::after {
+  transform: translateX(28px);
+}
+
+.legendeCouleurs {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  color: var(--encre-doux);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.puce {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  margin-right: 7px;
+  vertical-align: -2px;
+}
+
+/* ------------------------------------------------------------------- V3 */
+
+.mainSchematique {
+  width: clamp(90px, 11vw, 130px);
+  height: auto;
+}
+
+.etiquetteCote {
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--encre-doux);
+}
+
+.deuxCotes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(30px, 8vw, 90px);
+  width: 100%;
+}
+
+@media (max-height: 780px) {
+  .centre {
+    gap: 10px;
+  }
+  .zoneMot {
+    min-height: 64px;
+  }
+}

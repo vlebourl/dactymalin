@@ -1,0 +1,442 @@
+/* ---------------------------------------------------------------- Clavier */
+
+.clavier {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+}
+
+.bloc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jeu, 6px);
+  padding: calc(var(--jeu, 6px) * 1.6);
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré);
+  border-radius: var(--r-bloc);
+}
+
+.blocGauche {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  justify-self: end;
+}
+
+.blocDroite {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+  justify-self: start;
+}
+
+/* La frontière est un ÉLÉMENT graphique explicite, pas une marge (P4). */
+.frontiere {
+  align-self: stretch;
+  width: calc(var(--taille) * 0.62);
+  margin: 0 calc(var(--taille) * 0.24);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.frontiereTrait {
+  flex: 1;
+  width: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    180deg,
+    transparent 0,
+    var(--liseré-fort) 8%,
+    var(--liseré-fort) 92%,
+    transparent 100%
+  );
+  box-shadow: 0 0 0 3px var(--fond);
+}
+
+.frontiereEtiquette {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--encre-doux);
+  background: var(--fond);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.rangee {
+  display: flex;
+  gap: var(--jeu, 6px);
+}
+
+.rangee > * {
+  flex: 0 0 auto;
+}
+
+/* Décalage physique des rangées, comme sur un vrai clavier. */
+.decalage1 { padding-left: calc(var(--taille, 46px) * 0.25); }
+.decalage2 { padding-left: calc(var(--taille, 46px) * 0.45); }
+.decalage3 { padding-left: calc(var(--taille, 46px) * 0.15); }
+
+.pulse {
+  animation: pulse-bloc 900ms ease-in-out 2;
+}
+
+/* ---------------------------------------------------------------- Touche */
+
+.touche {
+  --teinte: var(--teal-pale);
+  --teinte-forte: var(--teal-pale-forte);
+  --teinte-vive: var(--teal-vif);
+  position: relative;
+  width: var(--taille, 46px);
+  height: var(--taille, 46px);
+  border-radius: var(--r-touche);
+  background: var(--teinte);
+  border: 1.5px solid var(--teinte-forte);
+  border-bottom-width: 3px;
+  color: var(--encre);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition:
+    transform var(--duree-frappe) ease,
+    background-color var(--duree-frappe) ease,
+    color var(--duree-frappe) ease;
+}
+
+.droite {
+  --teinte: var(--orange-pale);
+  --teinte-forte: var(--orange-pale-forte);
+  --teinte-vive: var(--orange-vif);
+}
+
+.legendeBas {
+  font-size: calc(var(--taille) * 0.44);
+  font-weight: 500;
+  letter-spacing: var(--interlettrage);
+}
+
+.legendeHaut {
+  font-size: calc(var(--taille) * 0.29);
+  font-weight: 400;
+  color: var(--encre-doux);
+  line-height: 1.05;
+}
+
+.deuxLegendes {
+  justify-content: center;
+  align-items: flex-start;
+  padding-left: calc(var(--taille) * 0.16);
+  gap: calc(var(--taille) * 0.05);
+}
+
+.deuxLegendes .legendeBas {
+  font-size: calc(var(--taille) * 0.36);
+}
+
+/* Repère tactile physique de F et J : une barre en relief, pas une couleur. */
+.repere::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  width: 42%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--teinte-vive);
+  opacity: 0.55;
+}
+
+/* Hors ensemble de la leçon : DESSINÉE mais éteinte, jamais supprimée. */
+.eteinte {
+  background: var(--fond-creux);
+  border-color: var(--liseré);
+  color: var(--encre-eteinte);
+}
+
+.eteinte .legendeHaut {
+  color: var(--encre-eteinte);
+}
+
+/* Touche cible : saturation pleine + halo pulsé + léger agrandissement. */
+.cible {
+  background: var(--teinte-vive);
+  color: var(--fond-carte);
+  border-color: var(--teinte-vive);
+  transform: scale(1.14);
+  z-index: 2;
+  animation: halo 1400ms ease-in-out infinite;
+}
+
+.droite.cible {
+  animation-name: halo-droite;
+}
+
+.cible .legendeHaut {
+  color: rgba(253, 250, 243, 0.75);
+}
+
+/* Frappe fausse : la touche PRESSÉE s'assombrit et retombe. Aucun rouge. */
+.fausse {
+  background: var(--encre-doux);
+  border-color: var(--encre);
+  color: var(--fond-carte);
+  transform: scale(0.93);
+}
+
+/* Touche déjà acquise (V5, V6). */
+.acquise {
+  background: var(--teinte-forte);
+  border-color: var(--teinte-vive);
+}
+
+.illuminee {
+  background: var(--teinte-vive);
+  color: var(--fond-carte);
+  border-color: var(--teinte-vive);
+}
+
+/* Cadenas : la touche reste DESSINÉE avec ses deux légendes, jamais un vide gris. */
+.cadenas {
+  position: absolute;
+  top: calc(var(--taille) * 0.08);
+  right: calc(var(--taille) * 0.09);
+  width: calc(var(--taille) * 0.24);
+  height: auto;
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------- Espace */
+
+.zoneEspace {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+/* Base CRÈME neutre : seul l'anneau signale le pouce actif (arbitrage n°3). */
+.espace {
+  --teinte-vive: var(--teal-vif);
+  height: calc(var(--taille) * 0.82);
+  width: min(46%, 420px);
+  border-radius: var(--r-touche);
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré-fort);
+  border-bottom-width: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--encre-doux);
+  transition: transform var(--duree-frappe) ease, box-shadow var(--duree-frappe) ease;
+}
+
+.espaceEteint {
+  background: var(--fond-creux);
+  color: var(--encre-eteinte);
+  border-color: var(--liseré);
+}
+
+.espaceCible {
+  border-color: var(--teinte-vive);
+  color: var(--encre);
+  transform: scale(1.03);
+  animation: halo 1400ms ease-in-out infinite;
+}
+
+.espaceDroite {
+  --teinte-vive: var(--orange-vif);
+}
+
+.espaceDroite.espaceCible {
+  animation-name: halo-droite;
+}
+
+.espaceFausse {
+  background: var(--encre-doux);
+  color: var(--fond-carte);
+  transform: scale(0.98);
+}
+
+/* --------------------------------------------------------- Bande doigts */
+
+.bande {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 3vw, 40px);
+  width: 100%;
+  flex: 0 0 auto;
+  padding: clamp(10px, 1.6vh, 20px) clamp(16px, 4vw, 56px) clamp(16px, 2.4vh, 26px);
+  background: var(--fond-carte);
+  border-top: 3px solid var(--liseré-fort); /* le liseré qui sépare la zone 3 */
+}
+
+.consigneMain {
+  font-size: clamp(15px, 1.5vw, 20px);
+  font-weight: 500;
+  line-height: 1.25;
+  min-width: 9.5em;
+  letter-spacing: var(--interlettrage);
+}
+
+.consigneMain b {
+  font-weight: 700;
+}
+
+.pastilles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2.5vw, 34px);
+  flex: 1;
+}
+
+.pastille {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: transform 260ms ease, opacity 260ms ease;
+}
+
+.rond {
+  --teinte-vive: var(--teal-vif);
+  width: clamp(50px, 5.2vw, 68px);
+  height: clamp(50px, 5.2vw, 68px);
+  border-radius: 50%;
+  background: var(--teal-pale);
+  border: 2px solid var(--teal-pale-forte);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition: all 260ms ease;
+}
+
+.rondDroite {
+  --teinte-vive: var(--orange-vif);
+  background: var(--orange-pale);
+  border-color: var(--orange-pale-forte);
+}
+
+.rond img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Recadrage commun : les quatre photos n'ont pas le même cadrage,
+     pouce_gauche est coupé au ras des doigts. */
+  transform: scale(var(--zoom, 1)) translateY(var(--decale, 0));
+  filter: saturate(0.35) opacity(0.55);
+  transition: filter 260ms ease;
+}
+
+.etiquettePastille {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--encre-eteinte);
+  transition: color 260ms ease;
+}
+
+/* Une seule pastille active : agrandie, saturée, anneau épais + halo.
+   Lisible en niveaux de gris par la TAILLE et l'ANNEAU. */
+.pastilleActive {
+  transform: scale(1.26);
+}
+
+.pastilleActive .rond {
+  border-width: 5px;
+  border-color: var(--teinte-vive);
+  box-shadow: 0 0 0 4px var(--fond-carte), 0 6px 18px -8px rgba(31, 42, 45, 0.55);
+}
+
+.pastilleActive .rond img {
+  filter: none;
+}
+
+.pastilleActive .etiquettePastille {
+  color: var(--encre);
+  font-weight: 600;
+}
+
+.pastilleInactive {
+  transform: scale(0.82);
+  opacity: 0.62;
+}
+
+/* ------------------------------------------------------------- Étoiles */
+
+.etoiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.etoile {
+  width: 38px;
+  height: 38px;
+  animation: etoile-arrive 480ms cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
+}
+
+/* -------------------------------------------------------------- Boutons */
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 30px;
+  border-radius: var(--r-bouton);
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré-fort);
+  font-weight: 500;
+  letter-spacing: var(--interlettrage);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.bouton:hover {
+  transform: translateY(-1px);
+}
+
+.bouton:active {
+  transform: translateY(1px);
+}
+
+.primaire {
+  background: var(--teal-vif);
+  border-color: var(--teal-vif);
+  color: var(--fond-carte);
+  font-weight: 600;
+}
+
+.geant {
+  font-size: clamp(22px, 2.4vw, 30px);
+  padding: 20px 56px;
+}
+
+.lien {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  color: var(--teal-vif);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-weight: 500;
+}
+
+.lien:hover {
+  color: var(--encre);
+}
