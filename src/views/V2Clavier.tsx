@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { verdictCarteClavier, verdictFrappe } from '../core/detect';
-import { disposition, legendes, TOUTES_DISPOSITIONS, type IdDisposition } from '../core/layouts';
+import { disposition, TOUTES_DISPOSITIONS, type IdDisposition } from '../core/layouts';
 import { useKeyInput } from '../hooks/useKeyInput';
 import { useApp, useEnvoi } from '../state';
+import { MiniClavier } from '../ui/MiniClavier';
 import { SpeakerButton } from '../ui/SpeakerButton';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -88,26 +89,3 @@ export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
   );
 }
 
-/** Mini-clavier fidèle, deux rangées : c'est ce que l'enfant compare à sa sérigraphie. */
-function MiniClavier({ id }: { id: IdDisposition }) {
-  const d = disposition(id);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      {[1, 2].map((r) => (
-        <div key={r} className={v.miniRangee}>
-          {d.rangees[r]
-            .filter((t) => !t.morte)
-            .slice(0, 10)
-            .map((t) => (
-              <span
-                key={t.code}
-                className={[v.miniTouche, t.main === 'droite' ? v.miniDroite : ''].join(' ')}
-              >
-                {legendes(t).bas}
-              </span>
-            ))}
-        </div>
-      ))}
-    </div>
-  );
-}

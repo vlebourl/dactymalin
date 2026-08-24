@@ -11,13 +11,13 @@ export const MOTS: string[] = [
   // — atteignables dès le palier 1 (e f j n s t u + espace)
   'un', 'une', 'tu', 'nu', 'jus', 'fut', 'net', 'tenu', 'tenue', 'sujet',
   'juste', 'justes', 'jeune', 'jeunes', 'jeu', 'je', 'ne', 'te', 'se', 'et',
-  'tes', 'ses', 'sent', 'tente', 'tentes', 'un jus', 'un sujet', 'une tente', 'tu es',
+  'tes', 'ses', 'sent', 'tente', 'tentes', 'un jus', 'un sujet', 'une tente',
 
   // — palier 2 (+ a i r v)
   'vrai', 'vraie', 'faire', 'avis', 'train', 'suivant', 'univers', 'fruit', 'juin',
   'avenir', 'venir', 'tenir', 'rire', 'vite', 'rive', 'avant', 'ravi', 'artiste',
   'ainsi', 'instant', 'veste', 'raisin', 'nature', 'trente', 'servir', 'nuit',
-  'un train', 'une nuit', 'vite fait',
+  'un train', 'une nuit',
 
   // — palier 3 (+ o l d b m)
   'maison', 'bateau', 'lundi', 'soleil', 'tableau', 'bandit', 'monde', 'dinosaure',

@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: { port: 3000, strictPort: true },
   test: {
+    // `src/core` reste en env node, sans DOM. Les rares tests de hook portent
+    // leur propre docblock `@vitest-environment jsdom`.
     environment: 'node',
-    include: ['src/core/**/*.test.ts'],
+    include: ['src/**/*.test.ts'],
   },
 });

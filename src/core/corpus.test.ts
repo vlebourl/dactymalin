@@ -72,6 +72,16 @@ describe('invariant corpus × palier (P5, aucune exception)', () => {
     }
   });
 
+  /* Les items multi-mots servent à entraîner l'espace : ce sont des GROUPES
+     NOMINAUX, jamais un couple sujet + verbe conjugué (« tu es »), qui
+     frôlerait l'interdit « phrases complètes ». */
+  it('les items multi-mots sont des groupes nominaux', () => {
+    const determinants = new Set(['un', 'une', 'le', 'la', 'les', 'du', 'de', 'mon', 'ma', 'mes']);
+    for (const m of CORPUS.filter((x) => x.includes(' '))) {
+      expect(determinants.has(m.split(' ')[0])).toBe(true);
+    }
+  });
+
   it('aucun pseudo-mot : tout item de genre « mot » est dans le corpus', () => {
     for (const id of DISPOS) {
       for (const item of composerBloc({ id, palier: 3, graine: 7 })) {

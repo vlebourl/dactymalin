@@ -34,9 +34,15 @@ export function Key({
 }
 
 /** Petit cadenas dessiné : la touche existe, elle arrive plus tard. */
-function Cadenas() {
+export function Cadenas({ classe, taille }: { classe?: string; taille?: number }) {
   return (
-    <svg className={s.cadenas} viewBox="0 0 14 16" aria-hidden="true">
+    <svg
+      className={classe ?? s.cadenas}
+      width={taille}
+      height={taille ? taille * 1.14 : undefined}
+      viewBox="0 0 14 16"
+      aria-hidden="true"
+    >
       <path
         d="M4 7V4.6a3 3 0 0 1 6 0V7"
         fill="none"

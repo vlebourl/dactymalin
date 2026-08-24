@@ -9,20 +9,28 @@
   --fond-carte: #fdfaf3;
 
   --encre: #1f2a2d; /* 13,1:1 sur --fond */
+  --encre-mot: #33413f; /* lettres pas encore tapées : 9,5:1, au-delà du 7:1 exigé */
   --encre-doux: #5b686b;
+  --encre-tapee: #9aa398; /* lettres DÉJÀ tapées : estompées, donc distinctes */
   --encre-eteinte: #a2a79f;
+  --encre-touche-eteinte: #6b7066; /* touche hors leçon : éteinte, jamais effacée (≈3,9:1) */
   --liseré: #ded4c1;
   --liseré-fort: #c6b9a1;
 
   --teal-vif: #0b5a55; /* 7,3:1 sur --fond */
   --teal-moyen: #2d8079;
+  --teal-cible: #2fa294; /* touche cible : saturée et CLAIRE, jamais la tache la plus sombre */
   --teal-pale: #dbe9e6;
   --teal-pale-forte: #b9d5d0;
 
   --orange-vif: #7e3a0d; /* 7,7:1 sur --fond */
   --orange-moyen: #b2712f;
+  --orange-cible: #e08a2e;
   --orange-pale: #f4e3d1;
   --orange-pale-forte: #e8cbab;
+
+  /* Plancher de lisibilité des légendes de touche (claviers miniatures). */
+  --legende-min: 14px;
 
   --r-touche: 9px;
   --r-bloc: 18px;
@@ -72,9 +80,19 @@ button {
   background: none;
 }
 
-:focus-visible {
+/* Navigation clavier : l'anneau doit être visible sur TOUT contrôle. */
+:focus-visible,
+button:focus-visible,
+[role='switch']:focus-visible {
   outline: 3px solid var(--teal-vif);
   outline-offset: 3px;
+}
+
+/* Écran étroit : le clavier rétrécit, le plancher de légende suit. */
+@media (max-width: 700px) {
+  :root {
+    --legende-min: 10px;
+  }
 }
 
 /* Pas de clignotement > 3 Hz. Le halo est lent et discret. */

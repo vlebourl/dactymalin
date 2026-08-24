@@ -1,4 +1,5 @@
 import { toucheDirecte, toucheMaj } from '../core/layouts';
+import { Cadenas } from '../ui/Key';
 import { ensembleTouches, nouvellesTouches, PALIERS } from '../core/paliers';
 import { useApp, useEnvoi } from '../state';
 import { Keyboard } from '../ui/Keyboard';
@@ -43,7 +44,7 @@ export function V6Carte() {
           ensemble={ensembleTouches(id, app.palier)}
           acquises={acquises}
           illuminees={enCours}
-          taille={34}
+          taille="clamp(24px, 3.6vw, 46px)"
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
@@ -62,7 +63,9 @@ export function V6Carte() {
                   .filter(Boolean)
                   .join(' ')}
               >
-                <span aria-hidden="true">{p.verrouille ? '🔒' : passe ? '★' : courant ? '▸' : '·'}</span>
+                <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center' }}>
+                  {p.verrouille ? <Cadenas taille={15} classe="" /> : passe ? <Etoile /> : courant ? <Fleche /> : <Point />}
+                </span>
                 <span>
                   <span className={v.nomPalier}>{p.titre}</span>
                   <br />
@@ -80,3 +83,22 @@ export function V6Carte() {
     </div>
   );
 }
+
+/* Repères de la liste des paliers : dessinés, jamais des emoji système. */
+const Etoile = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
+    <path d="M10 1.5 12.5 7l6 .6-4.5 4 1.4 5.9L10 14.4 4.6 17.5 6 11.6 1.5 7.6l6-.6z" fill="var(--teal-vif)" />
+  </svg>
+);
+
+const Fleche = () => (
+  <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true">
+    <path d="M2 1 L10 6 L2 11 z" fill="var(--teal-vif)" />
+  </svg>
+);
+
+const Point = () => (
+  <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+    <circle cx="4" cy="4" r="3" fill="var(--liseré-fort)" />
+  </svg>
+);

@@ -5,3 +5,7 @@ dist/
 # vite
 .vite/
 *.log
+
+# playwright
+test-results/
+playwright-report/
