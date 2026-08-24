@@ -139,7 +139,12 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
        On REBASE l'horloge du caractère au lieu de servir une aide d'inactivité
        dès la première image. */
     case 'reprise':
-      return { ...e, debutCaractere: a.maintenant, depuisFausse: a.maintenant };
+      return {
+        ...e,
+        debutCaractere: a.maintenant,
+        depuisFausse: a.maintenant,
+        celebration: e.celebration === null ? null : a.maintenant,
+      };
 
     case 'tic': {
       let suivant = e;
