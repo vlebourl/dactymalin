@@ -130,7 +130,7 @@
 /* Touche Maj : dessinée seulement au palier qui la réclame, jamais atteignable
    par l'index — son libellé est écrit en toutes lettres, pas abrégé en sigle. */
 .modificateur .legendeBas {
-  font-size: max(10px, calc(var(--taille) * 0.3));
+  font-size: max(var(--legende-min-secondaire), calc(var(--taille) * 0.3));
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 600;
@@ -144,8 +144,10 @@
   letter-spacing: var(--interlettrage);
 }
 
+/* La légende secondaire a son PROPRE plancher : dérivée du plancher principal,
+   elle tombait à 14,5 px au palier 7 (itération 003, point 9). */
 .legendeHaut {
-  font-size: max(calc(var(--legende-min) * 0.78), calc(var(--taille) * 0.29));
+  font-size: max(var(--legende-min-secondaire), calc(var(--taille) * 0.29));
   font-weight: 400;
   color: var(--encre-doux);
   line-height: 1.05;
@@ -162,8 +164,10 @@
   font-size: max(var(--legende-min), calc(var(--taille) * 0.36));
 }
 
-/* Écran étroit : plutôt SUPPRIMER la seconde légende que la rendre illisible. */
-@media (max-width: 700px) {
+/* Écran étroit : plutôt SUPPRIMER la seconde légende que la rendre illisible.
+   Le seuil est à 900 px, largeur en dessous de laquelle la touche ne peut plus
+   loger deux légendes au-dessus de leurs planchers respectifs. */
+@media (max-width: 900px) {
   .legendeHaut {
     display: none;
   }
@@ -256,10 +260,15 @@
   border-color: var(--teinte-vive);
 }
 
+/* Touche qui vient de basculer (V5, V6). MÊME remplissage que la cible en jeu :
+   une seule teinte pleine par main dans toute l'app — le brun sombre faisait un
+   second vocabulaire visuel pour la main droite (itération 003, point 12). */
 .illuminee {
-  background: var(--teinte-vive);
-  color: var(--fond-carte);
+  background: var(--teinte-cible);
+  color: var(--encre);
   border-color: var(--teinte-vive);
+  border-bottom-width: 4px;
+  font-weight: 700;
 }
 
 /* Cadenas : la touche reste DESSINÉE avec ses deux légendes, jamais un vide gris. */

@@ -210,7 +210,12 @@ export function toucheDirecte(id: IdDisposition, caractere: string): Touche | un
 
 /** Trouve la touche qui produit `caractere` AVEC Maj. */
 export function toucheMaj(id: IdDisposition, caractere: string): Touche | undefined {
-  return touches(id).find((t) => !t.morte && t.maj === caractere);
+  const declaree = touches(id).find((t) => !t.morte && t.maj === caractere);
+  if (declaree) return declaree;
+  /* Maj + lettre = capitale sur TOUTE disposition : la déclarer 26 fois par
+     table serait de la redite. Les accentuées sont exclues par le regex ASCII
+     — le cahier interdit `É À È Ç`. */
+  return /^[A-Z]$/.test(caractere) ? toucheDirecte(id, caractere.toLowerCase()) : undefined;
 }
 
 /**

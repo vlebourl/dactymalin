@@ -53,7 +53,7 @@ export const PALIERS: Palier[] = [
     numero: 7,
     titre: 'Ton petit doigt tient la touche Majuscule',
     promesse: 'Tu écris les nombres et les majuscules.',
-    nouvelles: { 'fr-FR': l('. 0 1 2 3 4 5 6 7 8 9'), 'fr-CH': l('ç') },
+    nouvelles: { 'fr-FR': l('. 0 1 2 3 4 5 6 7 8 9'), 'fr-CH': l('. ç') },
   },
   {
     numero: 8,
@@ -94,6 +94,9 @@ export function nouvellesTouches(id: IdDisposition, numero: number): string[] {
   return palier(numero).nouvelles[id];
 }
 
+/** Premier palier où Maj est enseignée : c'est lui qui ouvre les capitales. */
+export const PALIER_MAJUSCULES = 7;
+
 /** Ensemble CUMULÉ des caractères ouverts jusqu'au palier `numero` inclus. */
 export function ensembleTouches(id: IdDisposition, numero: number): Set<string> {
   const set = new Set<string>();
@@ -101,7 +104,29 @@ export function ensembleTouches(id: IdDisposition, numero: number): Set<string> 
     if (p.numero > numero) break;
     for (const c of p.nouvelles[id]) set.add(c);
   }
+  /* Maj + lettre = capitale : c'est une propriété du clavier, pas une touche
+     de plus. Le palier qui enseigne Maj ouvre donc TOUTES les capitales des
+     lettres déjà acquises — les accentuées restent interdites (cahier 4.7). */
+  if (numero >= PALIER_MAJUSCULES) {
+    for (const c of [...set]) if (/^[a-z]$/.test(c)) set.add(c.toUpperCase());
+  }
   return set;
+}
+
+/**
+ * Libellés du bandeau « les touches de cette leçon ». L'ensemble est CUMULÉ :
+ * l'enfant tape tout ce qu'il a acquis, pas seulement les nouveautés du palier.
+ * Les capitales sont omises (même touche que la minuscule) et seules les
+ * lettres ASCII passent en majuscule — jamais `É À È Ç` (interdit du cahier).
+ */
+export function libellesEnsemble(id: IdDisposition, numero: number): string[] {
+  const chars = [...ensembleTouches(id, numero)].filter(
+    (c) => c !== ' ' && !/^[A-Z]$/.test(c),
+  );
+  const rang = (c: string) => (/\p{L}/u.test(c) ? 0 : /[0-9]/.test(c) ? 1 : 2);
+  return chars
+    .sort((a, b) => rang(a) - rang(b) || a.localeCompare(b, 'fr'))
+    .map((c) => (/^[a-z]$/.test(c) ? c.toUpperCase() : c));
 }
 
 /** Touches du palier courant qui doivent être maîtrisées pour passer (espace exclu). */

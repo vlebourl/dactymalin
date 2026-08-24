@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { composerBloc, pouceDeLEspace, QUOTA_NOMBRES, TAILLE_BLOC_MAX, TAILLE_BLOC_MIN } from './generator';
-import { ensembleTouches } from './paliers';
+import {
+  composerBloc,
+  COUVERTURE_MIN,
+  couvertureCible,
+  pouceDeLEspace,
+  QUOTA_NOMBRES,
+  TAILLE_BLOC_MAX,
+  TAILLE_BLOC_MIN,
+} from './generator';
+import { ensembleTouches, touchesAValider } from './paliers';
+import { OCCURRENCES_REQUISES } from './progression';
 import { chiffresDisponibles } from './corpus';
 
 const graines = [1, 2, 3, 7, 11, 42, 99, 1234];
@@ -53,6 +62,67 @@ describe('générateur de bloc', () => {
     for (const graine of graines) {
       const bloc = composerBloc({ id: 'fr-CH', palier: 3, graine });
       expect(new Set(bloc.map((i) => i.texte)).size).toBe(bloc.length);
+    }
+  });
+
+  /* Régression itération 003, point 1 : `f` ne vivait que dans « fut » et
+     n'apparaissait que dans 1 bloc sur 6. Le critère de maîtrise était
+     inatteignable et le palier ne s'ouvrait plus que par le plafond. */
+  it('chaque touche du palier est couverte au moins deux fois par bloc', () => {
+    for (const id of ['fr-FR', 'fr-CH'] as const) {
+      for (let palier = 1; palier <= 7; palier++) {
+        for (const graine of graines) {
+          const bloc = composerBloc({ id, palier, graine });
+          const texte = bloc.map((i) => i.texte).join('').toLowerCase();
+          const cible = couvertureCible(id, palier);
+          for (const c of touchesAValider(id, palier)) {
+            const n = [...texte].filter((x) => x === c).length;
+            /* Le palier 7 ouvre 11 touches d'un coup (point + 10 chiffres) :
+               deux occurrences de chacune ne tiennent pas dans 12 items. Il est
+               aussi le dernier du MVP, donc jamais soumis au critère de
+               passage — une occurrence par bloc y suffit. */
+            const attendu = Math.min(cible.get(c) ?? 0, palier === 7 ? 1 : COUVERTURE_MIN);
+            expect(
+              n,
+              `${id} palier ${palier} graine ${graine} : « ${c} » vu ${n} fois`,
+            ).toBeGreaterThanOrEqual(attendu);
+          }
+        }
+      }
+    }
+  });
+
+  it('3 blocs suffisent à atteindre les 3 occurrences exigées, sur toutes les graines', () => {
+    for (const id of ['fr-FR', 'fr-CH'] as const) {
+      for (let palier = 1; palier <= 6; palier++) {
+        for (const graine of graines) {
+          const texte = [0, 1, 2]
+            .map((k) => composerBloc({ id, palier, graine: graine + k * 1000 }))
+            .flat()
+            .map((i) => i.texte)
+            .join('')
+            .toLowerCase();
+          for (const c of touchesAValider(id, palier)) {
+            expect([...texte].filter((x) => x === c).length).toBeGreaterThanOrEqual(
+              OCCURRENCES_REQUISES,
+            );
+          }
+        }
+      }
+    }
+  });
+
+  /* Régression itération 003, point 5 : le palier 7 ne servait que des chiffres
+     alors que V6 promet « les nombres ET les majuscules ». */
+  it('palier 7 : chaque bloc mêle une capitale et un point aux chiffres', () => {
+    for (const id of ['fr-FR', 'fr-CH'] as const) {
+      for (const graine of graines) {
+        const bloc = composerBloc({ id, palier: 7, graine });
+        expect(bloc.some((i) => /[A-Z]/.test(i.texte))).toBe(true);
+        expect(bloc.some((i) => i.texte.includes('.'))).toBe(true);
+        // aucune capitale accentuée, jamais (cahier 4.7)
+        expect(bloc.some((i) => /[ÉÈÀÇŒ]/.test(i.texte))).toBe(false);
+      }
     }
   });
 

@@ -20,7 +20,7 @@ import {
 } from '../core/layouts';
 import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj, verdictMaj } from '../core/maj';
-import { ensembleTouches, nouvellesTouches, PALIER_MAX_DEBUTANT } from '../core/paliers';
+import { ensembleTouches, libellesEnsemble, PALIER_MAX_DEBUTANT } from '../core/paliers';
 import { CONSIGNES, FingerBar, type Doigt } from '../ui/FingerBar';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
@@ -165,11 +165,13 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       }
 
       // ---- frappe correcte
+      /* CHAQUE occurrence propre compte, pas une par bloc : le cahier demande
+         « 3 occurrences réparties sur au moins 2 blocs ». Dédoublonner ici
+         transformait le critère en « 3 blocs distincts » et rendait le palier
+         inatteignable autrement que par le plafond anti-mur. */
       const propre = estPropre(e.aide);
       const propres =
-        propre && a.attendu !== ' ' && !e.propres.includes(a.attendu)
-          ? [...e.propres, a.attendu]
-          : e.propres;
+        propre && a.attendu !== ' ' ? [...e.propres, a.attendu.toLowerCase()] : e.propres;
       const curseur = e.curseur + 1;
       const base = { ...e, propres, fausse: null, majManquante: false };
 
@@ -206,6 +208,10 @@ function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
     curseur: 0,
     celebration: null,
     itemAide: false,
+    /* « Je tape sans regarder » vaut POUR LE MOT EN COURS : le clavier revient
+       de lui-même au mot suivant (cahier P6). Sans ça, un seul clic faisait
+       jouer tout le bloc à l'aveugle. */
+    masque: false,
     itemsSatures: e.satureCourant ? e.itemsSatures + 1 : 0,
     satureCourant: false,
     aide: etatInitial(e.items[i].texte[0], e.latence),
@@ -348,8 +354,10 @@ export function V4Lecon() {
     }
   }, [e.barreau, e.i, e.curseur, attendu, app.reglages.sons]);
 
-  const toucheLibelle = (c: string) => (c === ' ' ? 'espace' : c.toUpperCase());
-  const touchesLecon = nouvellesTouches(id, app.palier);
+  /* Le bandeau annonce l'ensemble CUMULÉ, pas les seules nouveautés du palier :
+     c'est lui la référence de ce qui peut être proposé (P5). Les capitales
+     accentuées sont exclues à la source (`libellesEnsemble`). */
+  const touchesLecon = libellesEnsemble(id, app.palier);
   const clavierMasque = e.masque && !e.fini;
 
   return (
@@ -360,7 +368,7 @@ export function V4Lecon() {
         </button>
         <div>
           <p className={v.bandeauTouches}>
-            Les touches de cette leçon :<strong>{touchesLecon.map(toucheLibelle).join(' ')}</strong>
+            Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>
           </p>
           <div className={v.avancement} role="img" aria-label="Avancement du bloc">
             {e.items.map((it, k) => (
@@ -508,11 +516,16 @@ const LARGEUR_MAIN = 104;
 /** Rapport hauteur/largeur du dessin de main (viewBox 100×130). */
 const HAUTEUR_MAIN = LARGEUR_MAIN * 1.3;
 
+/** Abscisse du bout de l'index dans le dessin, en fraction de la largeur. */
+const INDEX_X = 0.76;
+/** Inclinaison maximale de la main : au-delà, elle ne se lit plus comme une main. */
+const ANGLE_MAX = 38;
+
 type Geometrie = {
-  /** bulle du nom de lettre : centrée sur la touche visée, posée au-dessus */
-  bulle: { x: number; y: number };
-  /** coin haut-gauche du dessin de main, ancré au bord bas du bloc concerné */
-  main: { x: number; y: number };
+  /** bulle du nom de lettre : au-dessus du clavier ENTIER, jamais sur une touche */
+  bulle: { x: number };
+  /** coin haut-gauche du dessin de main + inclinaison vers la touche visée */
+  main: { x: number; y: number; angle: number };
 };
 
 /**
@@ -534,12 +547,15 @@ function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
       ?.getBoundingClientRect();
     if (!boite || !bloc || !touche) return setGeo(null);
     const cibleX = touche.left + touche.width / 2 - boite.left;
+    const cibleY = touche.top + touche.height / 2 - boite.top;
     /* La main est repoussée du côté EXTÉRIEUR et bornée par la barre d'espace
        elle-même : elle ne peut jamais la recouvrir (itération 002, point 11). */
     const espace = parent?.querySelector<HTMLElement>('[data-code="Space"]')?.getBoundingClientRect();
     const gaucheBloc = bloc.left - boite.left;
     const droiteBloc = bloc.right - boite.left;
-    const souhaite = cibleX - LARGEUR_MAIN / 2;
+    // On aligne le BOUT DE L'INDEX sur la colonne de la touche, pas le centre
+    // de la paume : c'est l'index qui désigne.
+    const souhaite = cibleX - (main === 'gauche' ? INDEX_X : 1 - INDEX_X) * LARGEUR_MAIN;
     const x =
       main === 'gauche'
         ? Math.max(
@@ -553,21 +569,37 @@ function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
             droiteBloc - LARGEUR_MAIN + 14,
             Math.max(souhaite, (espace ? espace.right - boite.left : gaucheBloc) + 10),
           );
-    setGeo({
-      bulle: { x: cibleX, y: touche.top - boite.top },
-      main: { x, y: bloc.bottom - boite.top - 16 },
-    });
+    /* Le clamp ci-dessus peut écarter la main de la colonne visée : on la fait
+       alors PIVOTER sur son poignet pour que l'index continue de désigner la
+       touche (itération 003 : « la main ne vise plus rien »). */
+    const y = bloc.bottom - boite.top - 16;
+    const pivot = { x: x + LARGEUR_MAIN / 2, y: y + HAUTEUR_MAIN * 0.9 };
+    const repos = Math.atan2(
+      (main === 'gauche' ? 1 : -1) * (INDEX_X - 0.5) * LARGEUR_MAIN,
+      HAUTEUR_MAIN * 0.84,
+    );
+    const vise = Math.atan2(cibleX - pivot.x, pivot.y - cibleY);
+    const angle = Math.max(-ANGLE_MAX, Math.min(ANGLE_MAX, ((vise - repos) * 180) / Math.PI));
+    setGeo({ bulle: { x: cibleX }, main: { x, y, angle } });
   }, [lettre, main]);
 
   if (!geo) return <div className={v.aideOverlay} ref={refBoite} aria-hidden="true" />;
   return (
     <div className={v.aideOverlay} ref={refBoite} aria-hidden="true">
-      <span className={v.aideNom} style={{ left: geo.bulle.x, top: geo.bulle.y - 46 }}>
-        {lettre === ' ' ? 'espace' : lettre.toUpperCase()}
+      {/* La bulle est posée AU-DESSUS du clavier entier : elle ne peut plus
+          recouvrir une touche de la leçon (itération 003 : elle masquait U). */}
+      <span className={v.aideNom} style={{ left: geo.bulle.x, top: -46 }}>
+        {/^[a-z]$/i.test(lettre) ? lettre.toUpperCase() : lettre === ' ' ? 'espace' : lettre}
       </span>
       <div
         className={v.aideMain}
-        style={{ left: geo.main.x, top: geo.main.y, height: HAUTEUR_MAIN }}
+        style={{
+          left: geo.main.x,
+          top: geo.main.y,
+          height: HAUTEUR_MAIN,
+          transform: `rotate(${geo.main.angle.toFixed(1)}deg)`,
+          transformOrigin: '50% 90%',
+        }}
       >
         <MainSchematique cote={main} largeur={LARGEUR_MAIN} />
       </div>

@@ -9,7 +9,7 @@ import { ensembleTouches } from './paliers';
  */
 export const MOTS: string[] = [
   // — atteignables dès le palier 1 (e f j n s t u + espace)
-  'un', 'une', 'tu', 'nu', 'jus', 'fut', 'net', 'tenu', 'tenue', 'sujet',
+  'un', 'une', 'tu', 'nu', 'jus', 'fut', 'net', 'tenu', 'tenue', 'sujet', 'neuf',
   'juste', 'justes', 'jeune', 'jeunes', 'jeu', 'je', 'ne', 'te', 'se', 'et',
   'tes', 'ses', 'sent', 'tente', 'tentes', 'un jus', 'un sujet', 'une tente',
 
@@ -41,7 +41,7 @@ export const MOTS: string[] = [
   'verite', 'deja', 'voila', 'garcon', 'francais', 'lecon', 'facon',
 
   // — palier 6 (+ q w x y z ù)
-  'quatre', 'wagon', 'taxi', 'zebre', 'yeux', 'quinze', 'zero', 'bizarre',
+  'quatre', 'wagon', 'sandwich', 'taxi', 'zebre', 'yeux', 'quinze', 'zero', 'bizarre',
   'voyage', 'crayon', 'royaume', 'quille', 'musique', 'cirque', 'xylophone',
   'quarante', 'joyeux', 'physique', 'pyjama', 'quelque', 'ou',
 ];

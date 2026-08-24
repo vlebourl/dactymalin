@@ -37,6 +37,8 @@
 
   /* Plancher de lisibilité des légendes de touche (cahier : 18 px). */
   --legende-min: 18px;
+  /* Légende secondaire (le chiffre des rangées shiftées) : jamais sous 16 px. */
+  --legende-min-secondaire: 16px;
 
   --r-touche: 9px;
   --r-bloc: 18px;
@@ -94,10 +96,13 @@ button:focus-visible,
   outline-offset: 3px;
 }
 
-/* Écran étroit : le clavier rétrécit, le plancher de légende suit. */
-@media (max-width: 1100px) {
+/* Écran étroit : le clavier rétrécit, le plancher de légende suit — mais il
+   tient 18 px jusqu'à 900 px de large (1280 et 1024 compris), et la légende
+   secondaire disparaît plutôt que de passer sous son propre plancher. */
+@media (max-width: 900px) {
   :root {
-    --legende-min: 14px;
+    --legende-min: 15px;
+    --legende-min-secondaire: 12px;
   }
 }
 

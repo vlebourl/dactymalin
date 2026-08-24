@@ -12,7 +12,7 @@ export type RaisonVue = 'incoherence';
 
 export type BilanBloc = {
   etoiles: number;
-  /** caractères tapés sans erreur ni aide, comptés une fois par bloc */
+  /** CHAQUE occurrence tapée sans erreur ni aide (répétitions comprises) */
   propres: string[];
   /** items ayant atteint le barreau 2 ou 3, à réinjecter espacés */
   aRevoir: string[];
@@ -104,7 +104,7 @@ function reducer(etat: EtatApp, action: Action): EtatApp {
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
         aReinjecter: action.bilan.aRevoir,
         itemsDuBloc: action.bilan.items,
-        touchesNouvelles: franchies.length ? franchies : action.bilan.propres,
+        touchesNouvelles: franchies.length ? franchies : [...new Set(action.bilan.propres)],
       };
     }
   }

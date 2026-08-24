@@ -63,16 +63,17 @@
 
 .bandeauTouches {
   text-align: center;
-  font-size: clamp(13px, 1.25vw, 16px);
+  font-size: clamp(15px, 1.3vw, 17px);
   color: var(--encre-doux);
 }
 
+/* Aucun `text-transform: uppercase` ici : c'est LUI qui imprimait « É È À Ç »
+   au palier 5 alors que le clavier juste en dessous écrit `é è à ç`. La mise
+   en capitale est faite en amont, et seulement sur les lettres ASCII. */
 .bandeauTouches strong {
   color: var(--encre);
   font-weight: 600;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  margin-left: 6px;
+  letter-spacing: 0.14em;
 }
 
 .avancement {
