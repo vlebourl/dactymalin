@@ -20,7 +20,7 @@ const PASTILLES: Pastille[] = [
   { doigt: 'index_droit', etiquette: 'index droit', main: 'droite', zoom: 1, decale: '0' },
 ];
 
-const CONSIGNES: Record<Doigt, [string, string]> = {
+export const CONSIGNES: Record<Doigt, [string, string]> = {
   index_gauche: ['Main gauche', 'ton index'],
   pouce_gauche: ['Main gauche', 'ton pouce'],
   pouce_droit: ['Main droite', 'ton pouce'],

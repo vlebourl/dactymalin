@@ -5,6 +5,20 @@ import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
+/** Engrenage DESSINÉ : un glyphe système ne rend pas comme une icône. */
+function Engrenage() {
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
+      <circle cx="12" cy="12" r="3.4" strokeWidth="2" />
+      <path
+        d="M12 2.6v3M12 18.4v3M2.6 12h3M18.4 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function V1Accueil() {
   const app = useApp();
   const envoi = useEnvoi();
@@ -20,7 +34,7 @@ export function V1Accueil() {
           onClick={() => envoi({ type: 'vue', vue: 'V7' })}
           aria-label="Réglages"
         >
-          ⚙
+          <Engrenage />
         </button>
       </header>
 

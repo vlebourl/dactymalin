@@ -20,6 +20,13 @@ export type Touche = {
   large?: number;
   /** repère tactile physique (F et J) */
   repere?: boolean;
+  /**
+   * Hiérarchie des légendes, PORTÉE PAR LA TABLE et jamais déduite du type de
+   * caractère : la légende dominante est toujours ce que la touche produit
+   * sans modificateur (AZERTY `&` gros / `1` petit ; CH `4` gros / `ç` petit).
+   */
+  legendePrincipale?: string;
+  legendeSecondaire?: string;
 };
 
 export type Disposition = {
@@ -202,14 +209,17 @@ export function mainDe(id: IdDisposition, caractere: string): Main | undefined {
 
 /**
  * Légendes à imprimer sur la touche.
- * Rangée des chiffres = deux légendes réelles ; ailleurs, une seule, en capitale.
+ * `bas` = légende DOMINANTE = ce que la touche produit sans modificateur.
+ * `haut` = légende secondaire = ce qu'elle produit avec Maj, s'il y en a une.
+ * Aucune branche conditionnelle sur le type de caractère : la hiérarchie vient
+ * de la table (régression CH-FR : la touche du 4 affichait `ç` en dominante).
  */
 export function legendes(t: Touche): { haut?: string; bas: string } {
   if (t.nom) return { bas: t.nom };
-  const base = t.base ?? '';
-  const maj = t.maj ?? '';
-  if (/^[0-9]$/.test(base)) return { haut: base, bas: maj };
-  if (/^[0-9]$/.test(maj)) return { haut: maj, bas: base };
-  if (/^[a-zà-ÿ]$/i.test(base)) return { bas: base.toUpperCase() };
-  return { bas: base };
+  const base = t.legendePrincipale ?? t.base ?? '';
+  const secondaire = t.legendeSecondaire ?? t.maj;
+  // Seules les lettres ASCII passent en capitale : la sérigraphie réelle imprime
+  // « é è à ù ç » en minuscule, et le cahier interdit les capitales accentuées.
+  const bas = /^[a-z]$/i.test(base) ? base.toUpperCase() : base;
+  return secondaire ? { haut: secondaire, bas } : { bas };
 }

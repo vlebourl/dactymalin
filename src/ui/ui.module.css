@@ -45,7 +45,7 @@
 
 .frontiereTrait {
   flex: 1;
-  width: 8px;
+  width: max(8px, calc(var(--taille) * 0.22));
   border-radius: 4px;
   background: linear-gradient(
     180deg,
@@ -63,7 +63,8 @@
   left: 50%;
   transform: translate(-50%, -50%) rotate(90deg);
   transform-origin: center;
-  font-size: 11px;
+  font-size: max(13px, calc(var(--taille) * 0.28));
+  font-weight: 500;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--encre-doux);
@@ -97,6 +98,7 @@
   --teinte: var(--teal-pale);
   --teinte-forte: var(--teal-pale-forte);
   --teinte-vive: var(--teal-vif);
+  --teinte-cible: var(--teal-cible);
   position: relative;
   width: var(--taille, 46px);
   height: var(--taille, 46px);
@@ -120,16 +122,19 @@
   --teinte: var(--orange-pale);
   --teinte-forte: var(--orange-pale-forte);
   --teinte-vive: var(--orange-vif);
+  --teinte-cible: var(--orange-cible);
 }
 
+/* Plancher de lisibilité : une légende ne descend jamais sous --legende-min,
+   même sur les claviers miniatures de V3/V5/V6. */
 .legendeBas {
-  font-size: calc(var(--taille) * 0.44);
+  font-size: max(var(--legende-min), calc(var(--taille) * 0.44));
   font-weight: 500;
   letter-spacing: var(--interlettrage);
 }
 
 .legendeHaut {
-  font-size: calc(var(--taille) * 0.29);
+  font-size: max(calc(var(--legende-min) * 0.78), calc(var(--taille) * 0.29));
   font-weight: 400;
   color: var(--encre-doux);
   line-height: 1.05;
@@ -139,11 +144,26 @@
   justify-content: center;
   align-items: flex-start;
   padding-left: calc(var(--taille) * 0.16);
-  gap: calc(var(--taille) * 0.05);
+  gap: calc(var(--taille) * 0.04);
 }
 
 .deuxLegendes .legendeBas {
-  font-size: calc(var(--taille) * 0.36);
+  font-size: max(calc(var(--legende-min) * 0.92), calc(var(--taille) * 0.36));
+}
+
+/* Écran étroit : plutôt SUPPRIMER la seconde légende que la rendre illisible. */
+@media (max-width: 700px) {
+  .legendeHaut {
+    display: none;
+  }
+  .deuxLegendes {
+    justify-content: center;
+    align-items: center;
+    padding-left: 0;
+  }
+  .deuxLegendes .legendeBas {
+    font-size: max(var(--legende-min), calc(var(--taille) * 0.46));
+  }
 }
 
 /* Repère tactile physique de F et J : une barre en relief, pas une couleur. */
@@ -162,19 +182,23 @@
 .eteinte {
   background: var(--fond-creux);
   border-color: var(--liseré);
-  color: var(--encre-eteinte);
+  color: var(--encre-touche-eteinte);
 }
 
 .eteinte .legendeHaut {
-  color: var(--encre-eteinte);
+  color: var(--encre-touche-eteinte);
 }
 
-/* Touche cible : saturation pleine + halo pulsé + léger agrandissement. */
+/* Touche cible : saturation PLEINE et CLAIRE + halo pulsé + agrandissement.
+   Elle ne doit jamais être la tache la plus sombre de l'écran : le vocabulaire
+   visuel du sombre est réservé à l'enfoncement de l'erreur. */
 .cible {
-  background: var(--teinte-vive);
-  color: var(--fond-carte);
+  background: var(--teinte-cible);
+  color: var(--encre);
   border-color: var(--teinte-vive);
-  transform: scale(1.14);
+  border-bottom-width: 4px;
+  font-weight: 700;
+  transform: scale(1.16);
   z-index: 2;
   animation: halo 1400ms ease-in-out infinite;
 }
@@ -183,16 +207,25 @@
   animation-name: halo-droite;
 }
 
-.cible .legendeHaut {
-  color: rgba(253, 250, 243, 0.75);
+.cible .legendeBas {
+  font-weight: 700;
 }
 
-/* Frappe fausse : la touche PRESSÉE s'assombrit et retombe. Aucun rouge. */
+.cible .legendeHaut {
+  color: var(--encre);
+  opacity: 0.7;
+}
+
+/* Frappe fausse : la touche PRESSÉE s'ENFONCE — teinte de base conservée,
+   désaturée et rentrée dans le clavier. Aucun rouge, aucun son. */
 .fausse {
-  background: var(--encre-doux);
-  border-color: var(--encre);
-  color: var(--fond-carte);
-  transform: scale(0.93);
+  background: var(--teinte-forte);
+  border-color: var(--liseré-fort);
+  border-bottom-width: 1px;
+  color: var(--encre-doux);
+  filter: saturate(0.1) brightness(0.72);
+  transform: translateY(3px) scale(0.94);
+  box-shadow: inset 0 4px 7px rgba(31, 42, 45, 0.5);
 }
 
 /* Touche déjà acquise (V5, V6). */
@@ -252,6 +285,8 @@
 
 .espaceCible {
   border-color: var(--teinte-vive);
+  border-width: 3px;
+  border-bottom-width: 5px;
   color: var(--encre);
   transform: scale(1.03);
   animation: halo 1400ms ease-in-out infinite;
@@ -265,16 +300,22 @@
   animation-name: halo-droite;
 }
 
+/* Même vocabulaire que la touche fausse : un enfoncement, pas une couleur. */
 .espaceFausse {
-  background: var(--encre-doux);
-  color: var(--fond-carte);
-  transform: scale(0.98);
+  background: var(--fond-creux);
+  filter: saturate(0.1) brightness(0.78);
+  transform: translateY(3px) scale(0.985);
+  border-bottom-width: 2px;
+  box-shadow: inset 0 4px 7px rgba(31, 42, 45, 0.45);
 }
 
 /* --------------------------------------------------------- Bande doigts */
 
+/* Trois colonnes : la consigne à gauche, les pastilles VRAIMENT centrées sur
+   la bande (et non sur l'espace restant), une colonne fantôme à droite. */
 .bande {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: clamp(12px, 3vw, 40px);
   width: 100%;
@@ -282,6 +323,10 @@
   padding: clamp(10px, 1.6vh, 20px) clamp(16px, 4vw, 56px) clamp(16px, 2.4vh, 26px);
   background: var(--fond-carte);
   border-top: 3px solid var(--liseré-fort); /* le liseré qui sépare la zone 3 */
+}
+
+.bande::after {
+  content: '';
 }
 
 .consigneMain {
@@ -301,7 +346,6 @@
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 2.5vw, 34px);
-  flex: 1;
 }
 
 .pastille {
@@ -314,8 +358,8 @@
 
 .rond {
   --teinte-vive: var(--teal-vif);
-  width: clamp(50px, 5.2vw, 68px);
-  height: clamp(50px, 5.2vw, 68px);
+  width: clamp(54px, 5.6vw, 76px);
+  height: clamp(54px, 5.6vw, 76px);
   border-radius: 50%;
   background: var(--teal-pale);
   border: 2px solid var(--teal-pale-forte);
@@ -338,15 +382,17 @@
   /* Recadrage commun : les quatre photos n'ont pas le même cadrage,
      pouce_gauche est coupé au ras des doigts. */
   transform: scale(var(--zoom, 1)) translateY(var(--decale, 0));
-  filter: saturate(0.35) opacity(0.55);
+  /* « Pâle et plate » ne doit pas vouloir dire « méconnaissable » :
+     on désature, on n'efface pas — le doigt reste identifiable. */
+  filter: saturate(0.5) contrast(0.95);
   transition: filter 260ms ease;
 }
 
 .etiquettePastille {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--encre-eteinte);
+  color: var(--encre-doux);
   transition: color 260ms ease;
 }
 
@@ -372,8 +418,34 @@
 }
 
 .pastilleInactive {
-  transform: scale(0.82);
-  opacity: 0.62;
+  transform: scale(0.88);
+  opacity: 0.8;
+}
+
+/* Écran étroit : la bande passe en deux étages, rien n'est jamais coupé. */
+@media (max-width: 700px) {
+  .bande {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+  .bande::after {
+    display: none;
+  }
+  .consigneMain {
+    min-width: 0;
+  }
+  .pastilles {
+    gap: 10px;
+  }
+  .rond {
+    width: 48px;
+    height: 48px;
+  }
+  .etiquettePastille {
+    font-size: 9px;
+  }
 }
 
 /* ------------------------------------------------------------- Étoiles */

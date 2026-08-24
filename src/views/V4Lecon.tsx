@@ -10,8 +10,9 @@ import {
 } from '../core/aide';
 import { composerBloc, pouceDeLEspace, type Item } from '../core/generator';
 import { mainDe, toucheDirecte, type IdDisposition, type Main } from '../core/layouts';
+import { mainDeLaMaj, verdictMaj } from '../core/maj';
 import { ensembleTouches, nouvellesTouches, PALIER_MAX_DEBUTANT } from '../core/paliers';
-import { FingerBar, type Doigt } from '../ui/FingerBar';
+import { CONSIGNES, FingerBar, type Doigt } from '../ui/FingerBar';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
@@ -31,20 +32,31 @@ type EtatLecon = {
   barreau: Barreau;
   latence: number;
   fausse: string | null;
+  /** piège Maj : bonne touche, modificateur manquant — jamais une erreur */
+  majManquante: boolean;
   depuisFausse: number;
   debutCaractere: number;
   celebration: number | null;
   etoiles: number;
   propres: string[];
   aRevoir: string[];
+  /** items validés dans ce bloc, dans l'ordre — alimente le gain lexical de V5 */
+  valides: string[];
   itemAide: boolean;
-  precedent: string | null;
   masque: boolean;
   fini: boolean;
 };
 
 type ActionLecon =
-  | { type: 'frappe'; caractere: string; code: string; attendu: string; maintenant: number; debutant: boolean }
+  | {
+      type: 'frappe';
+      caractere: string;
+      code: string;
+      attendu: string;
+      maintenant: number;
+      debutant: boolean;
+      id: IdDisposition;
+    }
   | { type: 'tic'; maintenant: number }
   | { type: 'masquer' };
 
@@ -57,14 +69,15 @@ function creerEtat(items: Item[], maintenant: number, latence: number): EtatLeco
     barreau: latence === 0 ? 1 : 0,
     latence,
     fausse: null,
+    majManquante: false,
     depuisFausse: 0,
     debutCaractere: maintenant,
     celebration: null,
     etoiles: 0,
     propres: [],
     aRevoir: [],
+    valides: [],
     itemAide: false,
-    precedent: null,
     masque: false,
     fini: false,
   };
@@ -92,6 +105,13 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       if (e.celebration !== null || e.fini) return e;
       const texte = e.items[e.i].texte;
 
+      /* ---- piège Maj : la bonne touche, sans le modificateur. État de
+         QUASI-RÉUSSITE : ni erreur, ni escalade d'aide ; la cible reste
+         allumée et la touche Maj s'invite à côté d'elle. */
+      if (a.caractere !== a.attendu && verdictMaj(a.id, a.attendu, a.caractere) === 'quasi') {
+        return { ...e, majManquante: true, fausse: null };
+      }
+
       // ---- frappe fausse : RIEN ne s'écrit, le curseur ne bouge pas (P3)
       if (a.caractere !== a.attendu) {
         const aide = surErreur(e.aide, a.maintenant - e.debutCaractere);
@@ -113,7 +133,7 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
           ? [...e.propres, a.attendu]
           : e.propres;
       const curseur = e.curseur + 1;
-      const base = { ...e, propres, fausse: null };
+      const base = { ...e, propres, fausse: null, majManquante: false };
 
       if (curseur >= texte.length) {
         return {
@@ -121,6 +141,7 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
           curseur,
           etoiles: e.etoiles + 1,
           celebration: a.maintenant,
+          valides: [...e.valides, texte],
           aRevoir: e.itemAide && !e.aRevoir.includes(texte) ? [...e.aRevoir, texte] : e.aRevoir,
         };
       }
@@ -140,14 +161,12 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
 
 function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
   const i = e.i + 1;
-  const termine = e.items[e.i].texte;
-  if (i >= e.items.length) return { ...e, celebration: null, fini: true, precedent: termine };
+  if (i >= e.items.length) return { ...e, celebration: null, fini: true };
   return {
     ...e,
     i,
     curseur: 0,
     celebration: null,
-    precedent: termine,
     itemAide: false,
     aide: etatInitial(e.items[i].texte[0], e.latence),
     barreau: e.latence === 0 ? 1 : 0,
@@ -226,6 +245,7 @@ export function V4Lecon() {
         attendu,
         maintenant: performance.now(),
         debutant,
+        id,
       });
       if (caractere === attendu) {
         if (e.curseur + 1 >= (item?.texte.length ?? 0)) sonItem(app.reglages.sons);
@@ -238,7 +258,12 @@ export function V4Lecon() {
   /* ------------------------------------------------------- fin de bloc */
   useEffect(() => {
     if (!e.fini) return;
-    const bilan: BilanBloc = { etoiles: e.etoiles, propres: e.propres, aRevoir: e.aRevoir };
+    const bilan: BilanBloc = {
+      etoiles: e.etoiles,
+      propres: e.propres,
+      aRevoir: e.aRevoir,
+      items: e.valides,
+    };
     envoi({ type: 'blocTermine', bilan });
   }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -288,22 +313,30 @@ export function V4Lecon() {
       </header>
 
       {app.verrMaj && (
-        <div className={v.bandeauVerrMaj} role="status">
-          <span className={v.toucheDessinee}>
-            <svg viewBox="0 0 14 16" width="12" height="14" aria-hidden="true">
-              <path d="M4 7V4.6a3 3 0 0 1 6 0V7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              <rect x="1.6" y="7" width="10.8" height="8" rx="2" fill="currentColor" />
+        <div className={v.bandeauVerrMaj} role="status" aria-live="polite">
+          {/* Illustration de la touche, sans son abréviation technique. */}
+          <span className={v.toucheDessinee} aria-hidden="true">
+            <svg viewBox="0 0 22 22" width="26" height="26">
+              <path d="M11 4 L18 12 H14.5 V18 H7.5 V12 H4 Z" fill="currentColor" />
             </svg>
-            Verr. Maj
           </span>
-          Appuie sur la touche avec le petit cadenas pour l'éteindre.
+          <span>
+            <b>Ton clavier écrit en grandes lettres.</b>
+            <br />
+            Appuie sur la touche avec le petit cadenas pour l'éteindre.
+          </span>
         </div>
       )}
 
       <div className={[v.centre, v.centreLecon].join(' ')}>
         <div className={v.zoneMot}>
-          {e.precedent && <span className={v.motPrecedent}>{e.precedent}</span>}
-          <span className={v.mot} key={`${e.i}`} data-mot={item?.texte}>
+          <span
+            className={v.mot}
+            key={`${e.i}`}
+            data-mot={item?.texte}
+            data-curseur={e.curseur}
+            aria-hidden="true"
+          >
             {[...(item?.texte ?? '')].map((c, k) => (
               <span
                 key={k}
@@ -328,7 +361,25 @@ export function V4Lecon() {
           )}
         </div>
 
+        {/* Ce que dit un lecteur d'écran : le mot à taper, puis le doigt. */}
+        <p className={v.pourLecteur} aria-live="polite">
+          {item ? `${item.texte} — ${CONSIGNES[doigt].join(', ')}` : ''}
+        </p>
+
         {item?.genre === 'syllabe' && <p className={v.etiquetteSyllabe}>on lit et on tape</p>}
+
+        {/* Piège Maj : seul cas où DEUX touches sont mises en avant ensemble. */}
+        {e.majManquante && !enCelebration && (
+          <p className={v.rappelMaj} role="status">
+            <span className={v.toucheMaj}>
+              <svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true">
+                <path d="M11 4 L18 12 H14.5 V18 H7.5 V12 H4 Z" fill="currentColor" />
+              </svg>
+            </span>
+            Presque : garde cette touche appuyée avec ta{' '}
+            <b>main {mainDeLaMaj(id, attendu)}</b>.
+          </p>
+        )}
 
         <div className={v.zoneClavier}>
           <div className={clavierMasque ? v.clavierMasque : undefined}>
@@ -348,9 +399,9 @@ export function V4Lecon() {
                       : 'ouvert',
                 pouce: mainCible,
               }}
-              taille="clamp(38px, 4.6vw, 60px)"
+              taille="clamp(21px, 6.1vw, 58px)"
             />
-            {e.barreau === 3 && !enCelebration && (
+            {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />
             )}
           </div>
@@ -369,7 +420,19 @@ export function V4Lecon() {
   );
 }
 
-type Geometrie = { cible: { x: number; y: number }; doigt: { x: number; y: number } };
+const LARGEUR_MAIN = 104;
+/** Rapport hauteur/largeur du dessin de main (viewBox 100×130). */
+const HAUTEUR_MAIN = LARGEUR_MAIN * 1.3;
+
+type Geometrie = {
+  cible: { x: number; y: number };
+  /** haut de la touche visée : la bulle du nom de lettre s'y pose au-dessus */
+  sommet: number;
+  /** bout de l'index, d'où part la flèche */
+  doigt: { x: number; y: number };
+  /** coin haut-gauche du dessin de main, ancré au bord bas du bloc concerné */
+  main: { x: number; y: number };
+};
 
 /** Barreau 3 : overlay TRANSITOIRE, main schématique ancrée au bord du clavier. */
 function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
@@ -379,35 +442,37 @@ function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
   useEffect(() => {
     const parent = refBoite.current?.parentElement;
     const boite = parent?.getBoundingClientRect();
+    const bloc = parent?.querySelector<HTMLElement>(`[data-bloc="${main}"]`)?.getBoundingClientRect();
     const touche = parent?.querySelector<HTMLElement>('[data-etat="cible"]')?.getBoundingClientRect();
-    if (!boite || !touche) return setGeo(null);
+    if (!boite || !bloc || !touche) return setGeo(null);
+    const cibleX = touche.left + touche.width / 2 - boite.left;
+    // la main chevauche le bord bas du bloc, à l'aplomb de la touche visée
+    const x = Math.min(
+      Math.max(cibleX - LARGEUR_MAIN / 2, bloc.left - boite.left - 12),
+      bloc.right - boite.left - LARGEUR_MAIN + 12,
+    );
+    const hautDeLaMain = bloc.bottom - boite.top - 18;
     setGeo({
-      cible: {
-        x: touche.left + touche.width / 2 - boite.left,
-        y: touche.top + touche.height / 2 - boite.top,
-      },
-      doigt: { x: main === 'gauche' ? 72 : boite.width - 72, y: boite.height - 26 },
+      cible: { x: cibleX, y: touche.bottom - boite.top },
+      sommet: touche.top - boite.top,
+      // l'index tendu part du haut du dessin, à ~63 % de sa largeur
+      doigt: { x: x + LARGEUR_MAIN * 0.63, y: hautDeLaMain + 6 },
+      main: { x, y: hautDeLaMain },
     });
   }, [lettre, main]);
 
   return (
     <div className={v.aideOverlay} ref={refBoite} aria-hidden="true">
-      <span
-        className={v.aideNom}
-        style={{ left: main === 'gauche' ? 6 : undefined, right: main === 'gauche' ? undefined : 6 }}
-      >
-        {lettre === ' ' ? 'espace' : lettre.toUpperCase()}
-      </span>
-      <div
-        style={{
-          position: 'absolute',
-          bottom: -4,
-          left: main === 'gauche' ? -6 : undefined,
-          right: main === 'gauche' ? undefined : -6,
-        }}
-      >
-        <MainSchematique cote={main} largeur={104} />
-      </div>
+      {geo && (
+        <span className={v.aideNom} style={{ left: geo.cible.x, top: geo.sommet - 40 }}>
+          {lettre === ' ' ? 'espace' : lettre.toUpperCase()}
+        </span>
+      )}
+      {geo && (
+        <div style={{ position: 'absolute', left: geo.main.x, top: geo.main.y, height: HAUTEUR_MAIN }}>
+          <MainSchematique cote={main} largeur={LARGEUR_MAIN} />
+        </div>
+      )}
       {geo && (
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
           <defs>
@@ -416,7 +481,7 @@ function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
             </marker>
           </defs>
           <path
-            d={`M ${geo.doigt.x} ${geo.doigt.y} Q ${geo.cible.x} ${geo.doigt.y} ${geo.cible.x} ${geo.cible.y + 30}`}
+            d={`M ${geo.doigt.x} ${geo.doigt.y} Q ${geo.doigt.x} ${(geo.doigt.y + geo.cible.y) / 2} ${geo.cible.x} ${geo.cible.y + 10}`}
             fill="none"
             stroke="var(--encre)"
             strokeWidth="3"

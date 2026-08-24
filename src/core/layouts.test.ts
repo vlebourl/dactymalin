@@ -125,6 +125,24 @@ describe('tables de disposition', () => {
     expect(rendu).toEqual(attendu);
   });
 
+  /* Régression itération 001 : la leçon CH-FR demandait « 4 » et la touche
+     affichait « ç » en dominante, parce que la hiérarchie était déduite du
+     type de caractère au lieu d'être portée par la table. */
+  it('CH-FR : la légende dominante de la rangée des chiffres est le CHIFFRE', () => {
+    const rendu = disposition('fr-CH').rangees[0].map((t) => legendes(t));
+    expect(rendu.map((l) => l.bas)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']);
+    expect(rendu.map((l) => l.haut)).toEqual(['+', '"', '*', 'ç', '%', '&', '/', '(', ')', '=']);
+  });
+
+  it('la légende dominante est toujours le caractère produit sans modificateur', () => {
+    for (const d of TOUTES_DISPOSITIONS) {
+      for (const t of d.rangees.flat()) {
+        if (!t.base || t.nom) continue;
+        expect(legendes(t).bas.toLowerCase()).toBe(t.base.toLowerCase());
+      }
+    }
+  });
+
   it('les lettres sont légendées en CAPITALE sur le clavier virtuel', () => {
     expect(legendes(toucheDirecte('fr-FR', 'a')!)).toEqual({ bas: 'A' });
     expect(legendes(toucheDirecte('fr-CH', 'z')!)).toEqual({ bas: 'Z' });

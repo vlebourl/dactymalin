@@ -1,6 +1,7 @@
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
 import type { Reglages } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
+import { MiniClavier } from '../ui/MiniClavier';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
@@ -30,25 +31,29 @@ export function V7Reglages() {
         </h1>
 
         <div className={v.reglages}>
-          <div className={v.ligneReglage}>
+          {/* Radios ILLUSTRÉS : on choisit un clavier en le reconnaissant. */}
+          <div className={[v.ligneReglage, v.ligneClaviers].join(' ')}>
             <span>
               <b>Clavier</b>
               <br />
               <span className={v.promessePalier}>Celui que tu as sous les doigts.</span>
             </span>
-            <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className={v.choixClaviers} role="radiogroup" aria-label="Clavier">
               {TOUTES_DISPOSITIONS.map((d) => (
                 <button
                   key={d.id}
-                  className={[u.bouton, app.disposition === d.id ? u.primaire : ''].join(' ')}
-                  style={{ padding: '9px 18px', fontSize: 14 }}
-                  aria-pressed={app.disposition === d.id}
+                  role="radio"
+                  aria-checked={app.disposition === d.id}
+                  className={[v.carteClavier, app.disposition === d.id ? v.carteClavierChoisie : '']
+                    .filter(Boolean)
+                    .join(' ')}
                   onClick={() => envoi({ type: 'disposition', id: d.id, manuel: true })}
                 >
-                  {d.nomCourt}
+                  <MiniClavier id={d.id} echelle={0.72} />
+                  <span>{d.nom}</span>
                 </button>
               ))}
-            </span>
+            </div>
           </div>
 
           {INTERRUPTEURS.map((r) => (

@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { motsNouveaux } from '../core/corpus';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
-import { ensembleTouches, nouvellesTouches } from '../core/paliers';
+import { ensembleTouches } from '../core/paliers';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
@@ -13,11 +14,19 @@ export function V5FinDeBloc() {
   const envoi = useEnvoi();
   const id = app.disposition;
 
-  // Palier montré : celui qui vient de s'ouvrir, sinon celui qu'on travaille.
-  const palierMontre = app.palierOuvert ?? app.palier;
-  const gains = motsNouveaux(id, palierMontre).filter((m) => !m.includes(' ')).slice(0, 3);
+  /* Le gain lexical est tiré du bloc RÉELLEMENT joué : trois items au hasard
+     parmi ceux que l'enfant vient de valider. Repli sur les mots que le palier
+     vient d'ouvrir uniquement si le bloc n'a rien laissé (bloc abandonné). */
+  const gains = useMemo(() => {
+    const joues = [...new Set(app.itemsDuBloc)];
+    const source = joues.length >= 3 ? joues : motsNouveaux(id, app.palierOuvert ?? app.palier);
+    return [...source].sort(() => Math.random() - 0.5).slice(0, 3);
+    // un tirage par arrivée sur la vue, pas à chaque rendu
+  }, [app.itemsDuBloc, app.bloc]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Seules les touches NOUVELLEMENT maîtrisées s'allument.
   const illuminees = new Set(
-    nouvellesTouches(id, palierMontre)
+    app.touchesNouvelles
       .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
       .filter((c): c is string => !!c),
   );
@@ -40,7 +49,7 @@ export function V5FinDeBloc() {
           id={id}
           ensemble={ensembleTouches(id, app.palier)}
           illuminees={illuminees}
-          taille={30}
+          taille={44}
         />
 
         {proposePause && <p className={v.pause}>{PROPOSITION_PAUSE}</p>}

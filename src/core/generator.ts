@@ -11,6 +11,10 @@ export type Item = {
 
 export const TAILLE_BLOC_MIN = 8;
 export const TAILLE_BLOC_MAX = 12;
+/** Plancher de nombres par bloc quand la disposition ouvre des chiffres. */
+export const QUOTA_NOMBRES = 2;
+/** Positions fixes des nombres imposés (3ᵉ et 7ᵉ item). */
+const POSITIONS_NOMBRES = [2, 6];
 
 /** PRNG déterministe (mulberry32) — un bloc est reproductible dans les tests. */
 export function alea(graine: number): () => number {
@@ -92,12 +96,26 @@ export function composerBloc(o: OptionsBloc): Item[] {
   // 3. vrais mots des paliers précédents
   for (const m of melange(autres, rnd)) pousser(m, 'mot');
   // 4. nombres, là où les chiffres sont ouverts
-  for (const n of melange(nombresDisponibles(o.id, o.palier), rnd)) pousser(n, 'nombre');
+  const nombres = melange(nombresDisponibles(o.id, o.palier), rnd);
+  for (const n of nombres) pousser(n, 'nombre');
   // 5. syllabes, dernier recours, étiquetées à l'affichage
   for (const s of melange(syllabesDisponibles(o.id, o.palier), rnd)) pousser(s, 'syllabe');
 
   // Un bloc est intercalé pour ne pas enchaîner cinq mots qui commencent pareil.
-  return melange(items, rnd);
+  const bloc = melange(items, rnd);
+
+  /* Plancher de nombres : quand la disposition ouvre des chiffres au palier
+     courant, la préférence « vrai mot > nombre » les évinçait toujours — CH-FR
+     annonçait des nombres dès la leçon 1 et n'en proposait jamais un seul. */
+  const manque = nombres.length === 0 ? 0 : QUOTA_NOMBRES - bloc.filter((i) => i.genre === 'nombre').length;
+  for (let k = 0; k < manque; k++) {
+    const texte = nombres.find((n) => !vus.has(n));
+    if (!texte) break;
+    vus.add(texte);
+    bloc.splice(POSITIONS_NOMBRES[k] ?? bloc.length, 0, { texte, genre: 'nombre' });
+  }
+  bloc.length = Math.min(bloc.length, taille);
+  return bloc;
 }
 
 /**

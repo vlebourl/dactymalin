@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import { charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
-import { noterOccurrence, palierFranchi } from './core/progression';
+import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
@@ -13,6 +13,8 @@ export type BilanBloc = {
   propres: string[];
   /** items ayant atteint le barreau 2 ou 3, à réinjecter espacés */
   aRevoir: string[];
+  /** items réellement validés pendant ce bloc, dans l'ordre */
+  items: string[];
 };
 
 export type EtatApp = Sauvegarde & {
@@ -26,6 +28,10 @@ export type EtatApp = Sauvegarde & {
   /** palier que ce bloc vient d'ouvrir, pour l'illumination de V5 */
   palierOuvert: number | null;
   aReinjecter: string[];
+  /** items validés dans le bloc qui vient de se terminer (gain lexical de V5) */
+  itemsDuBloc: string[];
+  /** touches devenues maîtrisées PENDANT ce bloc (illumination de V5) */
+  touchesNouvelles: string[];
   verrMaj: boolean;
   premierLancement: boolean;
 };
@@ -72,7 +78,12 @@ function reducer(etat: EtatApp, action: Action): EtatApp {
 
     case 'blocTermine': {
       let maitrise = etat.maitrise;
+      const dejaMaitrisees = new Set(Object.keys(maitrise).filter((c) => estMaitrisee(maitrise, c)));
       for (const c of action.bilan.propres) maitrise = noterOccurrence(maitrise, c, etat.bloc);
+      // Ce que ce bloc-ci a fait basculer, et rien d'autre.
+      const franchies = Object.keys(maitrise).filter(
+        (c) => !dejaMaitrisees.has(c) && estMaitrisee(maitrise, c),
+      );
       const blocsSurPalier = etat.blocsSurPalier + 1;
       const franchi = palierFranchi(etat.disposition, etat.palier, maitrise, blocsSurPalier);
       return {
@@ -87,6 +98,8 @@ function reducer(etat: EtatApp, action: Action): EtatApp {
         etoilesDuBloc: action.bilan.etoiles,
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
         aReinjecter: action.bilan.aRevoir,
+        itemsDuBloc: action.bilan.items,
+        touchesNouvelles: franchies.length ? franchies : action.bilan.propres,
       };
     }
   }
@@ -104,6 +117,8 @@ function etatDeDepart(): EtatApp {
     titreEncouragement: encouragementSuivant(undefined),
     palierOuvert: null,
     aReinjecter: [],
+    itemsDuBloc: [],
+    touchesNouvelles: [],
     verrMaj: false,
     premierLancement: !sauve.dispositionChoisieALaMain,
   };
@@ -138,6 +153,11 @@ export function FournisseurApp({ children }: { children: ReactNode }) {
   ]);
 
   useEffect(() => demanderPersistance(), []);
+
+  // Repère stable pour les tests e2e (et pour du CSS par vue si besoin).
+  useEffect(() => {
+    document.body.dataset.vue = etat.vue;
+  }, [etat.vue]);
 
   useEffect(() => {
     const racine = document.documentElement;
