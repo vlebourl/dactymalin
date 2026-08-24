@@ -49,7 +49,7 @@ export const DEFAUTS: Sauvegarde = {
 export function blocDeDepart(maitrise: Maitrise): number {
   let max = 0;
   for (const blocs of Object.values(maitrise)) for (const b of blocs) if (b > max) max = b;
-  return max + 1;
+  return Math.min(max + 1, BLOC_MAX);
 }
 
 const estDisposition = (v: unknown): v is IdDisposition => v === 'fr-FR' || v === 'fr-CH';

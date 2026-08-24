@@ -171,3 +171,20 @@ describe('Maj contralatérale', () => {
     expect(reducer(e, mauvaise).curseur).toBe(0);
   });
 });
+
+describe('célébration et perte de focus', () => {
+  /* Verdict Codex final : `reprise` rebasait le caractère et l'erreur mais pas
+     la célébration — revenir après 700 ms d'absence sautait l'item suivant
+     à la première image, célébration invisible. */
+  it("la célébration est rejouée entière après une reprise", () => {
+    let e = depart('un', 'ne');
+    for (const [i, c] of [...'un'].entries()) e = reducer(e, frappe(c, 10 + i * 10, c));
+    expect(e.celebration).not.toBeNull();
+    // absence longue, puis retour : reprise rebase la célébration
+    e = reducer(e, { type: 'reprise', maintenant: 10_000 });
+    e = reducer(e, { type: 'tic', maintenant: 10_050 });
+    expect(e.i).toBe(0); // l'item n'a pas été sauté
+    e = reducer(e, { type: 'tic', maintenant: 10_900 });
+    expect(e.i).toBe(1); // elle se termine ensuite normalement
+  });
+});

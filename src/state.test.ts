@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
-import { blocDeDepart, CLE, DEFAUTS, sauver, valider } from './core/storage';
+import { BLOC_MAX, blocDeDepart, CLE, DEFAUTS, sauver, valider } from './core/storage';
 import { estMaitrisee } from './core/progression';
 import { PLAFOND_BLOCS } from './core/progression';
 
@@ -171,5 +171,21 @@ describe('touchesNouvelles', () => {
     let etat = jouer(etatDeDepart(), ['e'], 3);
     etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
     expect(etat.touchesNouvelles).toEqual([]);
+  });
+});
+
+describe('borne du compteur de bloc', () => {
+  /* Verdict Codex final : depuis bloc = BLOC_MAX, `blocTermine` produisait
+     BLOC_MAX + 1, sauvegarde rejetée au rechargement → retour au backup et
+     numéro resservi. Le repli legacy était pareillement non borné. */
+  it("l'incrément ne dépasse jamais BLOC_MAX", () => {
+    let etat = { ...etatDeDepart(), bloc: BLOC_MAX };
+    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+    expect(etat.bloc).toBe(BLOC_MAX);
+    expect(valider(aSauvegarder(etat) as unknown as Record<string, unknown>).bloc).toBe(BLOC_MAX);
+  });
+
+  it('le repli legacy est borné lui aussi', () => {
+    expect(blocDeDepart({ e: [BLOC_MAX] })).toBe(BLOC_MAX);
   });
 });

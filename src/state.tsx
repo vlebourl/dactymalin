@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
-import { charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
+import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
 import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
@@ -99,7 +99,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ...etat,
         vue: 'V5',
         maitrise,
-        bloc: etat.bloc + 1,
+        bloc: Math.min(etat.bloc + 1, BLOC_MAX),
         blocsSurPalier: franchi ? 0 : blocsSurPalier,
         palier: franchi ? etat.palier + 1 : etat.palier,
         palierOuvert: franchi ? etat.palier + 1 : null,
