@@ -97,6 +97,7 @@
 .touche {
   --teinte: var(--teal-pale);
   --teinte-forte: var(--teal-pale-forte);
+  --teinte-moyenne: var(--teal-moyen);
   --teinte-vive: var(--teal-vif);
   --teinte-cible: var(--teal-cible);
   position: relative;
@@ -121,8 +122,18 @@
 .droite {
   --teinte: var(--orange-pale);
   --teinte-forte: var(--orange-pale-forte);
+  --teinte-moyenne: var(--orange-moyen);
   --teinte-vive: var(--orange-vif);
   --teinte-cible: var(--orange-cible);
+}
+
+/* Touche Maj : dessinée seulement au palier qui la réclame, jamais atteignable
+   par l'index — son libellé est écrit en toutes lettres, pas abrégé en sigle. */
+.modificateur .legendeBas {
+  font-size: max(10px, calc(var(--taille) * 0.3));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
 /* Plancher de lisibilité : une légende ne descend jamais sous --legende-min,
@@ -148,7 +159,7 @@
 }
 
 .deuxLegendes .legendeBas {
-  font-size: max(calc(var(--legende-min) * 0.92), calc(var(--taille) * 0.36));
+  font-size: max(var(--legende-min), calc(var(--taille) * 0.36));
 }
 
 /* Écran étroit : plutôt SUPPRIMER la seconde légende que la rendre illisible. */
@@ -178,10 +189,21 @@
   opacity: 0.55;
 }
 
+/* Touche DE LA LEÇON. L'appartenance à la leçon ne doit jamais tenir à la
+   seule teinte : elle est portée par un fond plus CLAIR que celui des touches
+   éteintes (écart de luminance 0,13) et par un liseré deux fois plus épais. */
+.ouverte {
+  border-width: 2.5px;
+  border-color: var(--teinte-moyenne);
+  border-bottom-width: 4px;
+}
+
 /* Hors ensemble de la leçon : DESSINÉE mais éteinte, jamais supprimée. */
 .eteinte {
-  background: var(--fond-creux);
-  border-color: var(--liseré);
+  background: var(--touche-eteinte-fond);
+  border-width: 1px;
+  border-bottom-width: 2px;
+  border-color: var(--liseré-fort);
   color: var(--encre-touche-eteinte);
 }
 
@@ -270,7 +292,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: max(var(--legende-min), calc(var(--taille) * 0.3));
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--encre-doux);
@@ -278,9 +300,9 @@
 }
 
 .espaceEteint {
-  background: var(--fond-creux);
-  color: var(--encre-eteinte);
-  border-color: var(--liseré);
+  background: var(--touche-eteinte-fond);
+  color: var(--encre-touche-eteinte);
+  border-color: var(--liseré-fort);
 }
 
 .espaceCible {
@@ -379,9 +401,9 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  /* Recadrage commun : les quatre photos n'ont pas le même cadrage,
-     pouce_gauche est coupé au ras des doigts. */
-  transform: scale(var(--zoom, 1)) translateY(var(--decale, 0));
+  /* Le recadrage commun est fait à la source (doigts/recadrage.py) : les
+     quatre carrés ont la même échelle de main et sont centrés sur leur doigt. */
+  transform: scale(1.06);
   /* « Pâle et plate » ne doit pas vouloir dire « méconnaissable » :
      on désature, on n'efface pas — le doigt reste identifiable. */
   filter: saturate(0.5) contrast(0.95);

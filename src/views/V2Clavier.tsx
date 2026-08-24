@@ -16,13 +16,22 @@ export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
   const [detectee, setDetectee] = useState<IdDisposition | null>(
     app.dispositionChoisieALaMain ? app.disposition : null,
   );
+  /* Une carte cochée doit toujours DIRE d'où vient le verdict : au premier
+     lancement, rien n'est coché tant qu'une frappe ou la carte du navigateur
+     n'a pas tranché. */
+  const [source, setSource] = useState<'carte' | 'frappe' | null>(
+    app.dispositionChoisieALaMain ? 'frappe' : null,
+  );
 
   // 1. carte du clavier du navigateur → verdict silencieux
   useEffect(() => {
     if (app.dispositionChoisieALaMain) return;
     let vivant = true;
     void verdictCarteClavier().then((verdict) => {
-      if (vivant && verdict?.sur) setDetectee(verdict.id);
+      if (vivant && verdict?.sur) {
+        setDetectee(verdict.id);
+        setSource((s) => s ?? 'carte');
+      }
     });
     return () => {
       vivant = false;
@@ -32,10 +41,18 @@ export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
   // 2. sinon (ou en plus), le test déguisé : une frappe suffit
   useKeyInput(true, (f) => {
     const verdict = verdictFrappe(f.code, f.key);
-    if (verdict) setDetectee(verdict.id);
+    if (verdict) {
+      setDetectee(verdict.id);
+      setSource('frappe');
+    }
   });
 
-  const consigne = raison === 'incoherence' ? 'Regarde la touche à côté du A' : CONSIGNE;
+  const consigne =
+    raison === 'incoherence'
+      ? 'Tes touches ne sont pas là où je croyais. Appuie sur la touche A.'
+      : source === 'carte'
+        ? 'Je crois avoir reconnu ton clavier. Appuie sur la touche A pour vérifier.'
+        : CONSIGNE;
 
   const choisir = (id: IdDisposition) => {
     envoi({ type: 'disposition', id, manuel: true });
@@ -73,7 +90,13 @@ export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
             >
               <strong>{d.nom}</strong>
               <MiniClavier id={d.id} />
-              <span className={v.coche}>{detectee === d.id ? '✓ c\'est celui-là' : ' '}</span>
+              <span className={v.coche}>
+                {detectee !== d.id
+                  ? ' '
+                  : source === 'carte'
+                    ? 'je crois que c\'est celui-là'
+                    : "c'est celui-là"}
+              </span>
               <button className={[u.bouton, detectee === d.id ? u.primaire : ''].join(' ')} onClick={() => choisir(d.id)}>
                 C'est celui-là
               </button>

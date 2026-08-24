@@ -16,7 +16,7 @@ export const ENCOURAGEMENTS: string[] = [
   'C\'est tout bon',
   'Tu as tenu jusqu\'au bout',
   'Tes pouces ont bien travaillé',
-  'Encore un bloc de gagné',
+  'Encore un bloc, tranquillement',
   'Tu écris pour de vrai maintenant',
   'Tes doigts se souviennent',
   'Joli, continue comme ça',

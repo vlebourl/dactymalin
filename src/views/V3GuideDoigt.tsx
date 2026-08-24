@@ -45,8 +45,10 @@ export function V3GuideDoigt() {
           <button
             className={[u.bouton, u.primaire].join(' ')}
             onClick={() => {
+              // La boucle du cahier est V1 → « On commence ! » → V4 : l'accueil
+              // n'est jamais sauté, même à la toute première session.
               envoi({ type: 'guideDoigtVu' });
-              envoi(app.guideDoigtVu ? { type: 'vue', vue: 'V1' } : { type: 'commencer' });
+              envoi({ type: 'vue', vue: 'V1' });
             }}
           >
             J'ai compris

@@ -9,7 +9,16 @@ import {
   type EtatAide,
 } from '../core/aide';
 import { composerBloc, pouceDeLEspace, type Item } from '../core/generator';
-import { mainDe, toucheDirecte, type IdDisposition, type Main } from '../core/layouts';
+import {
+  exigeMaj,
+  MAJ_DROITE,
+  MAJ_GAUCHE,
+  mainDe,
+  toucheDe,
+  type IdDisposition,
+  type Main,
+} from '../core/layouts';
+import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj, verdictMaj } from '../core/maj';
 import { ensembleTouches, nouvellesTouches, PALIER_MAX_DEBUTANT } from '../core/paliers';
 import { CONSIGNES, FingerBar, type Doigt } from '../ui/FingerBar';
@@ -45,6 +54,12 @@ type EtatLecon = {
   itemAide: boolean;
   masque: boolean;
   fini: boolean;
+  /** frappes d'affilée cohérentes avec l'AUTRE disposition (surveillance F7) */
+  incoherentes: number;
+  /** items enchaînés qui ont saturé l'aide au barreau 3 */
+  itemsSatures: number;
+  /** l'item en cours a-t-il atteint le barreau 3 ? */
+  satureCourant: boolean;
 };
 
 type ActionLecon =
@@ -56,9 +71,12 @@ type ActionLecon =
       maintenant: number;
       debutant: boolean;
       id: IdDisposition;
+      /** true = cohérente, false = cohérente avec l'autre table, null = muette */
+      coherente: boolean | null;
     }
   | { type: 'tic'; maintenant: number }
-  | { type: 'masquer' };
+  | { type: 'masquer' }
+  | { type: 'montrer' };
 
 function creerEtat(items: Item[], maintenant: number, latence: number): EtatLecon {
   return {
@@ -80,6 +98,9 @@ function creerEtat(items: Item[], maintenant: number, latence: number): EtatLeco
     itemAide: false,
     masque: false,
     fini: false,
+    incoherentes: 0,
+    itemsSatures: 0,
+    satureCourant: false,
   };
 }
 
@@ -87,6 +108,9 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
   switch (a.type) {
     case 'masquer':
       return { ...e, masque: true };
+
+    case 'montrer':
+      return { ...e, masque: false };
 
     case 'tic': {
       let suivant = e;
@@ -97,13 +121,27 @@ function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
         suivant = itemSuivant(suivant, a.maintenant);
       }
       const b = calculerBarreau(suivant.aide, a.maintenant - suivant.debutCaractere);
-      if (b !== suivant.barreau) suivant = { ...suivant, barreau: b, aide: { ...suivant.aide, atteint: b } };
+      if (b !== suivant.barreau) {
+        suivant = {
+          ...suivant,
+          barreau: b,
+          aide: { ...suivant.aide, atteint: b },
+          satureCourant: suivant.satureCourant || b >= 3,
+        };
+      }
       return suivant === e ? e : suivant;
     }
 
     case 'frappe': {
       if (e.celebration !== null || e.fini) return e;
       const texte = e.items[e.i].texte;
+
+      /* Surveillance de disposition (F7) : une frappe cohérente avec l'AUTRE
+         table et avec aucune de la table courante incrémente le compteur ;
+         toute frappe cohérente le remet à zéro. */
+      const incoherentes =
+        a.coherente === null ? e.incoherentes : a.coherente ? 0 : e.incoherentes + 1;
+      e = incoherentes === e.incoherentes ? e : { ...e, incoherentes };
 
       /* ---- piège Maj : la bonne touche, sans le modificateur. État de
          QUASI-RÉUSSITE : ni erreur, ni escalade d'aide ; la cible reste
@@ -168,6 +206,8 @@ function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
     curseur: 0,
     celebration: null,
     itemAide: false,
+    itemsSatures: e.satureCourant ? e.itemsSatures + 1 : 0,
+    satureCourant: false,
     aide: etatInitial(e.items[i].texte[0], e.latence),
     barreau: e.latence === 0 ? 1 : 0,
     debutCaractere: maintenant,
@@ -204,9 +244,19 @@ export function V4Lecon() {
     return undefined;
   }, [e.curseur, item, id]);
 
-  const cible = attendu === ' ' ? 'Space' : toucheDirecte(id, attendu)?.code;
+  /* La touche VISÉE est la touche porteuse, que le caractère s'écrive
+     directement ou en tenant Maj (régression itération 002 : au palier 7,
+     aucun chiffre FR-FR n'avait de cible). */
+  const cible = attendu === ' ' ? 'Space' : toucheDe(id, attendu)?.code;
   const mainCible: Main =
     attendu === ' ' ? pouceDeLEspace(mainPrecedente) : (mainDe(id, attendu) ?? 'gauche');
+  /* Seul cas du MVP à DEUX touches allumées : la Maj contralatérale. */
+  const besoinMaj = attendu !== ' ' && exigeMaj(id, attendu) && !enCelebration;
+  const cibleMaj = besoinMaj
+    ? mainDeLaMaj(id, attendu) === 'gauche'
+      ? MAJ_GAUCHE
+      : MAJ_DROITE
+    : undefined;
   const doigt: Doigt =
     attendu === ' '
       ? mainCible === 'gauche'
@@ -246,6 +296,7 @@ export function V4Lecon() {
         maintenant: performance.now(),
         debutant,
         id,
+        coherente: frappeCoherente(id, f.code, f.key),
       });
       if (caractere === attendu) {
         if (e.curseur + 1 >= (item?.texte.length ?? 0)) sonItem(app.reglages.sons);
@@ -267,6 +318,14 @@ export function V4Lecon() {
     envoi({ type: 'blocTermine', bilan });
   }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ------------------------------------ surveillance de disposition (F7)
+     5 frappes d'affilée cohérentes avec l'autre clavier, ou 3 items saturés
+     au barreau 3 : l'app interrompt d'elle-même et repropose V2. */
+  const proposerV2 = doitProposerV2(e.incoherentes, e.itemsSatures);
+  useEffect(() => {
+    if (proposerV2) envoi({ type: 'vue', vue: 'V2', raison: 'incoherence' });
+  }, [proposerV2]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* -------------------- nom de la lettre prononcé au barreau 3 (fr-FR) */
   const refDit = useRef('');
   useEffect(() => {
@@ -274,13 +333,19 @@ export function V4Lecon() {
     if (e.barreau !== 3 || refDit.current === cle) return;
     refDit.current = cle;
     if (!app.reglages.sons || typeof speechSynthesis === 'undefined') return;
-    const voix = speechSynthesis.getVoices().find((x) => x.lang.toLowerCase().startsWith('fr'));
-    if (!voix) return; // pas de voix française : l'aide reste purement visuelle
-    const phrase = new SpeechSynthesisUtterance(attendu === ' ' ? 'espace' : attendu);
-    phrase.voice = voix;
-    phrase.lang = 'fr-FR';
-    phrase.rate = 0.85;
-    speechSynthesis.speak(phrase);
+    // Un navigateur exotique ne doit JAMAIS pouvoir effacer la leçon en cours :
+    // la synthèse vocale est un confort, pas une dépendance.
+    try {
+      const voix = speechSynthesis.getVoices().find((x) => x.lang?.toLowerCase().startsWith('fr'));
+      if (!voix) return; // pas de voix française : l'aide reste purement visuelle
+      const phrase = new SpeechSynthesisUtterance(attendu === ' ' ? 'espace' : attendu);
+      phrase.voice = voix;
+      phrase.lang = 'fr-FR';
+      phrase.rate = 0.85;
+      speechSynthesis.speak(phrase);
+    } catch {
+      /* voix indisponible : l'aide reste purement visuelle */
+    }
   }, [e.barreau, e.i, e.curseur, attendu, app.reglages.sons]);
 
   const toucheLibelle = (c: string) => (c === ' ' ? 'espace' : c.toUpperCase());
@@ -328,7 +393,11 @@ export function V4Lecon() {
         </div>
       )}
 
-      <div className={[v.centre, v.centreLecon].join(' ')}>
+      <div
+        className={[v.centre, v.centreLecon, clavierMasque ? v.centreSansClavier : '']
+          .filter(Boolean)
+          .join(' ')}
+      >
         <div className={v.zoneMot}>
           <span
             className={v.mot}
@@ -369,15 +438,24 @@ export function V4Lecon() {
         {item?.genre === 'syllabe' && <p className={v.etiquetteSyllabe}>on lit et on tape</p>}
 
         {/* Piège Maj : seul cas où DEUX touches sont mises en avant ensemble. */}
-        {e.majManquante && !enCelebration && (
-          <p className={v.rappelMaj} role="status">
-            <span className={v.toucheMaj}>
+        {besoinMaj && (
+          <p
+            className={[v.rappelMaj, e.majManquante ? v.rappelMajInsiste : ''].join(' ')}
+            role="status"
+            data-maj={mainDeLaMaj(id, attendu)}
+          >
+            <span
+              className={[
+                v.toucheMaj,
+                mainDeLaMaj(id, attendu) === 'gauche' ? v.toucheMajGauche : '',
+              ].join(' ')}
+            >
               <svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true">
                 <path d="M11 4 L18 12 H14.5 V18 H7.5 V12 H4 Z" fill="currentColor" />
               </svg>
             </span>
-            Presque : garde cette touche appuyée avec ta{' '}
-            <b>main {mainDeLaMaj(id, attendu)}</b>.
+            {e.majManquante ? 'Presque : garde' : 'Tiens'} la touche Maj avec ta{' '}
+            <b>main {mainDeLaMaj(id, attendu)}</b>, puis appuie sur la touche allumée.
           </p>
         )}
 
@@ -387,6 +465,8 @@ export function V4Lecon() {
               id={id}
               ensemble={ensemble}
               cible={enCelebration ? undefined : cible}
+              cibleMaj={cibleMaj}
+              avecMaj={app.palier >= PALIER_MAX_DEBUTANT + 1}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
               etiquetteFrontiere="la frontière"
@@ -399,14 +479,18 @@ export function V4Lecon() {
                       : 'ouvert',
                 pouce: mainCible,
               }}
-              taille="clamp(21px, 6.1vw, 58px)"
+              /* La rangée Maj ajoute 3,4 unités de largeur : au palier qui la
+                 dessine, la touche rétrécit pour que rien ne déborde. */
+              taille={app.palier >= 7 ? 'clamp(17px, 5vw, 50px)' : 'clamp(21px, 6.1vw, 58px)'}
             />
             {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />
             )}
           </div>
           {clavierMasque ? (
-            <p className={v.motMasque}>Le clavier revient au mot suivant.</p>
+            <button className={v.petitBouton} onClick={() => envoyer({ type: 'montrer' })}>
+              Remontre-moi le clavier
+            </button>
           ) : (
             <button className={v.petitBouton} onClick={() => envoyer({ type: 'masquer' })}>
               Je tape sans regarder
@@ -425,16 +509,18 @@ const LARGEUR_MAIN = 104;
 const HAUTEUR_MAIN = LARGEUR_MAIN * 1.3;
 
 type Geometrie = {
-  cible: { x: number; y: number };
-  /** haut de la touche visée : la bulle du nom de lettre s'y pose au-dessus */
-  sommet: number;
-  /** bout de l'index, d'où part la flèche */
-  doigt: { x: number; y: number };
+  /** bulle du nom de lettre : centrée sur la touche visée, posée au-dessus */
+  bulle: { x: number; y: number };
   /** coin haut-gauche du dessin de main, ancré au bord bas du bloc concerné */
   main: { x: number; y: number };
 };
 
-/** Barreau 3 : overlay TRANSITOIRE, main schématique ancrée au bord du clavier. */
+/**
+ * Barreau 3 : overlay TRANSITOIRE. La bulle du nom de la lettre porte une
+ * pointe qui désigne la touche — aucune flèche ne traverse plus le clavier
+ * (elle coupait le repère tactile du J), et la main est repoussée du côté
+ * EXTÉRIEUR de son bloc pour ne jamais recouvrir la barre d'espace.
+ */
 function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
   const [geo, setGeo] = useState<Geometrie | null>(null);
   const refBoite = useRef<HTMLDivElement>(null);
@@ -443,53 +529,48 @@ function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
     const parent = refBoite.current?.parentElement;
     const boite = parent?.getBoundingClientRect();
     const bloc = parent?.querySelector<HTMLElement>(`[data-bloc="${main}"]`)?.getBoundingClientRect();
-    const touche = parent?.querySelector<HTMLElement>('[data-etat="cible"]')?.getBoundingClientRect();
+    const touche = parent
+      ?.querySelector<HTMLElement>(`[data-bloc="${main}"] [data-etat="cible"]`)
+      ?.getBoundingClientRect();
     if (!boite || !bloc || !touche) return setGeo(null);
     const cibleX = touche.left + touche.width / 2 - boite.left;
-    // la main chevauche le bord bas du bloc, à l'aplomb de la touche visée
-    const x = Math.min(
-      Math.max(cibleX - LARGEUR_MAIN / 2, bloc.left - boite.left - 12),
-      bloc.right - boite.left - LARGEUR_MAIN + 12,
-    );
-    const hautDeLaMain = bloc.bottom - boite.top - 18;
+    /* La main est repoussée du côté EXTÉRIEUR et bornée par la barre d'espace
+       elle-même : elle ne peut jamais la recouvrir (itération 002, point 11). */
+    const espace = parent?.querySelector<HTMLElement>('[data-code="Space"]')?.getBoundingClientRect();
+    const gaucheBloc = bloc.left - boite.left;
+    const droiteBloc = bloc.right - boite.left;
+    const souhaite = cibleX - LARGEUR_MAIN / 2;
+    const x =
+      main === 'gauche'
+        ? Math.max(
+            gaucheBloc - 14,
+            Math.min(
+              souhaite,
+              (espace ? espace.left - boite.left : droiteBloc) - LARGEUR_MAIN - 10,
+            ),
+          )
+        : Math.min(
+            droiteBloc - LARGEUR_MAIN + 14,
+            Math.max(souhaite, (espace ? espace.right - boite.left : gaucheBloc) + 10),
+          );
     setGeo({
-      cible: { x: cibleX, y: touche.bottom - boite.top },
-      sommet: touche.top - boite.top,
-      // l'index tendu part du haut du dessin, à ~63 % de sa largeur
-      doigt: { x: x + LARGEUR_MAIN * 0.63, y: hautDeLaMain + 6 },
-      main: { x, y: hautDeLaMain },
+      bulle: { x: cibleX, y: touche.top - boite.top },
+      main: { x, y: bloc.bottom - boite.top - 16 },
     });
   }, [lettre, main]);
 
+  if (!geo) return <div className={v.aideOverlay} ref={refBoite} aria-hidden="true" />;
   return (
     <div className={v.aideOverlay} ref={refBoite} aria-hidden="true">
-      {geo && (
-        <span className={v.aideNom} style={{ left: geo.cible.x, top: geo.sommet - 40 }}>
-          {lettre === ' ' ? 'espace' : lettre.toUpperCase()}
-        </span>
-      )}
-      {geo && (
-        <div style={{ position: 'absolute', left: geo.main.x, top: geo.main.y, height: HAUTEUR_MAIN }}>
-          <MainSchematique cote={main} largeur={LARGEUR_MAIN} />
-        </div>
-      )}
-      {geo && (
-        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-          <defs>
-            <marker id="pointe" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
-              <path d="M0 0 L7 3.5 L0 7 z" fill="var(--encre)" />
-            </marker>
-          </defs>
-          <path
-            d={`M ${geo.doigt.x} ${geo.doigt.y} Q ${geo.doigt.x} ${(geo.doigt.y + geo.cible.y) / 2} ${geo.cible.x} ${geo.cible.y + 10}`}
-            fill="none"
-            stroke="var(--encre)"
-            strokeWidth="3"
-            strokeDasharray="7 6"
-            markerEnd="url(#pointe)"
-          />
-        </svg>
-      )}
+      <span className={v.aideNom} style={{ left: geo.bulle.x, top: geo.bulle.y - 46 }}>
+        {lettre === ' ' ? 'espace' : lettre.toUpperCase()}
+      </span>
+      <div
+        className={v.aideMain}
+        style={{ left: geo.main.x, top: geo.main.y, height: HAUTEUR_MAIN }}
+      >
+        <MainSchematique cote={main} largeur={LARGEUR_MAIN} />
+      </div>
     </div>
   );
 }

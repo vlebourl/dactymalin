@@ -1,0 +1,97 @@
+import { expect, test } from '@playwright/test';
+import { motCourant, ouvrir } from './helpers/app';
+import { frapperCouple } from './helpers/keyboard';
+import { toucheDe } from '../../src/core/layouts';
+
+/**
+ * Régression itération 002, point critique n°2 et majeur n°3.
+ * Au palier 7, `mainDe()` ne consultait que la table des caractères DIRECTS :
+ * les dix chiffres FR-FR n'avaient aucune touche cible et la bande de doigts
+ * annonçait systématiquement « main gauche ». Le piège Maj, lui, n'allumait
+ * aucune touche au lieu des DEUX exigées (porteuse + Maj contralatérale).
+ */
+test.describe('palier 7 : chiffres et piège Maj', () => {
+  test.beforeEach(async ({ page }) => {
+    await ouvrir(page, 'fr-FR', 7);
+    await page.getByRole('button', { name: 'On commence !' }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+  });
+
+  test('un item numérique allume DEUX touches : la porteuse et la Maj opposée', async ({ page }) => {
+    // avance jusqu'au premier item qui commence par un chiffre
+    for (let i = 0; i < 12; i++) {
+      const mot = await motCourant(page);
+      if (mot && /^[0-9]/.test(mot)) break;
+      if (!mot) break;
+      // on saute l'item en le tapant
+      for (const c of mot) {
+        const t = toucheDe('fr-FR', c);
+        if (c === ' ') await frapperCouple(page, 'Space', ' ');
+        else if (t) await frapperCouple(page, t.code, c, { maj: !t.base || t.base !== c });
+        await page.waitForTimeout(20);
+      }
+      await page.waitForTimeout(820);
+    }
+
+    const mot = await motCourant(page);
+    expect(mot, 'aucun item numérique servi au palier 7').toMatch(/^[0-9]/);
+    const chiffre = mot![0];
+
+    const cibles = page.locator('[data-etat="cible"]');
+    await expect(cibles).toHaveCount(2);
+
+    // la touche porteuse du chiffre est bien la cible
+    const porteuse = toucheDe('fr-FR', chiffre)!;
+    await expect(page.locator(`[data-code="${porteuse.code}"]`)).toHaveAttribute(
+      'data-etat',
+      'cible',
+    );
+
+    // la Maj allumée est CONTRALATÉRALE
+    const majAttendue = porteuse.main === 'gauche' ? 'ShiftRight' : 'ShiftLeft';
+    await expect(page.locator(`[data-code="${majAttendue}"]`)).toHaveAttribute('data-etat', 'cible');
+    await expect(page.locator(`[data-code="${majAttendue}"]`)).toBeVisible();
+
+    // la main annoncée est celle de la touche porteuse, pas un défaut « gauche »
+    const consigne = await page.locator('[data-doigt]').innerText();
+    expect(consigne.toLowerCase()).toContain(
+      porteuse.main === 'gauche' ? 'main gauche' : 'main droite',
+    );
+    expect(await page.locator('[data-doigt]').getAttribute('data-doigt')).toBe(
+      porteuse.main === 'gauche' ? 'index_gauche' : 'index_droit',
+    );
+
+    // et le rappel Maj annonce l'autre main
+    await expect(page.locator('[data-maj]')).toHaveAttribute(
+      'data-maj',
+      porteuse.main === 'gauche' ? 'droite' : 'gauche',
+    );
+  });
+
+  test('la bonne touche sans Maj reste une quasi-réussite : les deux cibles tiennent', async ({
+    page,
+  }) => {
+    for (let i = 0; i < 12; i++) {
+      const mot = await motCourant(page);
+      if (!mot) break;
+      if (/^[0-9]/.test(mot)) {
+        const porteuse = toucheDe('fr-FR', mot[0])!;
+        // frappe SANS Maj : l'app reçoit le caractère direct de la touche
+        await frapperCouple(page, porteuse.code, porteuse.base!);
+        await expect(page.locator('[data-etat="cible"]')).toHaveCount(2);
+        // rien ne s'écrit, le curseur ne bouge pas, aucune touche « fausse »
+        expect(await page.locator('[data-mot]').getAttribute('data-curseur')).toBe('0');
+        await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
+        return;
+      }
+      for (const c of mot) {
+        const t = toucheDe('fr-FR', c);
+        if (c === ' ') await frapperCouple(page, 'Space', ' ');
+        else if (t) await frapperCouple(page, t.code, c, { maj: t.base !== c });
+        await page.waitForTimeout(20);
+      }
+      await page.waitForTimeout(820);
+    }
+    throw new Error('aucun item numérique servi au palier 7');
+  });
+});

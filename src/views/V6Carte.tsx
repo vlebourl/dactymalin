@@ -44,7 +44,7 @@ export function V6Carte() {
           ensemble={ensembleTouches(id, app.palier)}
           acquises={acquises}
           illuminees={enCours}
-          taille="clamp(24px, 3.6vw, 46px)"
+          taille="clamp(20px, 2.9vw, 40px)"
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 

@@ -8,16 +8,15 @@ type Pastille = {
   doigt: Doigt;
   etiquette: string;
   main: Main;
-  /** recadrage commun : les 4 photos n'ont pas le même cadrage d'origine */
-  zoom: number;
-  decale: string;
 };
 
+/* Les quatre sources sont recadrées EN AMONT sur un carré commun centré sur le
+   doigt actif (doigts/recadrage.py) : plus aucun zoom correctif ici. */
 const PASTILLES: Pastille[] = [
-  { doigt: 'index_gauche', etiquette: 'index gauche', main: 'gauche', zoom: 1, decale: '0' },
-  { doigt: 'pouce_gauche', etiquette: 'pouce gauche', main: 'gauche', zoom: 1.18, decale: '6%' },
-  { doigt: 'pouce_droit', etiquette: 'pouce droit', main: 'droite', zoom: 1.14, decale: '5%' },
-  { doigt: 'index_droit', etiquette: 'index droit', main: 'droite', zoom: 1, decale: '0' },
+  { doigt: 'index_gauche', etiquette: 'index gauche', main: 'gauche' },
+  { doigt: 'pouce_gauche', etiquette: 'pouce gauche', main: 'gauche' },
+  { doigt: 'pouce_droit', etiquette: 'pouce droit', main: 'droite' },
+  { doigt: 'index_droit', etiquette: 'index droit', main: 'droite' },
 ];
 
 export const CONSIGNES: Record<Doigt, [string, string]> = {
@@ -54,7 +53,6 @@ export function FingerBar({ actif }: { actif: Doigt | null }) {
                   src={`/doigts/${p.doigt}.png`}
                   srcSet={`/doigts/${p.doigt}.png 1x, /doigts/${p.doigt}@2x.png 2x`}
                   alt=""
-                  style={{ ['--zoom' as string]: p.zoom, ['--decale' as string]: p.decale }}
                 />
               </div>
               <span className={s.etiquettePastille}>{p.etiquette}</span>

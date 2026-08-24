@@ -77,11 +77,17 @@ export function V7Reglages() {
         {/* Seul endroit hors onboarding où la légende des couleurs apparaît. */}
         <p className={v.legendeCouleurs}>
           <span>
-            <i className={v.puce} style={{ background: 'var(--teal-vif)' }} />
+            <i
+              className={v.puce}
+              style={{ background: 'var(--teal-pale)', borderColor: 'var(--teal-moyen)' }}
+            />
             main gauche
           </span>
           <span>
-            <i className={v.puce} style={{ background: 'var(--orange-vif)' }} />
+            <i
+              className={v.puce}
+              style={{ background: 'var(--orange-pale)', borderColor: 'var(--orange-moyen)' }}
+            />
             main droite
           </span>
         </p>

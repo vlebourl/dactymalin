@@ -26,5 +26,8 @@ describe('piège Maj (palier 7)', () => {
     expect(mainDeLaMaj('fr-FR', '7')).toBe('gauche');
     // CH-FR : Digit4 est à gauche ⇒ Maj droite.
     expect(mainDeLaMaj('fr-CH', 'ç')).toBe('droite');
+    // Régression itération 002 : « 8 » est une touche de la main DROITE, donc
+    // la Maj est la GAUCHE — l'app annonçait l'inverse faute de câblage.
+    expect(mainDeLaMaj('fr-FR', '8')).toBe('gauche');
   });
 });
