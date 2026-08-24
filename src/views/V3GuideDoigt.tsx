@@ -20,18 +20,18 @@ export function V3GuideDoigt() {
         <p className={v.sousTitre}>{CONSIGNE}</p>
 
         <div className={v.deuxCotes}>
-          <div>
+          <div className={v.coteMain}>
             <MainSchematique cote="gauche" largeur={150} tendu={false} />
             <p className={v.etiquetteCote}>main gauche</p>
           </div>
           <Keyboard
             id={app.disposition}
             ensemble={ensembleTouches(app.disposition, app.palier)}
-            taille="clamp(26px, 4.4vw, 54px)"
+            taille="clamp(16px, 4.4vw, 54px)"
             etiquetteFrontiere="la frontière"
             espace={{ etat: 'ouvert', pouce: 'gauche' }}
           />
-          <div>
+          <div className={v.coteMain}>
             <MainSchematique cote="droite" largeur={150} tendu={false} />
             <p className={v.etiquetteCote}>main droite</p>
           </div>

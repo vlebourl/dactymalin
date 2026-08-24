@@ -1,96 +1,71 @@
-# Generator State — Iteration 004
+# Generator State — Iteration 005 (gate de sortie Codex)
 
-## Ce qui a été corrigé (feedback-003, dans l'ordre imposé)
+Réponse point par point à `gan-harness/feedback/codex-gate-001.md`. Chaque
+correction embarque son test de régression (rouge avant / vert après, vérifié
+en rétablissant l'ancien code).
 
-### CRITIQUE — point 1 : critère de palier inatteignable
-Deux causes, deux correctifs, trois tests.
+## Bloquants
 
-1. **Comptage.** `V4Lecon` dédoublonnait les occurrences propres par bloc
-   (`!e.propres.includes(...)`), ce qui transformait « 3 occurrences réparties
-   sur ≥ 2 blocs » en « 3 blocs distincts ». Chaque occurrence propre est
-   désormais notée. `BilanBloc.propres` est une liste d'occurrences, pas un
-   ensemble ; `state.tsx` dédoublonne seulement pour l'illumination de V5.
-2. **Couverture du générateur.** `composerBloc` fait maintenant une passe de
-   COUVERTURE gloutonne avant le remplissage : chaque touche à valider du
-   palier apparaît `COUVERTURE_MIN = 2` fois par bloc, en gardant la préférence
-   P5 (mot > phrase > nombre > syllabe). La retaille finale du bloc ne supprime
-   jamais un item qui porte seul la couverture d'une touche.
-   `couvertureCible()` ramène l'objectif à ce que le corpus permet réellement :
-   `ù` ne vit que dans « où » en français, exiger deux occurrences par bloc
-   aurait obligé à inventer des pseudo-mots (interdit du cahier).
-   Corpus complété là où l'offre manquait : `neuf` (f), `sandwich` (w).
-3. **Tests.** `generator.test.ts` : couverture sur 2 dispositions × 7 paliers ×
-   8 graines ; et « 3 blocs ⇒ 3 occurrences de chaque touche » sur les mêmes
-   combinaisons. `tests/e2e/palier.spec.ts` : **3 blocs parfaits ouvrent le
-   palier 2 avec `blocsSurPalier < 6`** — le passage se fait au mérite, pas par
-   le plafond. Vérifié : il bascule au 2ᵉ bloc.
+| # | Statut | Correction | Test |
+|---|--------|-----------|------|
+| 1 | CORRIGÉ | `blocDeDepart(maitrise)` reconstruit un n° de bloc monotone au chargement (`state.tsx`) ; `blocsSurPalier` remis à 0 au changement de disposition | `src/state.test.ts` — « une occurrence par session finit par maîtriser la touche », « remet blocsSurPalier à zéro », « changer de clavier ne peut plus ouvrir le palier » |
+| 2 | CORRIGÉ | Reducer de leçon extrait dans `src/core/lecon.ts` ; `surBarreau()` compte la saturation À L'INSTANT où le barreau 3 est atteint (erreur comprise), plus à la sortie de l'item | `src/core/lecon.test.ts` — « compte le 3ᵉ item saturé dès que la saturation survient », « le dernier item du bloc est compté », « un item propre rompt la série », « jamais deux fois » |
 
-### MAJEUR — point 2 : « Je tape sans regarder » ne se réarmait pas
-`masque: false` dans `itemSuivant()` du reducer de leçon. E2E : la chaîne
-d'ancêtres de `KeyF` retombe à hauteur 0 au clic, et remonte seule après
-l'item ; le bouton se réarme sur « Je tape sans regarder ».
+## Majeurs
 
-### MAJEUR — point 3 : bandeau des touches
-Le bandeau annonce l'**ensemble cumulé** (`libellesEnsemble()`), pas les
-nouveautés du palier. Lettres d'abord, puis chiffres, puis ponctuation — le
-point ne se lit plus comme une coquille en tête de ligne. Espace après le
-deux-points dans le flux de texte, pas seulement en CSS.
+| # | Statut | Correction | Test |
+|---|--------|-----------|------|
+| 3 | CORRIGÉ | Matrice physique complète des deux tables (kbdfr / kbdsf_2) : `²`, `)/°`, `=/+`, `$/£`, `*/µ`, `</>` en FR-FR ; `§/°`, `'/?`, `^` mort, `¨` mort, `$/£` en CH-FR ; Retour arrière dessiné et inerte partout. Nouveau drapeau `inerte` + prédicat `estProposable()` : DESSINABLE ≠ PROPOSABLE | `src/core/layouts.test.ts` — bloc « matrice physique exhaustive » (fixture MATRICE écrite à la main), Retour arrière, touches mortes, non-proposabilité ; `tests/e2e/debordement.spec.ts` — touches inertes éteintes et sans cadenas |
+| 4 | CORRIGÉ | `f.repeat` ignoré dans V4 : une touche maintenue ne valide plus deux lettres et ne fait plus grimper l'aide | `src/hooks/useKeyInput.test.ts` — « transmet le drapeau d'auto-répétition tel quel » ; garde côté vue dans `V4Lecon.tsx` |
+| 5 | CORRIGÉ | `useKeyInput` suit l'état de `ShiftLeft`/`ShiftRight` (Set + resync sur `shiftKey`/`blur`) et expose `majGauche`/`majDroite` ; le reducer traite la Maj homolatérale en quasi-réussite | `useKeyInput.test.ts` (3 cas), `lecon.test.ts` (2 cas), e2e `palier7.spec.ts` « la Maj HOMOLATÉRALE ne valide pas ». Helper e2e étendu : `frapperCouple` émet de vrais keydown/keyup `ShiftLeft`/`ShiftRight`, plus un booléen |
+| 6 | CORRIGÉ | `itemAide` déduit de `barreau >= 2` dans `surBarreau()`, plus d'un drapeau posé sur la seule erreur : l'inactivité réinjecte | `lecon.test.ts` — « réinjecte un item aidé par pure inactivité » |
+| 7 | CORRIGÉ | `estIntact()` valide TOUS les champs avec les bornes de `valider()` ; écritures backup et principale dans deux `try` isolés | `storage.test.ts` — blocs « corruption structurellement valide » (5 cas) et « quota et échec partiel d'écriture » (2 cas) |
+| 8 | CORRIGÉ | Frappes ignorées quand le focus est sur un contrôle ; horloge du caractère rebasée sur `visibilitychange`/`focus` (action `reprise`) ; les boutons de la leçon rendent le focus après un clic souris | `useKeyInput.test.ts` — « ignore une frappe partie d'un contrôle focalisé » ; `lecon.test.ts` — « rebase l'horloge du caractère au retour » ; e2e « un clic souris rend le clavier à la leçon » |
 
-### MAJEUR — point 4 : capitales accentuées « É È À Ç »
-Cause racine trouvée : ce n'était pas le JS mais `text-transform: uppercase`
-sur `.bandeauTouches strong`. Règle supprimée ; la mise en capitale est faite
-en amont et seulement sur `/^[a-z]$/`. Palier 5 affiche maintenant
-« A à B C ç D E é è … ».
+## Mineur
 
-### MAJEUR — point 5 : palier 7 sans majuscules ni point
-- `toucheMaj()` sait que Maj + lettre = capitale (au lieu de 26 entrées de
-  table par disposition) ; `exigeMaj`, `mainDe`, `verdictMaj` et le piège Maj
-  contralatéral fonctionnent donc sur les capitales sans autre changement.
-- `ensembleTouches()` ouvre les capitales ASCII au palier 7 ; les accentuées
-  restent hors ensemble.
-- Le générateur produit des items « Chocolat. » (capitale initiale + point),
-  avec un plancher de 2 par bloc, comme pour les nombres. `.` ajouté au palier 7
-  CH-FR (il y est direct, mais il n'était ouvert nulle part).
-- Tests : invariant de corpus (capitale + point dans chaque bloc, aucune
-  capitale accentuée) et e2e « la capitale sans Maj est une quasi-réussite,
-  avec Maj elle s'écrit ».
+| # | Statut | Correction | Test |
+|---|--------|-----------|------|
+| 9 | CORRIGÉ | Repli supprimé : `touchesNouvelles` vaut exactement les touches franchies (ensemble vide sinon) | `state.test.ts` — 3 cas dans « touchesNouvelles » |
 
-### PARTIELS
-- **Bulle du barreau 3** : posée au-dessus du clavier ENTIER (`top: -46`), elle
-  ne peut plus recouvrir une touche de la leçon. Sa pointe reste alignée sur la
-  colonne de la touche visée.
-- **Main du barreau 3** : alignée sur le BOUT DE L'INDEX (et non le centre de la
-  paume) puis **pivotée** sur le poignet (±38° max) pour viser la touche quand
-  le garde-fou de la barre d'espace l'écarte de la colonne.
-- **Orange unique** : `.illuminee` (V5/V6) passe du brun plein `#7e3a0d` au même
-  remplissage que la cible en jeu (`--teinte-cible`), encre `--encre` — 7,2:1
-  conservé. Le brun ne sert plus que de liseré/accent, comme le teal.
-- **Légendes secondaires** : nouveau jeton `--legende-min-secondaire: 16px`,
-  appliqué à `.legendeHaut` et au libellé « MAJ ». Le plancher principal tient
-  18 px jusqu'à 900 px de large (1024 et 1280 compris) ; sous 900 px la légende
-  secondaire disparaît plutôt que de rétrécir. Mesuré au palier 7 :
-  16 px / 16 px à 1024, 1280 et 1440 ; aucun débordement aux 5 tailles.
+## Lacunes de couverture
 
-## Sprint 2/3
-Voix du barreau 3 : déjà livrée et vérifiée — détection d'une voix `fr*`,
-`try/catch`, et dégradation purement visuelle si aucune voix n'est disponible.
+- Reducer applicatif → `src/state.test.ts` (11 tests) : rechargement entre blocs, changement de disposition, plafond anti-mur, sémantique de `touchesNouvelles`.
+- V4 isolé → `src/core/lecon.test.ts` (12 tests) : saturation, rafales, 3ᵉ item saturé, réinjection temporelle, Maj contralatérale, retour d'onglet.
+- Côté réel de Maj → helper e2e `ShiftLeft`/`ShiftRight` + test `palier7.spec.ts`.
+- Storage → quota, échec partiel d'écriture, corruption structurellement valide.
+- Layouts → matrice physique exhaustive, Retour arrière, touches mortes.
 
-## Problèmes connus
-- 375 px au palier 7 reste dégradé (étiquette « LA FRONTIÈRE » dans le flux,
-  légendes à 10-12 px). Aucun débordement, mais l'écran n'est pas confortable.
-  Non traité : hors des deux tailles exigées par le rubric.
-- Pastilles de doigts : le bout de l'index tendu est encore rogné par le cercle
-  (recadrage calculé sur la largeur de main).
-- Au barreau 3, la main reste bornée par la barre d'espace : quand la touche
-  visée est proche de la frontière (J), elle désigne par l'inclinaison plutôt
-  que par la position.
+## Non-régression visuelle
 
-## Gates
-- `npm run test` : 158 tests, 10 fichiers — verts.
-- `npx tsc --noEmit` : propre.
-- `npx playwright test --project=chromium` : 22 tests — verts.
+`tests/e2e/debordement.spec.ts` : 10 combinaisons (375 / 768 / 1024 / 1280 / 1440 px × paliers 1 et 7), 6 vues chacune. Zéro débordement horizontal, aucune touche hors cadre.
+
+Élargir les rangées d'un tiers a demandé de re-dimensionner les claviers :
+- V4 `clamp(16px, 4.6vw, 56px)` (palier < 7) / `clamp(14px, 4.1vw, 48px)` (palier 7)
+- V1 `clamp(13px, 2.7vw, 38px)`, V3 `clamp(16px, 4.4vw, 54px)`, V5 `clamp(13px, 3.4vw, 42px)`, V6 `clamp(13px, 2.7vw, 38px)`
+- V3 : colonnes de mains contraintes (`.coteMain`) et rangée autorisée à passer à la ligne
+- MiniClavier : taille de touche en variable CSS, réduite sous 430 px
+- V2 : `min-width: min(300px, 100%)` sur les cartes
+
+Trois de ces débordements (V1, V3, V5 à 375 px) PRÉEXISTAIENT à cette itération et sont corrigés au passage.
+
+## Cadenas
+
+Le cadenas ne se pose plus que sur une touche dont un caractère appartient
+réellement au curriculum ET dont rien n'est encore ouvert : `)`, `=`, `²`,
+`'` n'arrivent jamais, ils restent simplement éteints.
+
+## Known Issues
+
+- La règle contralatérale est permissive dans un seul cas : Maj déjà enfoncée au moment où la fenêtre prend le focus (aucun `keydown` observé). On accepte alors la frappe plutôt que de la refuser à tort. Documenté dans `useKeyInput.ts`.
 
 ## Dev Server
-- URL: http://localhost:3000
-- Status: running (curl 200)
-- Command: npm run dev
+
+- URL : http://localhost:3000 — 200
+- Commande : `npm run dev`
+
+## Gates
+
+- `npm run test` : 202 tests, 12 fichiers, vert
+- `npx tsc --noEmit` : vert
+- `npx playwright test --project=chromium` : 38 tests, vert

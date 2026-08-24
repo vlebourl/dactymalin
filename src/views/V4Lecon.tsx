@@ -1,14 +1,6 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import {
-  barreau as calculerBarreau,
-  estPropre,
-  etatInitial,
-  prochaineLatence,
-  surErreur,
-  type Barreau,
-  type EtatAide,
-} from '../core/aide';
-import { composerBloc, pouceDeLEspace, type Item } from '../core/generator';
+import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
+import { creerEtat, reducer } from '../core/lecon';
+import { composerBloc, pouceDeLEspace } from '../core/generator';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -19,7 +11,7 @@ import {
   type Main,
 } from '../core/layouts';
 import { doitProposerV2, frappeCoherente } from '../core/detect';
-import { mainDeLaMaj, verdictMaj } from '../core/maj';
+import { mainDeLaMaj } from '../core/maj';
 import { ensembleTouches, libellesEnsemble, PALIER_MAX_DEBUTANT } from '../core/paliers';
 import { CONSIGNES, FingerBar, type Doigt } from '../ui/FingerBar';
 import { Keyboard } from '../ui/Keyboard';
@@ -30,194 +22,14 @@ import { useApp, useEnvoi, type BilanBloc } from '../state';
 import { MainSchematique } from '../ui/MainSchematique';
 import v from './vues.module.css';
 
-const DUREE_FAUSSE = 180; // 150-200 ms
-const DUREE_CELEBRATION = 700; // 0,5 à 1 s
-
-type EtatLecon = {
-  items: Item[];
-  i: number;
-  curseur: number;
-  aide: EtatAide;
-  barreau: Barreau;
-  latence: number;
-  fausse: string | null;
-  /** piège Maj : bonne touche, modificateur manquant — jamais une erreur */
-  majManquante: boolean;
-  depuisFausse: number;
-  debutCaractere: number;
-  celebration: number | null;
-  etoiles: number;
-  propres: string[];
-  aRevoir: string[];
-  /** items validés dans ce bloc, dans l'ordre — alimente le gain lexical de V5 */
-  valides: string[];
-  itemAide: boolean;
-  masque: boolean;
-  fini: boolean;
-  /** frappes d'affilée cohérentes avec l'AUTRE disposition (surveillance F7) */
-  incoherentes: number;
-  /** items enchaînés qui ont saturé l'aide au barreau 3 */
-  itemsSatures: number;
-  /** l'item en cours a-t-il atteint le barreau 3 ? */
-  satureCourant: boolean;
-};
-
-type ActionLecon =
-  | {
-      type: 'frappe';
-      caractere: string;
-      code: string;
-      attendu: string;
-      maintenant: number;
-      debutant: boolean;
-      id: IdDisposition;
-      /** true = cohérente, false = cohérente avec l'autre table, null = muette */
-      coherente: boolean | null;
-    }
-  | { type: 'tic'; maintenant: number }
-  | { type: 'masquer' }
-  | { type: 'montrer' };
-
-function creerEtat(items: Item[], maintenant: number, latence: number): EtatLecon {
-  return {
-    items,
-    i: 0,
-    curseur: 0,
-    aide: etatInitial(items[0]?.texte[0] ?? '', latence),
-    barreau: latence === 0 ? 1 : 0,
-    latence,
-    fausse: null,
-    majManquante: false,
-    depuisFausse: 0,
-    debutCaractere: maintenant,
-    celebration: null,
-    etoiles: 0,
-    propres: [],
-    aRevoir: [],
-    valides: [],
-    itemAide: false,
-    masque: false,
-    fini: false,
-    incoherentes: 0,
-    itemsSatures: 0,
-    satureCourant: false,
-  };
-}
-
-function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
-  switch (a.type) {
-    case 'masquer':
-      return { ...e, masque: true };
-
-    case 'montrer':
-      return { ...e, masque: false };
-
-    case 'tic': {
-      let suivant = e;
-      if (suivant.fausse && a.maintenant - suivant.depuisFausse >= DUREE_FAUSSE) {
-        suivant = { ...suivant, fausse: null };
-      }
-      if (suivant.celebration !== null && a.maintenant - suivant.celebration >= DUREE_CELEBRATION) {
-        suivant = itemSuivant(suivant, a.maintenant);
-      }
-      const b = calculerBarreau(suivant.aide, a.maintenant - suivant.debutCaractere);
-      if (b !== suivant.barreau) {
-        suivant = {
-          ...suivant,
-          barreau: b,
-          aide: { ...suivant.aide, atteint: b },
-          satureCourant: suivant.satureCourant || b >= 3,
-        };
-      }
-      return suivant === e ? e : suivant;
-    }
-
-    case 'frappe': {
-      if (e.celebration !== null || e.fini) return e;
-      const texte = e.items[e.i].texte;
-
-      /* Surveillance de disposition (F7) : une frappe cohérente avec l'AUTRE
-         table et avec aucune de la table courante incrémente le compteur ;
-         toute frappe cohérente le remet à zéro. */
-      const incoherentes =
-        a.coherente === null ? e.incoherentes : a.coherente ? 0 : e.incoherentes + 1;
-      e = incoherentes === e.incoherentes ? e : { ...e, incoherentes };
-
-      /* ---- piège Maj : la bonne touche, sans le modificateur. État de
-         QUASI-RÉUSSITE : ni erreur, ni escalade d'aide ; la cible reste
-         allumée et la touche Maj s'invite à côté d'elle. */
-      if (a.caractere !== a.attendu && verdictMaj(a.id, a.attendu, a.caractere) === 'quasi') {
-        return { ...e, majManquante: true, fausse: null };
-      }
-
-      // ---- frappe fausse : RIEN ne s'écrit, le curseur ne bouge pas (P3)
-      if (a.caractere !== a.attendu) {
-        const aide = surErreur(e.aide, a.maintenant - e.debutCaractere);
-        const barreau = calculerBarreau(aide, a.maintenant - e.debutCaractere);
-        return {
-          ...e,
-          aide,
-          barreau,
-          itemAide: true,
-          fausse: a.code,
-          depuisFausse: a.maintenant,
-        };
-      }
-
-      // ---- frappe correcte
-      /* CHAQUE occurrence propre compte, pas une par bloc : le cahier demande
-         « 3 occurrences réparties sur au moins 2 blocs ». Dédoublonner ici
-         transformait le critère en « 3 blocs distincts » et rendait le palier
-         inatteignable autrement que par le plafond anti-mur. */
-      const propre = estPropre(e.aide);
-      const propres =
-        propre && a.attendu !== ' ' ? [...e.propres, a.attendu.toLowerCase()] : e.propres;
-      const curseur = e.curseur + 1;
-      const base = { ...e, propres, fausse: null, majManquante: false };
-
-      if (curseur >= texte.length) {
-        return {
-          ...base,
-          curseur,
-          etoiles: e.etoiles + 1,
-          celebration: a.maintenant,
-          valides: [...e.valides, texte],
-          aRevoir: e.itemAide && !e.aRevoir.includes(texte) ? [...e.aRevoir, texte] : e.aRevoir,
-        };
-      }
-      const latence = prochaineLatence(e.latence, propre, a.debutant);
-      const aide = etatInitial(texte[curseur], latence);
-      return {
-        ...base,
-        curseur,
-        latence,
-        aide,
-        barreau: latence === 0 ? 1 : 0,
-        debutCaractere: a.maintenant,
-      };
-    }
-  }
-}
-
-function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
-  const i = e.i + 1;
-  if (i >= e.items.length) return { ...e, celebration: null, fini: true };
-  return {
-    ...e,
-    i,
-    curseur: 0,
-    celebration: null,
-    itemAide: false,
-    /* « Je tape sans regarder » vaut POUR LE MOT EN COURS : le clavier revient
-       de lui-même au mot suivant (cahier P6). Sans ça, un seul clic faisait
-       jouer tout le bloc à l'aveugle. */
-    masque: false,
-    itemsSatures: e.satureCourant ? e.itemsSatures + 1 : 0,
-    satureCourant: false,
-    aide: etatInitial(e.items[i].texte[0], e.latence),
-    barreau: e.latence === 0 ? 1 : 0,
-    debutCaractere: maintenant,
-  };
+/**
+ * Un clic SOURIS sur un bouton de la leçon lui laisse le focus : les frappes
+ * suivantes lui appartiennent alors et ne comptent plus comme saisie
+ * pédagogique. On lui rend la main — mais seulement pour une activation au
+ * pointeur (`detail > 0`), pour ne pas casser la navigation au clavier.
+ */
+function rendreLeClavier(ev: MouseEvent<HTMLButtonElement>): void {
+  if (ev.detail > 0) ev.currentTarget.blur();
 }
 
 export function V4Lecon() {
@@ -285,11 +97,32 @@ export function V4Lecon() {
     return () => cancelAnimationFrame(brut);
   }, []);
 
+  /* Onglet quitté puis repris : le temps passé ailleurs n'est pas de
+     l'hésitation. On rebase l'horloge du caractère au retour, sans quoi
+     l'enfant retrouvait l'aide d'inactivité déjà déclenchée. */
+  useEffect(() => {
+    const reprendre = () => {
+      if (document.visibilityState === 'visible') {
+        refEnvoyer.current({ type: 'reprise', maintenant: performance.now() });
+      }
+    };
+    document.addEventListener('visibilitychange', reprendre);
+    window.addEventListener('focus', reprendre);
+    return () => {
+      document.removeEventListener('visibilitychange', reprendre);
+      window.removeEventListener('focus', reprendre);
+    };
+  }, []);
+
   /* ------------------------------------------------------------- frappes */
   useKeyInput(
     !e.fini,
     (f) => {
       if (f.avecAutreModificateur) return;
+      /* UNE frappe = UN geste. L'auto-répétition du système validait les deux
+         `l` de « belle » sans relâcher, et faisait grimper l'aide aux barreaux
+         2-3 en quelques dizaines de millisecondes sur une touche fausse tenue. */
+      if (f.repeat) return;
       // P2 : aucun modificateur n'est accepté dans le sas débutant
       if (debutant && f.avecMaj) return;
       if (f.key.length !== 1 && f.code !== 'Space') return;
@@ -303,6 +136,10 @@ export function V4Lecon() {
         debutant,
         id,
         coherente: frappeCoherente(id, f.code, f.key),
+        /* Règle contralatérale (P8) : la Maj RÉELLEMENT tenue doit être celle
+           de la main opposée. Une Maj homolatérale est une quasi-réussite. */
+        majMauvaisCote:
+          !!cibleMaj && !(cibleMaj === MAJ_GAUCHE ? f.majGauche : f.majDroite),
       });
       if (caractere === attendu) {
         if (e.curseur + 1 >= (item?.texte.length ?? 0)) sonItem(app.reglages.sons);
@@ -489,18 +326,18 @@ export function V4Lecon() {
               }}
               /* La rangée Maj ajoute 3,4 unités de largeur : au palier qui la
                  dessine, la touche rétrécit pour que rien ne déborde. */
-              taille={app.palier >= 7 ? 'clamp(17px, 5vw, 50px)' : 'clamp(21px, 6.1vw, 58px)'}
+              taille={app.palier >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
             {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />
             )}
           </div>
           {clavierMasque ? (
-            <button className={v.petitBouton} onClick={() => envoyer({ type: 'montrer' })}>
+            <button className={v.petitBouton} onClick={(ev) => { rendreLeClavier(ev); envoyer({ type: 'montrer' }); }}>
               Remontre-moi le clavier
             </button>
           ) : (
-            <button className={v.petitBouton} onClick={() => envoyer({ type: 'masquer' })}>
+            <button className={v.petitBouton} onClick={(ev) => { rendreLeClavier(ev); envoyer({ type: 'masquer' }); }}>
               Je tape sans regarder
             </button>
           )}

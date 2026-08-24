@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { ensembleTouches, PALIER_MAX } from './paliers';
 import {
   disposition,
+  estProposable,
   exigeMaj,
   legendes,
   MAJ_DROITE,
@@ -158,10 +160,12 @@ describe('tables de disposition', () => {
       ['1', '&'], ['2', 'é'], ['3', '"'], ['4', "'"], ['5', '('],
       ['6', '-'], ['7', 'è'], ['8', '_'], ['9', 'ç'], ['0', 'à'],
     ];
-    const rendu = disposition('fr-FR').rangees[0].map((t) => {
-      const { haut, bas } = legendes(t);
-      return [haut, bas];
-    });
+    const rendu = disposition('fr-FR')
+      .rangees[0].filter((t) => t.code.startsWith('Digit'))
+      .map((t) => {
+        const { haut, bas } = legendes(t);
+        return [haut, bas];
+      });
     expect(rendu).toEqual(attendu);
   });
 
@@ -169,7 +173,9 @@ describe('tables de disposition', () => {
      affichait « ç » en dominante, parce que la hiérarchie était déduite du
      type de caractère au lieu d'être portée par la table. */
   it('CH-FR : la légende dominante de la rangée des chiffres est le CHIFFRE', () => {
-    const rendu = disposition('fr-CH').rangees[0].map((t) => legendes(t));
+    const rendu = disposition('fr-CH')
+      .rangees[0].filter((t) => t.code.startsWith('Digit'))
+      .map((t) => legendes(t));
     expect(rendu.map((l) => l.bas)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']);
     expect(rendu.map((l) => l.haut)).toEqual(['+', '"', '*', 'ç', '%', '&', '/', '(', ')', '=']);
   });
@@ -186,5 +192,93 @@ describe('tables de disposition', () => {
   it('les lettres sont légendées en CAPITALE sur le clavier virtuel', () => {
     expect(legendes(toucheDirecte('fr-FR', 'a')!)).toEqual({ bas: 'A' });
     expect(legendes(toucheDirecte('fr-CH', 'z')!)).toEqual({ bas: 'Z' });
+  });
+});
+
+/**
+ * Gate Codex n°3 : les tables s'arrêtaient au 10ᵉ chiffre. Manquaient `²`,
+ * `)/°`, `=/+` en FR-FR, `'/?` et le `^` mort en CH-FR, et le Retour arrière
+ * dans les deux — alors que la spec (F3) le veut dessiné et inactif.
+ * MATRICE PHYSIQUE de référence, écrite à la main d'après kbdfr / kbdsf_2.
+ */
+const MATRICE: Record<'fr-FR' | 'fr-CH', string[][]> = {
+  'fr-FR': [
+    ['Backquote', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7',
+      'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal', 'Backspace'],
+    ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP',
+      'BracketLeft', 'BracketRight'],
+    ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon',
+      'Quote', 'Backslash'],
+    ['ShiftLeft', 'IntlBackslash', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM',
+      'Comma', 'Period', 'Slash', 'ShiftRight'],
+  ],
+  'fr-CH': [
+    ['Backquote', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7',
+      'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal', 'Backspace'],
+    ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP',
+      'BracketLeft', 'BracketRight'],
+    ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon',
+      'Quote', 'Backslash'],
+    ['ShiftLeft', 'IntlBackslash', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM',
+      'Comma', 'Period', 'Slash', 'ShiftRight'],
+  ],
+};
+
+describe('matrice physique exhaustive', () => {
+  it.each(['fr-FR', 'fr-CH'] as const)('%s déclare TOUTES ses touches physiques', (id) => {
+    const rendu = disposition(id).rangees.map((r) => r.map((t) => t.code));
+    expect(rendu).toEqual(MATRICE[id]);
+  });
+
+  it.each(['fr-FR', 'fr-CH'] as const)(
+    '%s dessine le Retour arrière, sans jamais le proposer',
+    (id) => {
+      const retour = touches(id).find((t) => t.code === 'Backspace');
+      expect(retour, 'Retour arrière absent de la table').toBeDefined();
+      expect(retour!.nom, 'le Retour arrière doit être dessiné avec un libellé').toBeTruthy();
+      expect(retour!.base).toBeUndefined();
+      expect(estProposable(retour!)).toBe(false);
+    },
+  );
+
+  it('les touches mortes sont déclarées là où elles existent physiquement', () => {
+    const morte = (id: 'fr-FR' | 'fr-CH', code: string) =>
+      touches(id).find((t) => t.code === code)?.morte;
+    expect(morte('fr-FR', 'BracketLeft')).toBe(true); // ^ accent circonflexe
+    expect(morte('fr-CH', 'Equal')).toBe(true); // ^ CH-FR
+    expect(morte('fr-CH', 'BracketRight')).toBe(true); // ¨ tréma
+  });
+
+  it('CH-FR déclare bien la touche apostrophe et le ^ mort', () => {
+    expect(toucheDirecte('fr-CH', "'")?.code).toBe('Minus');
+    expect(toucheMaj('fr-CH', '?')?.code).toBe('Minus');
+    expect(toucheDirecte('fr-CH', '^')).toBeUndefined(); // morte
+  });
+
+  it('FR-FR déclare bien ², ) / ° et = / +', () => {
+    const t = (code: string) => touches('fr-FR').find((x) => x.code === code)!;
+    expect(t('Backquote').base).toBe('²');
+    expect(legendes(t('Minus'))).toEqual({ bas: ')', haut: '°' });
+    expect(legendes(t('Equal'))).toEqual({ bas: '=', haut: '+' });
+  });
+
+  /* DESSINABLE ≠ PROPOSABLE : une touche morte ou inerte est rendue, jamais visée. */
+  it('aucune touche morte, inerte ou modificatrice ne peut devenir une cible', () => {
+    for (const d of TOUTES_DISPOSITIONS) {
+      for (const t of d.rangees.flat()) {
+        if (estProposable(t)) continue;
+        if (t.base) expect(toucheDirecte(d.id, t.base), `${t.code} proposée`).toBeUndefined();
+        if (t.maj) expect(toucheMaj(d.id, t.maj), `${t.code} proposée sous Maj`).toBeUndefined();
+      }
+    }
+  });
+
+  it('toute touche du curriculum reste atteignable après complétion des tables', () => {
+    for (const id of ['fr-FR', 'fr-CH'] as const) {
+      for (const c of ensembleTouches(id, PALIER_MAX)) {
+        if (c === ' ') continue;
+        expect(toucheDe(id, c), `${c} introuvable en ${id}`).toBeDefined();
+      }
+    }
   });
 });

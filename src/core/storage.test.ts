@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { charger, CLE, CLE_SECOURS, DEFAUTS, sauver, valider } from './storage';
+import { charger, CLE, CLE_SECOURS, DEFAUTS, estIntact, sauver, valider } from './storage';
 
 /** Faux localStorage : `core/` doit rester testable en env node. */
 class FauxStockage {
@@ -73,5 +73,67 @@ describe('persistance et clé de secours', () => {
 
   it('sans rien en mémoire, on démarre sur les défauts', () => {
     expect(charger()).toEqual(DEFAUTS);
+  });
+});
+
+/* Gate Codex n°7 : `estIntact()` ne contrôlait que trois champs. Un objet
+   STRUCTURELLEMENT valide mais faux sur le reste (`palier: 42`, réglages
+   absents…) était jugé sain, puis `valider()` l'écrasait vers les défauts sans
+   jamais consulter le backup — pourtant intact. */
+describe('corruption structurellement valide', () => {
+  const sain = { ...DEFAUTS, palier: 5, maitrise: { e: [1, 2, 3] } };
+
+  it('estIntact refuse un palier hors domaine', () => {
+    expect(estIntact({ ...sain, palier: 42 })).toBe(false);
+    expect(estIntact({ ...sain, palier: 3.5 })).toBe(false);
+    expect(estIntact(sain)).toBe(true);
+  });
+
+  it('estIntact refuse des réglages absents ou incomplets', () => {
+    expect(estIntact({ ...sain, reglages: undefined })).toBe(false);
+    expect(estIntact({ ...sain, reglages: { sons: true } })).toBe(false);
+  });
+
+  it('estIntact refuse une maîtrise mal formée', () => {
+    expect(estIntact({ ...sain, maitrise: { e: 'non' } })).toBe(false);
+    expect(estIntact({ ...sain, maitrise: { toto: [1] } })).toBe(false);
+    expect(estIntact({ ...sain, maitrise: [] })).toBe(false);
+  });
+
+  it('estIntact refuse une version ou une disposition inconnue', () => {
+    expect(estIntact({ ...sain, version: 2 })).toBe(false);
+    expect(estIntact({ ...sain, disposition: 'de-DE' })).toBe(false);
+  });
+
+  it('un principal faussement sain ne détruit pas la progression du backup', () => {
+    sauver(sain);
+    sauver({ ...sain, palier: 6 }); // le sain d'origine part au backup
+    // corruption non détectable par un contrôle à trois champs
+    localStorage.setItem(CLE, JSON.stringify({ version: 1, disposition: 'fr-FR', palier: 42 }));
+    expect(charger().palier).toBe(5);
+    expect(charger().maitrise).toEqual({ e: [1, 2, 3] });
+  });
+});
+
+/* Gate Codex n°7 (2ᵉ volet) : les deux écritures partageaient un seul `try`.
+   Un quota dépassé sur le BACKUP empêchait l'écriture de la clé principale —
+   la progression du moment était perdue à cause d'une copie de secours. */
+describe('quota et échec partiel d’écriture', () => {
+  it('la clé principale est écrite même si le backup échoue', () => {
+    sauver({ ...DEFAUTS, palier: 2 });
+    const vrai = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (cle: string, val: string) => {
+      if (cle === CLE_SECOURS) throw new DOMException('quota', 'QuotaExceededError');
+      vrai(cle, val);
+    };
+    expect(() => sauver({ ...DEFAUTS, palier: 3 })).not.toThrow();
+    expect(charger().palier).toBe(3);
+  });
+
+  it('un quota total ne fait pas crasher la leçon', () => {
+    localStorage.setItem = () => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    };
+    expect(() => sauver({ ...DEFAUTS, palier: 4 })).not.toThrow();
   });
 });
