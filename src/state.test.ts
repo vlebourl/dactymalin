@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { blocDeDepart, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
-import { CLE, DEFAUTS, sauver } from './core/storage';
+import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
+import { blocDeDepart, CLE, DEFAUTS, sauver, valider } from './core/storage';
 import { estMaitrisee } from './core/progression';
 import { PLAFOND_BLOCS } from './core/progression';
 
@@ -53,20 +53,38 @@ describe('numéro de bloc et rechargement', () => {
     for (let session = 0; session < 3; session++) {
       etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
       // rechargement : on repart de ce qui est réellement persisté
-      sauver({
-        version: 1,
-        disposition: etat.disposition,
-        dispositionChoisieALaMain: etat.dispositionChoisieALaMain,
-        palier: etat.palier,
-        blocsSurPalier: etat.blocsSurPalier,
-        maitrise: etat.maitrise,
-        guideDoigtVu: etat.guideDoigtVu,
-        reglages: etat.reglages,
-      });
+      sauver(aSauvegarder(etat));
       etat = etatDeDepart();
     }
     expect(JSON.parse(localStorage.getItem(CLE)!).maitrise.e).toEqual([1, 2, 3]);
     expect(estMaitrisee(etat.maitrise, 'e')).toBe(true);
+  });
+
+  /* Gate Codex n°1 résiduel : un bloc SANS aucune frappe propre ne laissait
+     aucune trace dans la maîtrise ; le compteur reconstruit resservait donc son
+     numéro, et deux blocs distincts comptaient pour un seul. */
+  it('un bloc sans frappe propre consomme quand même son numéro', () => {
+    let etat = etatDeDepart();
+    // bloc 1 : rien de propre — puis rechargement
+    etat = reducer(etat, { type: 'blocTermine', bilan: bilan([]) });
+    expect(aSauvegarder(etat).bloc).toBe(2);
+    sauver(aSauvegarder(etat));
+    etat = etatDeDepart();
+    expect(etat.bloc).toBe(2);
+
+    // bloc 2 puis bloc 3 : « e » est vu sur deux blocs DISTINCTS
+    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+    sauver(aSauvegarder(etat));
+    etat = etatDeDepart();
+    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+    expect(etat.maitrise.e).toEqual([2, 3]);
+  });
+
+  it('accepte une sauvegarde ANTÉRIEURE sans champ bloc et le reconstruit', () => {
+    expect(valider({ ...DEFAUTS, bloc: undefined, maitrise: { e: [4] } }).bloc).toBe(5);
+    // valeur aberrante : on retombe sur le repli plutôt que de la croire
+    expect(valider({ ...DEFAUTS, bloc: -3, maitrise: { e: [4] } }).bloc).toBe(5);
+    expect(valider({ ...DEFAUTS, bloc: 12, maitrise: {} }).bloc).toBe(12);
   });
 });
 

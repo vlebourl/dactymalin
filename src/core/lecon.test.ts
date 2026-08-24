@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { creerEtat, reducer, type ActionLecon, type EtatLecon } from './lecon';
+import {
+  creerEtat,
+  reducer,
+  verdictFrappe,
+  type ActionLecon,
+  type EtatLecon,
+  type FrappeLecon,
+} from './lecon';
 import { DELAI_INACTIVITE } from './aide';
 import { doitProposerV2, ITEMS_SATURES_AVANT_BASCULE } from './detect';
 import type { Item } from './generator';
@@ -147,5 +154,20 @@ describe('Maj contralatérale', () => {
     let e = depart('7');
     e = reducer(e, frappe('7', 50, '7', { majMauvaisCote: false }));
     expect(e.curseur).toBe(1);
+  });
+
+  /* Gate Codex : la vue jouait le son de réussite sur `caractere === attendu`,
+     donc AUSSI sur la frappe que le reducer venait de refuser (mauvaise Maj).
+     Le verdict est désormais unique et partagé. */
+  it('donne le même verdict que le reducer, pour le son comme pour l’état', () => {
+    const e = depart('7');
+    const mauvaise = frappe('7', 50, '7', { majMauvaisCote: true }) as FrappeLecon;
+    const bonne = frappe('7', 50, '7', { majMauvaisCote: false }) as FrappeLecon;
+    expect(verdictFrappe(e, mauvaise)).toBe('quasi');
+    expect(verdictFrappe(e, bonne)).toBe('reussite');
+    expect(verdictFrappe(e, frappe('k', 50, '7') as FrappeLecon)).toBe('faute');
+    // pendant la célébration, la frappe ne compte pas — et ne sonne pas
+    expect(verdictFrappe({ ...e, celebration: 10 }, bonne)).toBe('inerte');
+    expect(reducer(e, mauvaise).curseur).toBe(0);
   });
 });

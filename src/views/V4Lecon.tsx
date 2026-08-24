@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
-import { creerEtat, reducer } from '../core/lecon';
+import { creerEtat, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
 import { composerBloc, pouceDeLEspace } from '../core/generator';
 import {
   exigeMaj,
@@ -87,30 +87,44 @@ export function V4Lecon() {
   /* --------------------------------------------------- un seul rAF (STACK) */
   const refEnvoyer = useRef(envoyer);
   refEnvoyer.current = envoyer;
+  /* Horloge SUSPENDUE tant que la fenêtre n'a pas le focus : une fenêtre peut
+     rester visible (donc animée par rAF) sans focus, et l'aide d'inactivité se
+     déclenchait pendant que l'enfant était ailleurs. Suspendre = rebaser à
+     chaque image, ce qui gèle le temps écoulé sur le caractère. */
+  const refEnPause = useRef(typeof document !== 'undefined' && !document.hasFocus());
   useEffect(() => {
     let brut = 0;
     const boucle = () => {
-      refEnvoyer.current({ type: 'tic', maintenant: performance.now() });
+      refEnvoyer.current({
+        type: refEnPause.current ? 'reprise' : 'tic',
+        maintenant: performance.now(),
+      });
       brut = requestAnimationFrame(boucle);
     };
     brut = requestAnimationFrame(boucle);
     return () => cancelAnimationFrame(brut);
   }, []);
 
-  /* Onglet quitté puis repris : le temps passé ailleurs n'est pas de
-     l'hésitation. On rebase l'horloge du caractère au retour, sans quoi
+  /* Onglet ou fenêtre quittés puis repris : le temps passé ailleurs n'est pas
+     de l'hésitation. On rebase l'horloge du caractère au retour, sans quoi
      l'enfant retrouvait l'aide d'inactivité déjà déclenchée. */
   useEffect(() => {
-    const reprendre = () => {
-      if (document.visibilityState === 'visible') {
-        refEnvoyer.current({ type: 'reprise', maintenant: performance.now() });
-      }
+    const suspendre = () => {
+      refEnPause.current = true;
     };
-    document.addEventListener('visibilitychange', reprendre);
+    const reprendre = () => {
+      if (document.visibilityState !== 'visible') return;
+      refEnPause.current = false;
+      refEnvoyer.current({ type: 'reprise', maintenant: performance.now() });
+    };
+    const surVisibilite = () => (document.visibilityState === 'visible' ? reprendre() : suspendre());
+    document.addEventListener('visibilitychange', surVisibilite);
     window.addEventListener('focus', reprendre);
+    window.addEventListener('blur', suspendre);
     return () => {
-      document.removeEventListener('visibilitychange', reprendre);
+      document.removeEventListener('visibilitychange', surVisibilite);
       window.removeEventListener('focus', reprendre);
+      window.removeEventListener('blur', suspendre);
     };
   }, []);
 
@@ -126,10 +140,9 @@ export function V4Lecon() {
       // P2 : aucun modificateur n'est accepté dans le sas débutant
       if (debutant && f.avecMaj) return;
       if (f.key.length !== 1 && f.code !== 'Space') return;
-      const caractere = f.code === 'Space' ? ' ' : f.key;
-      envoyer({
+      const action: FrappeLecon = {
         type: 'frappe',
-        caractere,
+        caractere: f.code === 'Space' ? ' ' : f.key,
         code: f.code,
         attendu,
         maintenant: performance.now(),
@@ -138,10 +151,12 @@ export function V4Lecon() {
         coherente: frappeCoherente(id, f.code, f.key),
         /* Règle contralatérale (P8) : la Maj RÉELLEMENT tenue doit être celle
            de la main opposée. Une Maj homolatérale est une quasi-réussite. */
-        majMauvaisCote:
-          !!cibleMaj && !(cibleMaj === MAJ_GAUCHE ? f.majGauche : f.majDroite),
-      });
-      if (caractere === attendu) {
+        majMauvaisCote: !!cibleMaj && !(cibleMaj === MAJ_GAUCHE ? f.majGauche : f.majDroite),
+      };
+      envoyer(action);
+      /* Le son suit le VERDICT du reducer, jamais la seule égalité de
+         caractères : une frappe refusée pour mauvaise Maj sonnait la réussite. */
+      if (verdictFrappe(e, action) === 'reussite') {
         if (e.curseur + 1 >= (item?.texte.length ?? 0)) sonItem(app.reglages.sons);
         else sonLettre(app.reglages.sons, Math.min(e.curseur, 7));
       }
