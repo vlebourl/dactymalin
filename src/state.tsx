@@ -7,6 +7,9 @@ import { encouragementSuivant } from './core/encouragements';
 
 export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7';
 
+/** Pourquoi l'app a changé de vue d'elle-même (V2 après incohérence, F7). */
+export type RaisonVue = 'incoherence';
+
 export type BilanBloc = {
   etoiles: number;
   /** caractères tapés sans erreur ni aide, comptés une fois par bloc */
@@ -19,6 +22,7 @@ export type BilanBloc = {
 
 export type EtatApp = Sauvegarde & {
   vue: Vue;
+  raisonVue?: RaisonVue;
   /** n° de bloc courant, monotone : sert à répartir les occurrences */
   bloc: number;
   /** blocs enchaînés sans repasser par l'accueil */
@@ -37,7 +41,7 @@ export type EtatApp = Sauvegarde & {
 };
 
 export type Action =
-  | { type: 'vue'; vue: Vue }
+  | { type: 'vue'; vue: Vue; raison?: RaisonVue }
   | { type: 'commencer' }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
@@ -51,6 +55,7 @@ function reducer(etat: EtatApp, action: Action): EtatApp {
       return {
         ...etat,
         vue: action.vue,
+        raisonVue: action.raison,
         blocsConsecutifs: action.vue === 'V1' ? 0 : etat.blocsConsecutifs,
       };
 

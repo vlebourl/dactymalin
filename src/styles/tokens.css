@@ -13,24 +13,30 @@
   --encre-doux: #5b686b;
   --encre-tapee: #9aa398; /* lettres DÉJÀ tapées : estompées, donc distinctes */
   --encre-eteinte: #a2a79f;
-  --encre-touche-eteinte: #6b7066; /* touche hors leçon : éteinte, jamais effacée (≈3,9:1) */
+  --encre-touche-eteinte: #4a4f45; /* touche hors leçon : 5,7:1 sur son fond */
   --liseré: #ded4c1;
   --liseré-fort: #c6b9a1;
 
+  /* Le seul porteur d'information qui doit survivre au niveau de gris :
+     l'écart de LUMINANCE entre une touche de la leçon (0,79) et une touche
+     éteinte (0,66) — 0,13, très au-delà des 0,05 exigés. Le second porteur est
+     l'épaisseur du liseré (2,5 px contre 1 px). Voir touches.spec.ts. */
+  --touche-eteinte-fond: #ded4c1;
+
   --teal-vif: #0b5a55; /* 7,3:1 sur --fond */
   --teal-moyen: #2d8079;
-  --teal-cible: #2fa294; /* touche cible : saturée et CLAIRE, jamais la tache la plus sombre */
+  --teal-cible: #63c7b7; /* touche cible : 7,3:1 avec --encre, jamais la tache la plus sombre */
   --teal-pale: #dbe9e6;
   --teal-pale-forte: #b9d5d0;
 
   --orange-vif: #7e3a0d; /* 7,7:1 sur --fond */
   --orange-moyen: #b2712f;
-  --orange-cible: #e08a2e;
+  --orange-cible: #eda852; /* 7,2:1 avec --encre */
   --orange-pale: #f4e3d1;
   --orange-pale-forte: #e8cbab;
 
-  /* Plancher de lisibilité des légendes de touche (claviers miniatures). */
-  --legende-min: 14px;
+  /* Plancher de lisibilité des légendes de touche (cahier : 18 px). */
+  --legende-min: 18px;
 
   --r-touche: 9px;
   --r-bloc: 18px;
@@ -89,6 +95,12 @@ button:focus-visible,
 }
 
 /* Écran étroit : le clavier rétrécit, le plancher de légende suit. */
+@media (max-width: 1100px) {
+  :root {
+    --legende-min: 14px;
+  }
+}
+
 @media (max-width: 700px) {
   :root {
     --legende-min: 10px;

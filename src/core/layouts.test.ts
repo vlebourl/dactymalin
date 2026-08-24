@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   disposition,
+  exigeMaj,
   legendes,
+  MAJ_DROITE,
+  MAJ_GAUCHE,
   mainDe,
+  toucheDe,
   toucheDirecte,
   toucheMaj,
   touches,
@@ -104,6 +108,42 @@ describe('tables de disposition', () => {
     }
     expect(mainDe('fr-FR', 'a')).toBe('gauche');
     expect(mainDe('fr-FR', 'j')).toBe('droite');
+  });
+
+  /* Régression itération 002 (point critique n°2) : `mainDe` ne consultait que
+     `toucheDirecte`. Résultat, au palier 7 les DIX chiffres FR-FR et le ç
+     CH-FR n'avaient ni touche cible ni main annoncée — un palier entier
+     livré sans le moindre repère. */
+  it('un caractère shifté a une touche porteuse et une main', () => {
+    for (const c of '0123456789.') {
+      expect(toucheDirecte('fr-FR', c), `${c} devrait exiger Maj`).toBeUndefined();
+      expect(toucheDe('fr-FR', c), `${c} sans touche porteuse`).toBeDefined();
+      expect(mainDe('fr-FR', c), `${c} sans main`).toMatch(/gauche|droite/);
+    }
+    expect(mainDe('fr-FR', '8')).toBe('droite');
+    expect(mainDe('fr-FR', '4')).toBe('gauche');
+    expect(mainDe('fr-CH', 'ç')).toBe('gauche');
+    expect(toucheDe('fr-FR', '8')?.code).toBe('Digit8');
+    expect(toucheDe('fr-CH', 'ç')?.code).toBe('Digit4');
+  });
+
+  it('exigeMaj distingue le direct du shifté, disposition par disposition', () => {
+    expect(exigeMaj('fr-FR', '4')).toBe(true);
+    expect(exigeMaj('fr-CH', '4')).toBe(false);
+    expect(exigeMaj('fr-FR', 'ç')).toBe(false);
+    expect(exigeMaj('fr-CH', 'ç')).toBe(true);
+    expect(exigeMaj('fr-FR', 'e')).toBe(false);
+  });
+
+  it('les deux Maj sont dessinables et opposées à la main du caractère', () => {
+    for (const id of ['fr-FR', 'fr-CH'] as const) {
+      const majs = touches(id).filter((t) => t.modificateur);
+      expect(majs.map((t) => t.code).sort()).toEqual([MAJ_GAUCHE, MAJ_DROITE].sort());
+      expect(majs.find((t) => t.code === MAJ_GAUCHE)?.main).toBe('gauche');
+      expect(majs.find((t) => t.code === MAJ_DROITE)?.main).toBe('droite');
+      // une Maj ne produit aucun caractère : jamais proposable comme cible
+      for (const t of majs) expect(t.base).toBeUndefined();
+    }
   });
 
   it('les repères tactiles sont sur F et J dans les deux dispositions', () => {

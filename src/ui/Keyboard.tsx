@@ -8,6 +8,13 @@ export type OptionsClavier = {
   ensemble: Set<string>;
   /** code de la touche cible — une seule à la fois (F5) */
   cible?: string;
+  /**
+   * SECONDE touche allumée, et le seul cas du MVP : la Maj contralatérale
+   * quand le caractère visé ne s'obtient qu'en la tenant (palier 7).
+   */
+  cibleMaj?: string;
+  /** dessiner les deux touches Maj (palier 7 seulement) */
+  avecMaj?: boolean;
   /** code de la touche pressée à tort, assombrie 150-200 ms */
   fausse?: string;
   /** codes illuminés (nouvelles touches d'un palier, sur V5/V6) */
@@ -26,10 +33,15 @@ export type OptionsClavier = {
 
 function etatDe(t: Touche, o: OptionsClavier): EtatTouche {
   if (o.fausse === t.code) return 'fausse';
-  if (o.cible === t.code) return 'cible';
+  if (o.cible === t.code || o.cibleMaj === t.code) return 'cible';
   if (o.illuminees?.has(t.code)) return 'illuminee';
   if (o.acquises?.has(t.code)) return 'acquise';
-  if (t.base && !t.morte && o.ensemble.has(t.base)) return 'ouverte';
+  if (t.modificateur) return 'ouverte';
+  // Une touche est de la leçon si ce qu'elle produit y est — directement OU
+  // sous Maj : au palier 7, la rangée des chiffres AZERTY porte « 1 » en `maj`,
+  // pas en `base`, et restait éteinte alors que la leçon la réclamait.
+  if (t.morte || !t.base) return 'eteinte';
+  if (o.ensemble.has(t.base) || (t.maj && o.ensemble.has(t.maj))) return 'ouverte';
   return 'eteinte';
 }
 
@@ -38,7 +50,7 @@ export function Keyboard(o: OptionsClavier) {
   const taille = typeof o.taille === 'number' ? `${o.taille}px` : (o.taille ?? '46px');
 
   const rangeeDe = (main: Main, i: number) => {
-    const touches = d.rangees[i].filter((t) => t.main === main);
+    const touches = d.rangees[i].filter((t) => t.main === main && (o.avecMaj || !t.modificateur));
     return (
       <div key={i} className={[s.rangee, s[`decalage${i}`] ?? ''].filter(Boolean).join(' ')}>
         {touches.map((t) => (

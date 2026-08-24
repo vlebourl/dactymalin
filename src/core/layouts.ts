@@ -16,6 +16,8 @@ export type Touche = {
   morte?: boolean;
   /** libellé des touches sans caractère (Maj, Entrée…) */
   nom?: string;
+  /** touche modificatrice : dessinée seulement quand la leçon l'exige (palier 7) */
+  modificateur?: boolean;
   /** largeur en unités de touche (1 par défaut) */
   large?: number;
   /** repère tactile physique (F et J) */
@@ -179,6 +181,16 @@ const FR_CH: Disposition = {
 FR_CH.rangees[1].push({ code: 'BracketRight', base: '¨', main: 'droite', morte: true });
 FR_FR.rangees[1].push({ code: 'BracketLeft', base: '^', main: 'droite', morte: true });
 
+/* Les deux Majuscules. Elles n'ont pas de caractère : elles ne sont dessinées
+   qu'au palier où la leçon les réclame, et servent de SECONDE touche allumée
+   (règle contralatérale P8). */
+export const MAJ_GAUCHE = 'ShiftLeft';
+export const MAJ_DROITE = 'ShiftRight';
+for (const d of [FR_FR, FR_CH]) {
+  d.rangees[3].unshift({ code: MAJ_GAUCHE, main: 'gauche', nom: 'Maj', large: 1.7, modificateur: true });
+  d.rangees[3].push({ code: MAJ_DROITE, main: 'droite', nom: 'Maj', large: 1.7, modificateur: true });
+}
+
 export const DISPOSITIONS: Record<IdDisposition, Disposition> = { 'fr-FR': FR_FR, 'fr-CH': FR_CH };
 
 export const TOUTES_DISPOSITIONS: Disposition[] = [FR_FR, FR_CH];
@@ -201,10 +213,24 @@ export function toucheMaj(id: IdDisposition, caractere: string): Touche | undefi
   return touches(id).find((t) => !t.morte && t.maj === caractere);
 }
 
-/** Main à laquelle appartient un caractère directement typable. */
+/**
+ * Touche PORTEUSE d'un caractère, qu'il s'écrive directement ou avec Maj.
+ * C'est elle qui est visée sur le clavier virtuel : au palier 7, `8` (FR-FR) et
+ * `ç` (CH-FR) n'ont pas de touche directe, mais leur touche porteuse existe.
+ */
+export function toucheDe(id: IdDisposition, caractere: string): Touche | undefined {
+  return toucheDirecte(id, caractere) ?? toucheMaj(id, caractere);
+}
+
+/** Le caractère exige-t-il de tenir Maj sur cette disposition ? */
+export function exigeMaj(id: IdDisposition, caractere: string): boolean {
+  return !toucheDirecte(id, caractere) && !!toucheMaj(id, caractere);
+}
+
+/** Main à laquelle appartient un caractère, direct ou shifté. */
 export function mainDe(id: IdDisposition, caractere: string): Main | undefined {
   if (caractere === ' ') return undefined; // l'espace dépend du contexte (P8)
-  return toucheDirecte(id, caractere)?.main;
+  return toucheDe(id, caractere)?.main;
 }
 
 /**

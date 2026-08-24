@@ -19,13 +19,20 @@ export function Key({
     touche.main === 'droite' ? s.droite : '',
     haut ? s.deuxLegendes : '',
     touche.repere ? s.repere : '',
+    touche.modificateur ? s.modificateur : '',
     s[etat] ?? '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <div className={classes} data-code={touche.code} data-etat={etat} aria-hidden="true">
+    <div
+      className={classes}
+      data-code={touche.code}
+      data-etat={etat}
+      aria-hidden="true"
+      style={touche.large ? { width: `calc(var(--taille) * ${touche.large})` } : undefined}
+    >
       {verrouillee && <Cadenas />}
       {haut && <span className={s.legendeHaut}>{haut}</span>}
       <span className={s.legendeBas}>{bas}</span>

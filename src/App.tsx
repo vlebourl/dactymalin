@@ -13,7 +13,7 @@ export function App() {
     case 'V1':
       return <V1Accueil />;
     case 'V2':
-      return <V2Clavier />;
+      return <V2Clavier raison={app.raisonVue} />;
     case 'V3':
       return <V3GuideDoigt />;
     case 'V4':

@@ -1,50 +1,107 @@
-# Generator State — Iteration 002
+# Generator State — Iteration 003
 
-## Ce qui a changé, point par point (feedback-001)
+## Ce qui a changé, point par point (feedback-002)
 
 ### Critiques
-1. **Légendes CH-FR (point 1)** — `Touche` porte désormais `legendePrincipale` / `legendeSecondaire` ; `legendes()` rend TOUJOURS le caractère sans modificateur en dominante, sans aucune branche sur le type de caractère. AZERTY : `&` gros / `1` petit. CH-FR : `4` gros / `ç` petit.
-   Régressions ajoutées (`layouts.test.ts`) : la rangée CH rend `1…0` en dominante et `+ " * ç %…` en secondaire ; invariant général « dominante == `base` » sur les deux tables. Les deux échouaient avant le correctif.
-2. **Tab (point 2)** — `Tab` n'est plus jamais `preventDefault`. `Space` n'est neutralisé que si `document.activeElement` n'est pas un contrôle focalisable. Anneau `:focus-visible` explicite sur `button` et `[role=switch]`.
-   Régressions : `src/hooks/useKeyInput.test.ts` (jsdom) — Tab non `defaultPrevented`, Espace neutralisé sur `BODY` mais pas sur un bouton focalisé, cleanup des écouteurs. E2e `boucle.spec.ts` : 4 × Tab depuis V4 ⇒ `activeElement` = BUTTON.
-3. **Contraste du mot (point 3)** — nouveaux jetons : `--encre-mot #33413f` (≈9,5:1) pour les lettres **à venir**, `--encre-tapee #9aa398` pour les lettres **déjà tapées**. Les deux états sont maintenant distincts (F1).
+
+**1. Touches de la leçon indiscernables en niveaux de gris.**
+Deux porteurs non chromatiques, mesurés par test :
+- fond `ouverte` (`--teal-pale` / `--orange-pale`, luminance ≈ 0,79) contre fond
+  `eteinte` (nouveau jeton `--touche-eteinte-fond: #ded4c1`, luminance 0,665) —
+  écart **0,126**, largement au-dessus des 0,05 exigés ;
+- liseré `ouverte` 2,5 px `--teinte-moyenne` contre `eteinte` 1 px.
+`--encre-touche-eteinte` passe à `#4a4f45` pour rester à 5,7:1 sur le fond plus
+sombre. Test : `tests/e2e/touches.spec.ts`.
+
+**2. Palier 7 : aucune touche cible, main annoncée fausse.**
+Racine : `mainDe()` ne consultait que `toucheDirecte()`. Ajout de `toucheDe()`
+(direct **ou** shifté) et de `exigeMaj()` dans `core/layouts.ts` ; `mainDe()` et
+la résolution de la cible dans `V4Lecon` passent toutes deux par `toucheDe()`.
+Corrigé aussi dans `Keyboard.etatDe()` : la rangée des chiffres AZERTY portait
+`1` en `maj` et restait éteinte au palier qui l'ouvre.
+Tests : `layouts.test.ts` (10 chiffres + `.` + `ç`), `tests/e2e/palier7.spec.ts`.
 
 ### Majeurs
-4. **Quota de nombres CH-FR (point 4)** — `composerBloc` impose un plancher de 2 items numériques aux positions 3 et 7 quand la disposition ouvre des chiffres. `generator.test.ts` : ≥ 2 nombres par bloc CH palier 1 sur 8 graines, 0 nombre en FR-FR, majorité de vrais mots préservée.
-5. **Fin de bloc vivante (point 5)** — `BilanBloc.items` remonte les items réellement validés ; V5 en tire 3 au hasard. Le clavier miniature n'allume que les touches **devenues** maîtrisées pendant ce bloc (`estMaitrisee` avant/après), avec repli sur les touches propres du bloc.
-6. **`motPrecedent` supprimé (point 6)** — l'item reste sur l'axe vertical, seul à l'écran.
-7. **Cible / erreur repensés (point 7)** — cible = `--teal-cible #2fa294` / `--orange-cible #e08a2e` (saturée et CLAIRE) + halo + `scale(1.16)` + graisse 700. Erreur = enfoncement : teinte de base conservée, `saturate(0.1) brightness(0.72)`, `translateY(3px) scale(0.94)`, ombre interne, bord bas écrasé. La cible n'est plus la tache la plus sombre de l'écran.
-8. **Légendes miniatures (point 8)** — plancher `--legende-min: 14px` ; V5 30→44 px, V6 34→clamp(24,3.6vw,46), V3 34→clamp(26,4.4vw,54). Sous 700 px, la seconde légende est **supprimée** plutôt que rendue illisible.
-9. **375 px (point 9)** — taille de touche `clamp(21px, 6.1vw, 58px)` : `scrollWidth == innerWidth` à 375, 768 et 1440 (mesuré). La bande de doigts passe en deux étages sous 700 px.
-10. **Bande de pastilles (point 10)** — `grid-template-columns: 1fr auto 1fr` (vrai centrage) ; pastilles inactives : diamètre 54-76 px, opacité 0.8, `saturate(0.5)` sans `opacity()` — le doigt reste reconnaissable.
+
+**3. Piège Maj = deux touches allumées.**
+`ShiftLeft` / `ShiftRight` sont déclarées dans les DEUX tables (`modificateur:
+true`, `large: 1.7`) et ne sont **dessinées qu'au palier 7** (`avecMaj`), pour ne
+pas élargir le clavier des paliers 1-6. Dès qu'un caractère exige Maj, la touche
+porteuse ET la Maj contralatérale portent `data-etat="cible"`. La consigne
+annonce la bonne main et sa teinte suit cette main.
+Tests : `maj.test.ts` (`mainDeLaMaj('fr-FR','8') === 'gauche'`), `palier7.spec.ts`
+(exactement 2 cibles, quasi-réussite qui ne bouge pas le curseur).
+
+**4. `doitProposerV2()` était du code mort.**
+Compteur d'incohérence câblé dans le reducer de `V4Lecon` : chaque frappe porte
+son verdict `frappeCoherente(id, code, key)` ; 5 d'affilée incohérentes, ou 3
+items enchaînés saturés au barreau 3, dispatchent `{vue:'V2', raison:'incoherence'}`.
+Toute frappe cohérente remet le compteur à zéro.
+Test : `tests/e2e/incoherence.spec.ts` (bascule + remise à zéro).
+
+**5. V6 : 6 paliers sur 10 hors cadre.**
+Liste en **deux colonnes de cinq** : les dix paliers, verrous et promesses
+compris, tiennent sans défilement de 1024×768 à 1440×900 (vérifié : 10 lignes
+visibles). Sous 820 px ou 640 px de haut, retour à une colonne défilante **avec
+dégradé de masquage** qui annonce le défilement.
+
+**6. Lettre courante non agrandie.**
+`1.14 em` + graisse 800 + soulignement : trois porteurs, dont deux non chromatiques.
+
+**7. Recadrage commun des 4 photos.**
+`doigts/recadrage.py` (PIL) repart des masters 1200-1600 px et produit un carré
+unique : côté proportionnel à la largeur de main mesurée sur la boîte alpha (les
+quatre carrés font 1353-1389 px de source, soit la même échelle apparente),
+centré sur le doigt actif. Plus d'avant-bras, plus de poing de dos. Les
+correctifs `--zoom` / `--decale` par pastille sont supprimés.
+
+**11 (partiel iter-001). Overlay du barreau 3.**
+La flèche pointillée est **supprimée** : c'est elle qui coupait le repère
+tactile du `J`. La bulle du nom de la lettre porte désormais une pointe qui
+désigne la touche. La main schématique est bornée par le rectangle réel de la
+barre d'espace : elle ne peut plus la recouvrir.
 
 ### Mineurs
-11. Barreau 3 ancré au **bord bas du bloc concerné**, à l'aplomb de la touche ; flèche partant du bout de l'index ; bulle du nom de lettre à 21 px, posée au-dessus de la touche.
-12. Touches hors leçon : `--encre-touche-eteinte #6b7066` (≈3,9:1).
-13. « VERR. MAJ » remplacé par l'illustration de la touche + « Ton clavier écrit en grandes lettres. »
-14. Glyphes bruts remplacés par des SVG : engrenage V1, cadenas / étoile / flèche / point V6.
-15. V7 : radios **illustrés** — `ui/MiniClavier.tsx` extrait de V2 et partagé, avec le nom complet de la disposition.
-16. `tu es` et `vite fait` retirés du corpus + test « les items multi-mots sont des groupes nominaux ».
-17. `aria-live` : mot courant + doigt (région visuellement masquée), bandeau Verr.Maj, rappel Maj.
-18. V3 agrandi (clavier + mains 150 px) ; frontière élargie et étiquette à 13 px minimum.
 
-## Sprint 2 poursuivi
-- **Piège Maj** : `core/maj.ts` (`verdictMaj`, `mainDeLaMaj` contralatérale) + tests. En jeu : la bonne touche sans modificateur n'est **pas** une erreur — la cible reste allumée, un rappel de la touche Maj apparaît avec la main opposée. Le barreau 3 est suspendu tant que c'est une quasi-réussite.
-- **Voix du barreau 3** : déjà en place (speechSynthesis, dégradation visuelle sans voix fr).
-- **E2e versionnés** : `playwright.config.ts` + `tests/e2e/` — `boucle`, `erreur`, `detection`, `capslock` + `helpers/keyboard.ts` (CDP `Input.dispatchKeyEvent` alimenté par `core/layouts.ts`, repli KeyboardEvent synthétique hors Chromium) et `helpers/app.ts`. **11/11 verts en Chromium.**
+- **8.** `--legende-min` passe à 18 px (14 px sous 1100 px, 10 px sous 700 px) ;
+  la barre d'espace et la rangée des chiffres suivent le même plancher.
+  Test : aucune légende sous 14 px à 1280 px.
+- **9.** `--teal-cible` → `#63c7b7` (7,3:1 avec `--encre`), `--orange-cible` →
+  `#eda852` (7,2:1). La cible reste plus claire que l'encre et plus sombre que
+  les touches éteintes. Test dans `touches.spec.ts`.
+- **10.** La puce de légende de V7 est une **touche en réduction** (fond pâle +
+  liseré `--teinte-moyenne`), le même vocabulaire que dans le jeu.
+- **11.** V2 ne coche plus rien avant verdict, et quand le verdict vient de la
+  carte du navigateur elle le DIT : « Je crois avoir reconnu ton clavier. Appuie
+  sur la touche A pour vérifier. »
+- **12.** « J'ai compris » (V3) mène à V1, jamais directement à V4.
+- **13.** Clavier replié : hauteur nulle, le mot remonte au centre optique, et un
+  bouton « Remontre-moi le clavier » revient dessus à tout moment.
+- **14.** `ErrorBoundary` (`ui/Garde.tsx`) autour de l'app + `try/catch` autour de
+  `speechSynthesis`.
+- **15.** `MainSchematique` redessinée : quatre doigts séparés qui dépassent
+  franchement, ongles, jointures, et **pouce du côté intérieur** (une main gauche
+  à plat pointe son pouce vers le centre du clavier).
+- **16.** « Encore un bloc de gagné » → « Encore un bloc, tranquillement ».
 
-## État des tests
-- `npm run test` : **146 verts** (9 fichiers, dont le premier test de hook en jsdom).
-- `npx tsc --noEmit` : propre (`src`, `tests`, configs).
-- `npx playwright test --project=chromium` : **11 verts**.
-- Zéro erreur / warning console sur les 7 vues (vérifié en e2e).
+## Vérifications
+
+- `npx tsc --noEmit` : vert.
+- `npm run test` : 149 tests, 9 fichiers, vert.
+- `npx playwright test --project=chromium` : 18 tests, vert (5 nouveaux).
+- Débordement : aucun (`scrollWidth == innerWidth`, `scrollHeight == innerHeight`)
+  à 375, 768, 1024×768, 1280×800, 1440×900 — V4 palier 7 (clavier le plus large,
+  Maj comprises) et V6.
 
 ## Limites connues
-- Les projets Playwright `firefox-repli` / `webkit-repli` sont configurés mais leurs binaires ne sont pas installés dans cet environnement (`npx playwright install` requis) — le spec `detection` est écrit pour y tourner tel quel (repli KeyboardEvent).
-- La main du barreau 3 déborde sous le bloc clavier et recouvre partiellement la barre d'espace pendant l'overlay (transitoire).
-- Piège Maj : la touche Maj n'est pas encore **dessinée dans le clavier** (ajouter ShiftLeft/ShiftRight aux tables élargirait le clavier de ~2 unités) ; le rappel est un badge à côté de la cible. À trancher au Sprint 3, avec le palier 7.
 
-## Dev Server
-- URL : http://localhost:3000 (HTTP 200 vérifié)
-- Statut : en cours (`nohup npm run dev`, log `/tmp/vite-tapeavecmoi.log`)
-- Commande : `npm run dev`
+- Sous 700 px de large, les légendes descendent à 10 px : le clavier virtuel y
+  est une carte, pas une cible de frappe (l'app suppose un clavier physique).
+- Les paliers 8-10 sont nommés et verrouillés, pas jouables (hors MVP).
+- `illuminee` (V5/V6) reste au ton `--teinte-vive` : c'est un état d'acquisition,
+  distinct de la cible, dans la même famille de teinte.
+
+## Serveur de développement
+
+- URL : http://localhost:3000
+- Statut : en fonctionnement (nohup, `npm run dev`)
