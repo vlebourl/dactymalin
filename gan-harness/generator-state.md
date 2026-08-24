@@ -1,17 +1,28 @@
-# Generator State — Iteration 005 (gate de sortie Codex)
+# Generator State — Iteration 006 (findings résiduels Codex)
 
 Réponse point par point à `gan-harness/feedback/codex-gate-001.md`. Chaque
 correction embarque son test de régression (rouge avant / vert après, vérifié
 en rétablissant l'ancien code).
 
-## Bloquants
+## Itération 006 — 4 findings résiduels
+
+| # | Correction | Test de régression (rouge avant / vert après) |
+|---|-----------|-----------------------------------------------|
+| 1 résiduel | Le compteur `bloc` est PERSISTÉ (`Sauvegarde.bloc`, borné 1…1 000 000, champ ajouté : absent = sauvegarde antérieure encore saine, reconstruite par le repli `blocDeDepart`). `aSauvegarder(etat)` est la seule source de la charge écrite, et l'effet dépend de l'état entier — plus de liste de champs à tenir à jour | `src/state.test.ts` — « un bloc sans frappe propre consomme quand même son numéro », « accepte une sauvegarde ANTÉRIEURE sans champ bloc » |
+| 5 résiduel | `shiftKey` vrai sans code Maj observé : côté INCONNU = aucun côté tenu. La frappe devient quasi-réussite (« garde la Maj de ta main X »), jamais une réussite, jusqu'à observation d'un vrai `ShiftLeft`/`ShiftRight` | `src/hooks/useKeyInput.test.ts` — « ne déclare AUCUN côté quand la Maj est tenue sans code observé » |
+| 8 résiduel | Horloge SUSPENDUE sur `window.blur` (fenêtre visible mais sans focus : rAF continue de tourner). Pause = rebase à chaque image ; reprise sur `focus`/visibilité. État initial lu sur `document.hasFocus()` | `tests/e2e/absence.spec.ts` — « l'aide d'inactivité ne monte pas pendant l'absence, et repart au retour » |
+| NOUVEAU majeur | `verdictFrappe(etat, action)` extrait dans `core/lecon.ts` : verdict unique (`inerte`/`reussite`/`quasi`/`faute`) pour le reducer ET pour le son. Une Maj homolatérale ne sonne plus la réussite | `src/core/lecon.test.ts` — « donne le même verdict que le reducer » ; `tests/e2e/son.spec.ts` — « reste muet quand la frappe est refusée pour mauvaise Maj » (AudioContext espionné) |
+
+## Itération 005 — gate de sortie Codex
+
+### Bloquants
 
 | # | Statut | Correction | Test |
 |---|--------|-----------|------|
 | 1 | CORRIGÉ | `blocDeDepart(maitrise)` reconstruit un n° de bloc monotone au chargement (`state.tsx`) ; `blocsSurPalier` remis à 0 au changement de disposition | `src/state.test.ts` — « une occurrence par session finit par maîtriser la touche », « remet blocsSurPalier à zéro », « changer de clavier ne peut plus ouvrir le palier » |
 | 2 | CORRIGÉ | Reducer de leçon extrait dans `src/core/lecon.ts` ; `surBarreau()` compte la saturation À L'INSTANT où le barreau 3 est atteint (erreur comprise), plus à la sortie de l'item | `src/core/lecon.test.ts` — « compte le 3ᵉ item saturé dès que la saturation survient », « le dernier item du bloc est compté », « un item propre rompt la série », « jamais deux fois » |
 
-## Majeurs
+### Majeurs
 
 | # | Statut | Correction | Test |
 |---|--------|-----------|------|
@@ -22,7 +33,7 @@ en rétablissant l'ancien code).
 | 7 | CORRIGÉ | `estIntact()` valide TOUS les champs avec les bornes de `valider()` ; écritures backup et principale dans deux `try` isolés | `storage.test.ts` — blocs « corruption structurellement valide » (5 cas) et « quota et échec partiel d'écriture » (2 cas) |
 | 8 | CORRIGÉ | Frappes ignorées quand le focus est sur un contrôle ; horloge du caractère rebasée sur `visibilitychange`/`focus` (action `reprise`) ; les boutons de la leçon rendent le focus après un clic souris | `useKeyInput.test.ts` — « ignore une frappe partie d'un contrôle focalisé » ; `lecon.test.ts` — « rebase l'horloge du caractère au retour » ; e2e « un clic souris rend le clavier à la leçon » |
 
-## Mineur
+### Mineur
 
 | # | Statut | Correction | Test |
 |---|--------|-----------|------|
@@ -57,7 +68,8 @@ réellement au curriculum ET dont rien n'est encore ouvert : `)`, `=`, `²`,
 
 ## Known Issues
 
-- La règle contralatérale est permissive dans un seul cas : Maj déjà enfoncée au moment où la fenêtre prend le focus (aucun `keydown` observé). On accepte alors la frappe plutôt que de la refuser à tort. Documenté dans `useKeyInput.ts`.
+- Maj déjà enfoncée quand la fenêtre reprend le focus : le côté est inconnu tant qu'aucun `keydown` de Maj n'est observé. La frappe est alors une quasi-réussite — l'enfant voit « garde la Maj de ta main X » et relâche/rappuie. Choix assumé : jamais de fausse réussite, au prix d'un rappel de trop après une reprise de focus.
+- L'espion `__sons` de `tests/e2e/son.spec.ts` remplace `AudioContext` : il vérifie qu'un son est SYNTHÉTISÉ, pas qu'il est audible.
 
 ## Dev Server
 
@@ -66,6 +78,6 @@ réellement au curriculum ET dont rien n'est encore ouvert : `)`, `=`, `²`,
 
 ## Gates
 
-- `npm run test` : 202 tests, 12 fichiers, vert
+- `npm run test` : 206 tests, 12 fichiers, vert
 - `npx tsc --noEmit` : vert
-- `npx playwright test --project=chromium` : 38 tests, vert
+- `npx playwright test --project=chromium` : 40 tests, vert

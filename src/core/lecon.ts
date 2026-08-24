@@ -67,6 +67,24 @@ export type ActionLecon =
   | { type: 'masquer' }
   | { type: 'montrer' };
 
+export type FrappeLecon = Extract<ActionLecon, { type: 'frappe' }>;
+/** `inerte` : la frappe ne compte pas (célébration, bloc fini). */
+export type Verdict = 'inerte' | 'reussite' | 'quasi' | 'faute';
+
+/**
+ * Verdict d'une frappe — SEULE autorité, pour le reducer comme pour la vue.
+ * La vue jouait son propre `caractere === attendu` : le son de réussite partait
+ * alors qu'une Maj homolatérale venait d'être refusée par le reducer.
+ */
+export function verdictFrappe(e: EtatLecon, a: FrappeLecon): Verdict {
+  if (e.celebration !== null || e.fini) return 'inerte';
+  if (a.caractere !== a.attendu) {
+    return verdictMaj(a.id, a.attendu, a.caractere) === 'quasi' ? 'quasi' : 'faute';
+  }
+  // bonne touche, mais la Maj tenue n'est pas la contralatérale exigée (P8)
+  return a.majMauvaisCote ? 'quasi' : 'reussite';
+}
+
 export function creerEtat(items: Item[], maintenant: number, latence: number): EtatLecon {
   return {
     items,
@@ -144,7 +162,8 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
     }
 
     case 'frappe': {
-      if (e.celebration !== null || e.fini) return e;
+      const verdict = verdictFrappe(e, a);
+      if (verdict === 'inerte') return e;
       const texte = e.items[e.i].texte;
 
       /* Surveillance de disposition (F7) : une frappe cohérente avec l'AUTRE
@@ -157,14 +176,10 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       /* ---- piège Maj : la bonne touche, sans le modificateur — ou avec la
          MAUVAISE Maj (homolatérale). État de QUASI-RÉUSSITE : ni erreur, ni
          escalade d'aide ; la cible reste allumée et la Maj s'invite à côté. */
-      const quasi =
-        a.caractere !== a.attendu
-          ? verdictMaj(a.id, a.attendu, a.caractere) === 'quasi'
-          : !!a.majMauvaisCote;
-      if (quasi) return { ...e, majManquante: true, fausse: null };
+      if (verdict === 'quasi') return { ...e, majManquante: true, fausse: null };
 
       // ---- frappe fausse : RIEN ne s'écrit, le curseur ne bouge pas (P3)
-      if (a.caractere !== a.attendu) {
+      if (verdict === 'faute') {
         const aide = surErreur(e.aide, a.maintenant - e.debutCaractere);
         const barreau = calculerBarreau(aide, a.maintenant - e.debutCaractere);
         return {

@@ -89,6 +89,22 @@ describe('useKeyInput', () => {
       frapper({ code: 'KeyE', key: 'e' });
       expect(vues.at(-1)).toMatchObject({ majGauche: false, majDroite: false });
     });
+
+    /* Gate Codex n°5 résiduel : Maj tenue mais aucun code observé (reprise de
+       focus Maj déjà enfoncée) déclarait les DEUX côtés tenus — une Maj
+       homolatérale passait alors pour la bonne. Côté inconnu = aucun côté. */
+    it('ne déclare AUCUN côté quand la Maj est tenue sans code observé', () => {
+      const vues: Frappe[] = [];
+      renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+      frapper({ code: 'Digit7', key: '7', shiftKey: true });
+      expect(vues.at(-1)).toMatchObject({ avecMaj: true, majGauche: false, majDroite: false });
+
+      // dès qu'un vrai code Maj est observé, le côté redevient connu
+      frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true });
+      frapper({ code: 'Digit7', key: '7', shiftKey: true });
+      expect(vues.at(-1)).toMatchObject({ majGauche: false, majDroite: true });
+      relacher({ code: 'ShiftRight', key: 'Shift', shiftKey: false });
+    });
   });
 
   /* Gate Codex n°8 : une touche pressée alors qu'un bouton a le focus comptait

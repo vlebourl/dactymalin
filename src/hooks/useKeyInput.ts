@@ -83,16 +83,18 @@ export function useKeyInput(
          activation). Elle ne doit pas ÉGALEMENT compter comme frappe
          pédagogique — sans quoi un même Espace validait la lettre et le bouton. */
       if (surUnControle()) return;
-      /* Maj tenue mais aucun code observé (fenêtre focalisée Maj déjà enfoncée) :
-         on ignore le côté plutôt que de refuser une frappe juste. */
-      const cotesInconnus = e.shiftKey && majTenues.size === 0;
+      /* Maj tenue mais aucun code observé (fenêtre reprise Maj déjà enfoncée) :
+         côté INCONNU = aucun côté tenu. Déclarer les deux rendait une Maj
+         homolatérale indiscernable de la bonne ; le côté inconnu vaut donc
+         quasi-réussite (« garde la Maj de ta main X ») jusqu'à ce qu'un vrai
+         ShiftLeft/ShiftRight soit observé — jamais une réussite. */
       refFrappe.current({
         code: e.code,
         key: e.key,
         repeat: e.repeat,
         avecMaj: e.shiftKey,
-        majGauche: cotesInconnus || majTenues.has(MAJ_GAUCHE),
-        majDroite: cotesInconnus || majTenues.has(MAJ_DROITE),
+        majGauche: majTenues.has(MAJ_GAUCHE),
+        majDroite: majTenues.has(MAJ_DROITE),
         avecAutreModificateur: e.ctrlKey || e.altKey || e.metaKey,
       });
     };

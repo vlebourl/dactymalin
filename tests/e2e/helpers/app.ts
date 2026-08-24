@@ -6,9 +6,10 @@ export async function ouvrir(
   page: Page,
   id: IdDisposition = 'fr-FR',
   palier = 1,
+  sons = false,
 ): Promise<void> {
   await page.addInitScript(
-    ([disposition, niveau]) => {
+    ([disposition, niveau, avecSons]) => {
     localStorage.setItem(
       'tapeavecmoi.v1',
       JSON.stringify({
@@ -17,13 +18,14 @@ export async function ouvrir(
         dispositionChoisieALaMain: true,
         palier: niveau,
         blocsSurPalier: 0,
+        bloc: 1,
         maitrise: {},
         guideDoigtVu: true,
-        reglages: { sons: false, texteEspace: false, animationsDouces: false },
+        reglages: { sons: avecSons, texteEspace: false, animationsDouces: false },
       }),
     );
     },
-    [id, palier] as [IdDisposition, number],
+    [id, palier, sons] as [IdDisposition, number, boolean],
   );
   await page.goto('/');
   await page.waitForSelector('body[data-vue="V1"]');

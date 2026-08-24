@@ -18,10 +18,15 @@ export type Sauvegarde = {
   dispositionChoisieALaMain: boolean;
   palier: number;
   blocsSurPalier: number;
+  /** n° du PROCHAIN bloc, monotone : sert à répartir les occurrences */
+  bloc: number;
   maitrise: Maitrise;
   guideDoigtVu: boolean;
   reglages: Reglages;
 };
+
+/** Borne haute du compteur de blocs : au-delà, la valeur relue est aberrante. */
+export const BLOC_MAX = 1_000_000;
 
 export const DEFAUTS: Sauvegarde = {
   version: 1,
@@ -29,10 +34,23 @@ export const DEFAUTS: Sauvegarde = {
   dispositionChoisieALaMain: false,
   palier: 1,
   blocsSurPalier: 0,
+  bloc: 1,
   maitrise: {},
   guideDoigtVu: false,
   reglages: { sons: true, texteEspace: false, animationsDouces: true },
 };
+
+/**
+ * Repli LEGACY : numéro du prochain bloc reconstruit depuis la maîtrise, pour
+ * les sauvegardes écrites avant que `bloc` ne soit persisté. Il ne suffit pas
+ * comme source unique — un bloc sans aucune frappe propre ne laisse aucune
+ * trace dans la maîtrise, et son numéro était alors resservi au rechargement.
+ */
+export function blocDeDepart(maitrise: Maitrise): number {
+  let max = 0;
+  for (const blocs of Object.values(maitrise)) for (const b of blocs) if (b > max) max = b;
+  return max + 1;
+}
 
 const estDisposition = (v: unknown): v is IdDisposition => v === 'fr-FR' || v === 'fr-CH';
 
@@ -58,13 +76,15 @@ export function valider(brut: unknown): Sauvegarde {
   if (!brut || typeof brut !== 'object') return { ...DEFAUTS };
   const o = brut as Record<string, unknown>;
   const r = (o.reglages ?? {}) as Record<string, unknown>;
+  const maitrise = maitriseValide(o.maitrise);
   return {
     version: 1,
     disposition: estDisposition(o.disposition) ? o.disposition : DEFAUTS.disposition,
     dispositionChoisieALaMain: bool(o.dispositionChoisieALaMain, false),
     palier: entierBorne(o.palier, 1, PALIER_MAX, DEFAUTS.palier),
     blocsSurPalier: entierBorne(o.blocsSurPalier, 0, 999, 0),
-    maitrise: maitriseValide(o.maitrise),
+    bloc: entierBorne(o.bloc, 1, BLOC_MAX, blocDeDepart(maitrise)),
+    maitrise,
     guideDoigtVu: bool(o.guideDoigtVu, false),
     reglages: {
       sons: bool(r.sons, true),
@@ -91,6 +111,10 @@ export function estIntact(brut: unknown): boolean {
   if (typeof o.dispositionChoisieALaMain !== 'boolean') return false;
   if (!entier(o.palier, 1, PALIER_MAX)) return false;
   if (!entier(o.blocsSurPalier, 0, 999)) return false;
+  /* `bloc` est un champ AJOUTÉ : absent = sauvegarde d'une version antérieure,
+     encore parfaitement saine (le repli reconstruit le compteur). Présent, il
+     doit être valide, sinon le backup a plus de valeur que ce fichier-là. */
+  if (o.bloc !== undefined && !entier(o.bloc, 1, BLOC_MAX)) return false;
   if (typeof o.guideDoigtVu !== 'boolean') return false;
   if (!o.maitrise || typeof o.maitrise !== 'object' || Array.isArray(o.maitrise)) return false;
   for (const [cle, val] of Object.entries(o.maitrise as Record<string, unknown>)) {

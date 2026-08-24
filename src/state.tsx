@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import { charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
-import { estMaitrisee, noterOccurrence, palierFranchi, type Maitrise } from './core/progression';
+import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
@@ -23,8 +23,6 @@ export type BilanBloc = {
 export type EtatApp = Sauvegarde & {
   vue: Vue;
   raisonVue?: RaisonVue;
-  /** n° de bloc courant, monotone : sert à répartir les occurrences */
-  bloc: number;
   /** blocs enchaînés sans repasser par l'accueil */
   blocsConsecutifs: number;
   etoilesDuBloc: number;
@@ -119,17 +117,22 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
   }
 }
 
-/**
- * Numéro du PROCHAIN bloc, reconstruit depuis la maîtrise persistée.
- * Repartir à 1 à chaque chargement écrasait la répartition : la maîtrise ne
- * voyait plus qu'un seul numéro de bloc (`[1,1,1…]`), le critère « au moins
- * 2 blocs distincts » n'était jamais rempli et la progression ne tenait plus
- * que par le plafond anti-mur.
- */
-export function blocDeDepart(maitrise: Maitrise): number {
-  let max = 0;
-  for (const blocs of Object.values(maitrise)) for (const b of blocs) if (b > max) max = b;
-  return max + 1;
+/** Ce qui est réellement écrit sur disque, extrait de l'état de session. */
+export function aSauvegarder(etat: EtatApp): Sauvegarde {
+  return {
+    version: 1,
+    disposition: etat.disposition,
+    dispositionChoisieALaMain: etat.dispositionChoisieALaMain,
+    palier: etat.palier,
+    blocsSurPalier: etat.blocsSurPalier,
+    /* Le compteur de blocs est PERSISTÉ tel quel : le reconstruire depuis la
+       seule maîtrise resservait le numéro d'un bloc joué sans aucune frappe
+       propre, et deux blocs distincts comptaient alors pour un seul. */
+    bloc: etat.bloc,
+    maitrise: etat.maitrise,
+    guideDoigtVu: etat.guideDoigtVu,
+    reglages: etat.reglages,
+  };
 }
 
 export function etatDeDepart(): EtatApp {
@@ -138,7 +141,6 @@ export function etatDeDepart(): EtatApp {
     ...sauve,
     // Au tout premier lancement, on passe par le choix du clavier (cahier 4.1).
     vue: sauve.dispositionChoisieALaMain ? 'V1' : 'V2',
-    bloc: blocDeDepart(sauve.maitrise),
     blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),
@@ -157,27 +159,13 @@ const CtxDispatch = createContext<((a: Action) => void) | null>(null);
 export function FournisseurApp({ children }: { children: ReactNode }) {
   const [etat, dispatch] = useReducer(reducer, undefined, etatDeDepart);
 
-  // Checkpoint : fin d'item ou de bloc, jamais à chaque frappe.
+  /* Checkpoint : fin d'item ou de bloc, jamais à chaque frappe. La dépendance
+     porte sur l'état ENTIER — le reducer renvoie l'objet inchangé quand rien ne
+     bouge (verrMaj), et une liste de champs à tenir à jour finissait toujours
+     par oublier le dernier ajouté. */
   useEffect(() => {
-    sauver({
-      version: 1,
-      disposition: etat.disposition,
-      dispositionChoisieALaMain: etat.dispositionChoisieALaMain,
-      palier: etat.palier,
-      blocsSurPalier: etat.blocsSurPalier,
-      maitrise: etat.maitrise,
-      guideDoigtVu: etat.guideDoigtVu,
-      reglages: etat.reglages,
-    });
-  }, [
-    etat.disposition,
-    etat.dispositionChoisieALaMain,
-    etat.palier,
-    etat.blocsSurPalier,
-    etat.maitrise,
-    etat.guideDoigtVu,
-    etat.reglages,
-  ]);
+    sauver(aSauvegarder(etat));
+  }, [etat]);
 
   useEffect(() => demanderPersistance(), []);
 
