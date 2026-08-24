@@ -1,107 +1,96 @@
-# Generator State — Iteration 003
+# Generator State — Iteration 004
 
-## Ce qui a changé, point par point (feedback-002)
+## Ce qui a été corrigé (feedback-003, dans l'ordre imposé)
 
-### Critiques
+### CRITIQUE — point 1 : critère de palier inatteignable
+Deux causes, deux correctifs, trois tests.
 
-**1. Touches de la leçon indiscernables en niveaux de gris.**
-Deux porteurs non chromatiques, mesurés par test :
-- fond `ouverte` (`--teal-pale` / `--orange-pale`, luminance ≈ 0,79) contre fond
-  `eteinte` (nouveau jeton `--touche-eteinte-fond: #ded4c1`, luminance 0,665) —
-  écart **0,126**, largement au-dessus des 0,05 exigés ;
-- liseré `ouverte` 2,5 px `--teinte-moyenne` contre `eteinte` 1 px.
-`--encre-touche-eteinte` passe à `#4a4f45` pour rester à 5,7:1 sur le fond plus
-sombre. Test : `tests/e2e/touches.spec.ts`.
+1. **Comptage.** `V4Lecon` dédoublonnait les occurrences propres par bloc
+   (`!e.propres.includes(...)`), ce qui transformait « 3 occurrences réparties
+   sur ≥ 2 blocs » en « 3 blocs distincts ». Chaque occurrence propre est
+   désormais notée. `BilanBloc.propres` est une liste d'occurrences, pas un
+   ensemble ; `state.tsx` dédoublonne seulement pour l'illumination de V5.
+2. **Couverture du générateur.** `composerBloc` fait maintenant une passe de
+   COUVERTURE gloutonne avant le remplissage : chaque touche à valider du
+   palier apparaît `COUVERTURE_MIN = 2` fois par bloc, en gardant la préférence
+   P5 (mot > phrase > nombre > syllabe). La retaille finale du bloc ne supprime
+   jamais un item qui porte seul la couverture d'une touche.
+   `couvertureCible()` ramène l'objectif à ce que le corpus permet réellement :
+   `ù` ne vit que dans « où » en français, exiger deux occurrences par bloc
+   aurait obligé à inventer des pseudo-mots (interdit du cahier).
+   Corpus complété là où l'offre manquait : `neuf` (f), `sandwich` (w).
+3. **Tests.** `generator.test.ts` : couverture sur 2 dispositions × 7 paliers ×
+   8 graines ; et « 3 blocs ⇒ 3 occurrences de chaque touche » sur les mêmes
+   combinaisons. `tests/e2e/palier.spec.ts` : **3 blocs parfaits ouvrent le
+   palier 2 avec `blocsSurPalier < 6`** — le passage se fait au mérite, pas par
+   le plafond. Vérifié : il bascule au 2ᵉ bloc.
 
-**2. Palier 7 : aucune touche cible, main annoncée fausse.**
-Racine : `mainDe()` ne consultait que `toucheDirecte()`. Ajout de `toucheDe()`
-(direct **ou** shifté) et de `exigeMaj()` dans `core/layouts.ts` ; `mainDe()` et
-la résolution de la cible dans `V4Lecon` passent toutes deux par `toucheDe()`.
-Corrigé aussi dans `Keyboard.etatDe()` : la rangée des chiffres AZERTY portait
-`1` en `maj` et restait éteinte au palier qui l'ouvre.
-Tests : `layouts.test.ts` (10 chiffres + `.` + `ç`), `tests/e2e/palier7.spec.ts`.
+### MAJEUR — point 2 : « Je tape sans regarder » ne se réarmait pas
+`masque: false` dans `itemSuivant()` du reducer de leçon. E2E : la chaîne
+d'ancêtres de `KeyF` retombe à hauteur 0 au clic, et remonte seule après
+l'item ; le bouton se réarme sur « Je tape sans regarder ».
 
-### Majeurs
+### MAJEUR — point 3 : bandeau des touches
+Le bandeau annonce l'**ensemble cumulé** (`libellesEnsemble()`), pas les
+nouveautés du palier. Lettres d'abord, puis chiffres, puis ponctuation — le
+point ne se lit plus comme une coquille en tête de ligne. Espace après le
+deux-points dans le flux de texte, pas seulement en CSS.
 
-**3. Piège Maj = deux touches allumées.**
-`ShiftLeft` / `ShiftRight` sont déclarées dans les DEUX tables (`modificateur:
-true`, `large: 1.7`) et ne sont **dessinées qu'au palier 7** (`avecMaj`), pour ne
-pas élargir le clavier des paliers 1-6. Dès qu'un caractère exige Maj, la touche
-porteuse ET la Maj contralatérale portent `data-etat="cible"`. La consigne
-annonce la bonne main et sa teinte suit cette main.
-Tests : `maj.test.ts` (`mainDeLaMaj('fr-FR','8') === 'gauche'`), `palier7.spec.ts`
-(exactement 2 cibles, quasi-réussite qui ne bouge pas le curseur).
+### MAJEUR — point 4 : capitales accentuées « É È À Ç »
+Cause racine trouvée : ce n'était pas le JS mais `text-transform: uppercase`
+sur `.bandeauTouches strong`. Règle supprimée ; la mise en capitale est faite
+en amont et seulement sur `/^[a-z]$/`. Palier 5 affiche maintenant
+« A à B C ç D E é è … ».
 
-**4. `doitProposerV2()` était du code mort.**
-Compteur d'incohérence câblé dans le reducer de `V4Lecon` : chaque frappe porte
-son verdict `frappeCoherente(id, code, key)` ; 5 d'affilée incohérentes, ou 3
-items enchaînés saturés au barreau 3, dispatchent `{vue:'V2', raison:'incoherence'}`.
-Toute frappe cohérente remet le compteur à zéro.
-Test : `tests/e2e/incoherence.spec.ts` (bascule + remise à zéro).
+### MAJEUR — point 5 : palier 7 sans majuscules ni point
+- `toucheMaj()` sait que Maj + lettre = capitale (au lieu de 26 entrées de
+  table par disposition) ; `exigeMaj`, `mainDe`, `verdictMaj` et le piège Maj
+  contralatéral fonctionnent donc sur les capitales sans autre changement.
+- `ensembleTouches()` ouvre les capitales ASCII au palier 7 ; les accentuées
+  restent hors ensemble.
+- Le générateur produit des items « Chocolat. » (capitale initiale + point),
+  avec un plancher de 2 par bloc, comme pour les nombres. `.` ajouté au palier 7
+  CH-FR (il y est direct, mais il n'était ouvert nulle part).
+- Tests : invariant de corpus (capitale + point dans chaque bloc, aucune
+  capitale accentuée) et e2e « la capitale sans Maj est une quasi-réussite,
+  avec Maj elle s'écrit ».
 
-**5. V6 : 6 paliers sur 10 hors cadre.**
-Liste en **deux colonnes de cinq** : les dix paliers, verrous et promesses
-compris, tiennent sans défilement de 1024×768 à 1440×900 (vérifié : 10 lignes
-visibles). Sous 820 px ou 640 px de haut, retour à une colonne défilante **avec
-dégradé de masquage** qui annonce le défilement.
+### PARTIELS
+- **Bulle du barreau 3** : posée au-dessus du clavier ENTIER (`top: -46`), elle
+  ne peut plus recouvrir une touche de la leçon. Sa pointe reste alignée sur la
+  colonne de la touche visée.
+- **Main du barreau 3** : alignée sur le BOUT DE L'INDEX (et non le centre de la
+  paume) puis **pivotée** sur le poignet (±38° max) pour viser la touche quand
+  le garde-fou de la barre d'espace l'écarte de la colonne.
+- **Orange unique** : `.illuminee` (V5/V6) passe du brun plein `#7e3a0d` au même
+  remplissage que la cible en jeu (`--teinte-cible`), encre `--encre` — 7,2:1
+  conservé. Le brun ne sert plus que de liseré/accent, comme le teal.
+- **Légendes secondaires** : nouveau jeton `--legende-min-secondaire: 16px`,
+  appliqué à `.legendeHaut` et au libellé « MAJ ». Le plancher principal tient
+  18 px jusqu'à 900 px de large (1024 et 1280 compris) ; sous 900 px la légende
+  secondaire disparaît plutôt que de rétrécir. Mesuré au palier 7 :
+  16 px / 16 px à 1024, 1280 et 1440 ; aucun débordement aux 5 tailles.
 
-**6. Lettre courante non agrandie.**
-`1.14 em` + graisse 800 + soulignement : trois porteurs, dont deux non chromatiques.
+## Sprint 2/3
+Voix du barreau 3 : déjà livrée et vérifiée — détection d'une voix `fr*`,
+`try/catch`, et dégradation purement visuelle si aucune voix n'est disponible.
 
-**7. Recadrage commun des 4 photos.**
-`doigts/recadrage.py` (PIL) repart des masters 1200-1600 px et produit un carré
-unique : côté proportionnel à la largeur de main mesurée sur la boîte alpha (les
-quatre carrés font 1353-1389 px de source, soit la même échelle apparente),
-centré sur le doigt actif. Plus d'avant-bras, plus de poing de dos. Les
-correctifs `--zoom` / `--decale` par pastille sont supprimés.
+## Problèmes connus
+- 375 px au palier 7 reste dégradé (étiquette « LA FRONTIÈRE » dans le flux,
+  légendes à 10-12 px). Aucun débordement, mais l'écran n'est pas confortable.
+  Non traité : hors des deux tailles exigées par le rubric.
+- Pastilles de doigts : le bout de l'index tendu est encore rogné par le cercle
+  (recadrage calculé sur la largeur de main).
+- Au barreau 3, la main reste bornée par la barre d'espace : quand la touche
+  visée est proche de la frontière (J), elle désigne par l'inclinaison plutôt
+  que par la position.
 
-**11 (partiel iter-001). Overlay du barreau 3.**
-La flèche pointillée est **supprimée** : c'est elle qui coupait le repère
-tactile du `J`. La bulle du nom de la lettre porte désormais une pointe qui
-désigne la touche. La main schématique est bornée par le rectangle réel de la
-barre d'espace : elle ne peut plus la recouvrir.
+## Gates
+- `npm run test` : 158 tests, 10 fichiers — verts.
+- `npx tsc --noEmit` : propre.
+- `npx playwright test --project=chromium` : 22 tests — verts.
 
-### Mineurs
-
-- **8.** `--legende-min` passe à 18 px (14 px sous 1100 px, 10 px sous 700 px) ;
-  la barre d'espace et la rangée des chiffres suivent le même plancher.
-  Test : aucune légende sous 14 px à 1280 px.
-- **9.** `--teal-cible` → `#63c7b7` (7,3:1 avec `--encre`), `--orange-cible` →
-  `#eda852` (7,2:1). La cible reste plus claire que l'encre et plus sombre que
-  les touches éteintes. Test dans `touches.spec.ts`.
-- **10.** La puce de légende de V7 est une **touche en réduction** (fond pâle +
-  liseré `--teinte-moyenne`), le même vocabulaire que dans le jeu.
-- **11.** V2 ne coche plus rien avant verdict, et quand le verdict vient de la
-  carte du navigateur elle le DIT : « Je crois avoir reconnu ton clavier. Appuie
-  sur la touche A pour vérifier. »
-- **12.** « J'ai compris » (V3) mène à V1, jamais directement à V4.
-- **13.** Clavier replié : hauteur nulle, le mot remonte au centre optique, et un
-  bouton « Remontre-moi le clavier » revient dessus à tout moment.
-- **14.** `ErrorBoundary` (`ui/Garde.tsx`) autour de l'app + `try/catch` autour de
-  `speechSynthesis`.
-- **15.** `MainSchematique` redessinée : quatre doigts séparés qui dépassent
-  franchement, ongles, jointures, et **pouce du côté intérieur** (une main gauche
-  à plat pointe son pouce vers le centre du clavier).
-- **16.** « Encore un bloc de gagné » → « Encore un bloc, tranquillement ».
-
-## Vérifications
-
-- `npx tsc --noEmit` : vert.
-- `npm run test` : 149 tests, 9 fichiers, vert.
-- `npx playwright test --project=chromium` : 18 tests, vert (5 nouveaux).
-- Débordement : aucun (`scrollWidth == innerWidth`, `scrollHeight == innerHeight`)
-  à 375, 768, 1024×768, 1280×800, 1440×900 — V4 palier 7 (clavier le plus large,
-  Maj comprises) et V6.
-
-## Limites connues
-
-- Sous 700 px de large, les légendes descendent à 10 px : le clavier virtuel y
-  est une carte, pas une cible de frappe (l'app suppose un clavier physique).
-- Les paliers 8-10 sont nommés et verrouillés, pas jouables (hors MVP).
-- `illuminee` (V5/V6) reste au ton `--teinte-vive` : c'est un état d'acquisition,
-  distinct de la cible, dans la même famille de teinte.
-
-## Serveur de développement
-
-- URL : http://localhost:3000
-- Statut : en fonctionnement (nohup, `npm run dev`)
+## Dev Server
+- URL: http://localhost:3000
+- Status: running (curl 200)
+- Command: npm run dev
