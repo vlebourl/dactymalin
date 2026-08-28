@@ -338,6 +338,22 @@
   border-color: var(--teal-vif);
 }
 
+/* Champ prénom de l'écran « Qui joue ? », au gabarit du petit bouton. */
+.champNom {
+  padding: 6px 16px;
+  border-radius: var(--r-bouton);
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  font: inherit;
+  font-size: 16px;
+  max-width: 14em;
+}
+
+.champNom:focus {
+  outline: none;
+  border-color: var(--teal-vif);
+}
+
 .hautParleur {
   display: inline-grid;
   place-items: center;

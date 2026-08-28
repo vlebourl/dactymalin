@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
+import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
@@ -135,8 +136,8 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
   };
 }
 
-export function etatDeDepart(): EtatApp {
-  const sauve = charger();
+export function etatDeDepart(cle?: string): EtatApp {
+  const sauve = charger(cle);
   return {
     ...sauve,
     // Au tout premier lancement, on passe par le choix du clavier (cahier 4.1).
@@ -156,16 +157,24 @@ export function etatDeDepart(): EtatApp {
 const CtxEtat = createContext<EtatApp | null>(null);
 const CtxDispatch = createContext<((a: Action) => void) | null>(null);
 
-export function FournisseurApp({ children }: { children: ReactNode }) {
-  const [etat, dispatch] = useReducer(reducer, undefined, etatDeDepart);
+export function FournisseurApp({
+  children,
+  idProfil,
+}: {
+  children: ReactNode;
+  /** Profil dont on charge et sauve la progression ; défaut : clé historique. */
+  idProfil?: string;
+}) {
+  const cle = idProfil === undefined ? undefined : cleDe(idProfil);
+  const [etat, dispatch] = useReducer(reducer, cle, etatDeDepart);
 
   /* Checkpoint : fin d'item ou de bloc, jamais à chaque frappe. La dépendance
      porte sur l'état ENTIER — le reducer renvoie l'objet inchangé quand rien ne
      bouge (verrMaj), et une liste de champs à tenir à jour finissait toujours
      par oublier le dernier ajouté. */
   useEffect(() => {
-    sauver(aSauvegarder(etat));
-  }, [etat]);
+    sauver(aSauvegarder(etat), cle);
+  }, [etat, cle]);
 
   useEffect(() => demanderPersistance(), []);
 

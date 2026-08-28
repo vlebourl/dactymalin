@@ -1,4 +1,5 @@
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
+import { CLE_CHOISIR } from '../core/profils';
 import type { Reglages } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
 import { MiniClavier } from '../ui/MiniClavier';
@@ -98,6 +99,19 @@ export function V7Reglages() {
           </button>
           <button className={u.lien} onClick={() => envoi({ type: 'vue', vue: 'V4' })}>
             Refaire une leçon à quatre doigts
+          </button>
+          <button
+            className={u.lien}
+            onClick={() => {
+              try {
+                sessionStorage.setItem(CLE_CHOISIR, '1');
+              } catch {
+                /* sans sessionStorage, le rechargement montrera le choix s'il y a plusieurs joueurs */
+              }
+              location.reload();
+            }}
+          >
+            Changer de joueur
           </button>
         </div>
       </div>

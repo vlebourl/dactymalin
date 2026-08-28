@@ -139,28 +139,30 @@ function lireCle(cle: string): unknown {
   }
 }
 
-export function charger(): Sauvegarde {
-  const principal = lireCle(CLE);
+/* Chaque profil a sa clé (`tapeavecmoi.v1` pour le premier, suffixée ensuite,
+   voir profils.ts) ; le défaut garde tous les appels historiques valides. */
+export function charger(cle: string = CLE): Sauvegarde {
+  const principal = lireCle(cle);
   if (estIntact(principal)) return valider(principal);
   // principal corrompu ou absent : on retombe sur la dernière progression valide
-  const secours = lireCle(CLE_SECOURS);
+  const secours = lireCle(`${cle}.backup`);
   if (estIntact(secours)) return valider(secours);
   return { ...DEFAUTS };
 }
 
 /** Checkpoint : appelé en fin d'item ou de bloc, jamais à chaque frappe. */
-export function sauver(etat: Sauvegarde): void {
+export function sauver(etat: Sauvegarde, cle: string = CLE): void {
   /* Deux écritures ISOLÉES : un QuotaExceededError sur le backup ne doit pas
      emporter avec lui l'écriture de la clé principale (elle, seule, porte la
      progression du moment). */
   try {
-    const precedent = lireCle(CLE);
-    if (estIntact(precedent)) localStorage.setItem(CLE_SECOURS, JSON.stringify(precedent));
+    const precedent = lireCle(cle);
+    if (estIntact(precedent)) localStorage.setItem(`${cle}.backup`, JSON.stringify(precedent));
   } catch {
     /* backup au mieux : son échec n'est jamais fatal */
   }
   try {
-    localStorage.setItem(CLE, JSON.stringify(etat));
+    localStorage.setItem(cle, JSON.stringify(etat));
   } catch {
     /* quota plein ou navigation privée : la leçon continue sans persistance */
   }
