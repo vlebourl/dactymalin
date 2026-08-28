@@ -658,10 +658,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(6px, 3.5vw, 60px);
-  width: 100%;
+  gap: clamp(6px, 2vw, 40px);
+  /* La rangée mains+clavier déborde du gabarit de 1180 px : elle prend sa
+     propre largeur. Le repli (wrap) envoyait la main gauche AU-DESSUS du
+     clavier ; les mains rétrécissent (min-width: 0), elles ne replient pas. */
+  width: min(1400px, 98vw);
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+/* Écran étroit : plus de place sur les côtés. Le clavier prend la rangée
+   entière et le DUO de mains passe dessous, côte à côte, centré. */
+@media (max-width: 900px) {
+  .deuxCotes {
+    flex-wrap: wrap;
+  }
+  .deuxCotes > :not(.coteMain) {
+    flex-basis: 100%;
+  }
+  .coteMain {
+    order: 1;
+  }
 }
 
 /* Les deux mains encadrent le clavier : elles cèdent la place AVANT lui.
