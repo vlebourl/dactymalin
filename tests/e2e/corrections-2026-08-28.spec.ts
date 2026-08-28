@@ -43,15 +43,33 @@ test('2. le clavier est d’un seul tenant, les mains se lisent à la couleur', 
   await page.getByRole('button', { name: 'On commence !' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
-  const g = (await page.locator('[data-bloc="gauche"]').first().boundingBox())!;
-  const d = (await page.locator('[data-bloc="droite"]').first().boundingBox())!;
-  // accolés : plus d'écart physique entre les deux moitiés
-  expect(d.x - (g.x + g.width)).toBeLessThanOrEqual(2);
   // ni trait ni étiquette de frontière
   await expect(page.getByText('la frontière')).toHaveCount(0);
-  /* …mais chaque moitié garde SA couleur : c'est elle, désormais, qui dit la
-     main. (On lit la teinte portée par la touche, pas le fond du moment : au
-     palier 1 la plupart des touches sont encore éteintes.) */
+
+  /* Régression : chaque moitié était une COLONNE, large comme sa rangée la
+     plus longue. Le trou à la jointure changeait donc d'une rangée à l'autre
+     (T|Y béant de 58 px, B|N collé à 0). Une rangée = une ligne continue. */
+  const rangees = await page.evaluate(() => {
+    const clavier = document.querySelector('[data-bloc="gauche"]')!.closest('div')!.parentElement!;
+    return [...clavier.children].map((r) => {
+      const g = r.querySelector('[data-bloc="gauche"]')!;
+      const d = r.querySelector('[data-bloc="droite"]')!;
+      const der = g.lastElementChild!.getBoundingClientRect();
+      const pre = d.firstElementChild!.getBoundingClientRect();
+      /* On compare au `gap` DÉCLARÉ, pas à l'écart entre deux touches voisines :
+         la touche cible est agrandie, et fausserait la mesure quand elle tombe
+         au bord du segment. */
+      return { jointure: pre.x - (der.x + der.width), gap: parseFloat(getComputedStyle(r).gap) };
+    });
+  });
+  expect(rangees.length).toBeGreaterThanOrEqual(4);
+  for (const { jointure, gap } of rangees) {
+    expect(Math.abs(jointure - gap)).toBeLessThanOrEqual(1);
+  }
+
+  /* …et chaque moitié garde SA couleur : c'est elle, désormais, qui dit la
+     main. On lit la teinte portée par la touche, pas le fond du moment : au
+     palier 1 la plupart des touches sont encore éteintes. */
   const couleurs = await page.evaluate(() => {
     const teinte = (sel: string) =>
       getComputedStyle(document.querySelector(sel) as HTMLElement)
@@ -61,6 +79,31 @@ test('2. le clavier est d’un seul tenant, les mains se lisent à la couleur', 
   });
   expect(couleurs.q).not.toBe(couleurs.m);
   expect(couleurs.q).not.toBe('');
+});
+
+test('3 bis. le champ de la liste ne rogne pas les mots', async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 1);
+  await page.getByRole('button', { name: 'Notre liste à nous' }).click();
+  const champ = page.getByLabel('Notre liste à nous');
+  await champ.fill('dinosaure');
+  const m = await champ.evaluate((el) => {
+    const s = getComputedStyle(el);
+    const b = el.getBoundingClientRect();
+    const panneau = el.parentElement!.getBoundingClientRect();
+    return {
+      rayon: parseFloat(s.borderRadius),
+      hauteur: b.height,
+      largeur: b.width,
+      largeurPanneau: panneau.width,
+      debordeEnHauteur: (el as HTMLTextAreaElement).scrollHeight - el.clientHeight,
+    };
+  });
+  /* Régression : `--r-bouton` (une gélule) était appliqué au textarea ; les
+     coins rognaient le premier et le dernier caractère de chaque ligne. */
+  expect(m.rayon).toBeLessThanOrEqual(m.hauteur / 4);
+  // et le champ occupe le panneau au lieu d'une colonne étroite au milieu
+  expect(m.largeur).toBeGreaterThan(m.largeurPanneau * 0.85);
+  expect(m.debordeEnHauteur).toBeLessThanOrEqual(1);
 });
 
 test('3. depuis l’accueil : notre liste s’écrit et se joue en trois gestes', async ({ page }) => {
