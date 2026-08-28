@@ -13,10 +13,12 @@ describe('composerBlocPerso', () => {
     expect(bloc.every((i) => i.genre === 'mot')).toBe(true);
   });
 
-  it('accepte des lettres non enseignées, refuse ce qui n\'existe pas sur le clavier', () => {
+  it("accepte tout ce que le clavier écrit, refuse le reste", () => {
     const bloc = composerBlocPerso(['kiwi', 'vélo', 'château'], 'fr-FR', 7);
-    // k et â n'existent sur aucune touche ouverte ; vélo, si
-    expect(bloc.map((i) => i.texte)).toEqual(['vélo']);
+    /* `k` n'est pas au programme mais la touche existe : en mode libre, elle
+       suffit. « château » reste refusé — le â demande une touche morte, deux
+       frappes pour un seul caractère attendu. */
+    expect(bloc.map((i) => i.texte).sort()).toEqual(['kiwi', 'vélo']);
   });
 
   it('borne le bloc à 12 items', () => {
@@ -68,5 +70,29 @@ describe('un bloc perso ne touche pas au parcours', () => {
     expect(enPerso.blocPerso).toBe(true);
     expect(reducer(enPerso, { type: 'commencer' }).blocPerso).toBe(true);
     expect(reducer(enPerso, { type: 'commencer', perso: false }).blocPerso).toBe(false);
+  });
+});
+
+/* Régression (2026-08-28) : « le 20 octobre c'est papa » était refusé. Le mode
+   libre filtrait sur le CURRICULUM ; l'apostrophe n'y figure pas, alors qu'elle
+   est bien sur la touche 4 de l'AZERTY. Le seul critère est désormais « le
+   clavier sait l'écrire ». */
+describe('mode libre : tout ce que le clavier sait écrire', () => {
+  it("accepte une phrase avec apostrophe, chiffres et espaces", () => {
+    const items = composerBlocPerso(["le 20 octobre c'est papa"], 'fr-FR', 1);
+    expect(items.map((i) => i.texte)).toEqual(["le 20 octobre c'est papa"]);
+  });
+
+  it('accepte accents directs et cédille', () => {
+    const items = composerBlocPerso(['où est le garçon', 'à côté'], 'fr-FR', 1);
+    expect(items.map((i) => i.texte)).toContain('où est le garçon');
+  });
+
+  it('refuse les accents à touche morte (â, ê, ë) : deux frappes pour un caractère', () => {
+    expect(composerBlocPerso(['la fête'], 'fr-FR', 1)).toHaveLength(0);
+  });
+
+  it("refuse ce que la disposition ne peut pas écrire", () => {
+    expect(composerBlocPerso(['ЖЖЖ', 'papa'], 'fr-FR', 1).map((i) => i.texte)).toEqual(['papa']);
   });
 });

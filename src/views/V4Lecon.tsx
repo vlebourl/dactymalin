@@ -223,13 +223,6 @@ export function V4Lecon() {
 
   return (
     <div className={v.ecran}>
-      {/* Le mot GAUCHE/DROITE en GROS, dans le coin haut du côté concerné :
-          l'enfant le repère sans quitter le mot des yeux. */}
-      {!enCelebration && (
-        <span className={v.coinMain} data-cote-main={mainCible} aria-hidden="true">
-          {mainCible === 'gauche' ? 'GAUCHE' : 'DROITE'}
-        </span>
-      )}
       <header className={v.entete}>
         <button className={v.retour} onClick={() => envoi({ type: 'vue', vue: 'V1' })} aria-label="Revenir à l'accueil">
           ←
@@ -336,7 +329,21 @@ export function V4Lecon() {
         )}
 
         <div className={v.zoneClavier}>
-          <div className={clavierMasque ? v.clavierMasque : undefined}>
+          {/* Le mot de la main à employer, en GROS, juste au-dessus du clavier
+              et du côté concerné : l'enfant n'a pas à lever les yeux. */}
+          {!enCelebration && (
+            <p className={v.motMainHaut} aria-hidden="true">
+              <span data-cote-main={mainCible}>
+                {mainCible === 'gauche' ? 'GAUCHE' : 'DROITE'}
+              </span>
+            </p>
+          )}
+          <div className={[v.deuxCotes, clavierMasque ? v.clavierMasque : ''].filter(Boolean).join(' ')}>
+            {/* Les deux mains encadrent le clavier À CHAQUE TOUR ; seule celle
+                qui doit taper est allumée. */}
+            <div className={v.coteMain} data-main="gauche" data-main-active={mainCible === 'gauche' && !enCelebration ? 'oui' : 'non'}>
+              <MainSchematique cote="gauche" largeur={110} tendu={false} />
+            </div>
             <Keyboard
               id={id}
               ensemble={ensemble}
@@ -358,6 +365,9 @@ export function V4Lecon() {
                  dessine, la touche rétrécit pour que rien ne déborde. */
               taille={app.palier >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
+            <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration ? 'oui' : 'non'}>
+              <MainSchematique cote="droite" largeur={110} tendu={false} />
+            </div>
             {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />
             )}

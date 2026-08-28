@@ -1,6 +1,7 @@
 import type { IdDisposition } from './layouts';
-import { chiffresDisponibles, estTypable, motsDisponibles, syllabesDisponibles } from './corpus';
-import { ensembleTouches, PALIER_MAJUSCULES, PALIER_MAX, touchesAValider } from './paliers';
+import { chiffresDisponibles, motsDisponibles, syllabesDisponibles } from './corpus';
+import { toucheDe } from './layouts';
+import { ensembleTouches, PALIER_MAJUSCULES, touchesAValider } from './paliers';
 
 export type GenreItem = 'mot' | 'nombre' | 'syllabe';
 
@@ -125,14 +126,22 @@ export type OptionsBloc = {
  * EXISTER sur la disposition (ensemble du dernier palier), sinon la touche
  * cible n'existerait pas et la leçon se bloquerait.
  */
+/** Vrai si CHAQUE caractère existe sur la disposition, Maj comprise. */
+export function estEcrivable(texte: string, id: IdDisposition): boolean {
+  return [...texte].every((c) => c === ' ' || !!toucheDe(id, c));
+}
+
 export function composerBlocPerso(
   mots: string[],
   id: IdDisposition,
   graine?: number,
 ): Item[] {
-  const ensemble = ensembleTouches(id, PALIER_MAX);
   const rnd = alea(graine ?? Math.floor(Math.random() * 2 ** 31));
-  const jouables = [...new Set(mots)].filter((m) => estTypable(m, ensemble));
+  /* Mode LIBRE : le seul critère est « le clavier peut l'écrire », pas « le
+     parcours l'a enseigné ». La liste de la famille refusait « le 20 octobre
+     c'est papa » à cause de l'apostrophe, absente du curriculum mais bien
+     présente sur la touche 4 de l'AZERTY. */
+  const jouables = [...new Set(mots)].filter((m) => estEcrivable(m, id));
   return melange(jouables, rnd)
     .slice(0, TAILLE_BLOC_MAX)
     .map((texte) => ({ texte, genre: 'mot' as const }));
