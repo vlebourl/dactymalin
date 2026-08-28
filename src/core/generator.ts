@@ -160,8 +160,23 @@ export function composerBloc(o: OptionsBloc): Item[] {
       if (reste) besoins.set(c.toLowerCase(), reste - 1);
     }
   };
-  const apport = (texte: string) =>
-    [...texte].filter((c) => (besoins.get(c.toLowerCase()) ?? 0) > 0).length;
+  /* Voir plus bas : `initial` fige l'objectif pour distinguer une touche
+     JAMAIS vue dans ce bloc d'une touche déjà entamée. Couvrir chaque touche
+     une première fois prime sur doubler les autres — sinon, au palier 7
+     (11 touches d'un coup), un bloc de 8 items peut ne jamais servir un
+     chiffre. */
+  let initial = new Map<string, number>();
+  const apport = (texte: string) => {
+    let premieres = 0;
+    let suite = 0;
+    for (const c of new Set([...texte.toLowerCase()])) {
+      const b = besoins.get(c) ?? 0;
+      if (b <= 0) continue;
+      if (b === initial.get(c)) premieres++;
+      suite += Math.min([...texte.toLowerCase()].filter((x) => x === c).length, b);
+    }
+    return premieres * 100 + suite;
+  };
   const vivier: Item[] = [
     ...melange(prioritaires, rnd).map((texte) => ({ texte, genre: 'mot' as const })),
     ...phrases.map((texte) => ({ texte, genre: 'mot' as const })),
@@ -169,6 +184,7 @@ export function composerBloc(o: OptionsBloc): Item[] {
     ...syllabes.map((texte) => ({ texte, genre: 'syllabe' as const })),
   ];
   for (const item of items) consommer(item.texte);
+  initial = new Map(besoins);
   while (items.length < taille && [...besoins.values()].some((n) => n > 0)) {
     let meilleur: Item | undefined;
     let score = 0;
@@ -230,8 +246,16 @@ export function composerBloc(o: OptionsBloc): Item[] {
         if (besoins.has(k)) compte.set(k, (compte.get(k) ?? 0) + 1);
       }
     }
+    /* Un item peut porter PLUSIEURS occurrences d'une même touche
+       (« papillon » : deux p) : le retirer doit laisser la couverture au
+       plancher, occurrences comptées, pas items comptés. */
     const porteur = (it: Item) =>
-      [...it.texte].some((c) => (compte.get(c.toLowerCase()) ?? Infinity) <= COUVERTURE_MIN);
+      [...new Set([...it.texte.toLowerCase()])].some((c) => {
+        const total = compte.get(c);
+        if (total === undefined) return false;
+        const occ = [...it.texte.toLowerCase()].filter((x) => x === c).length;
+        return total - occ < COUVERTURE_MIN;
+      });
     let k = bloc.length - 1;
     for (let i = bloc.length - 1; i >= 0; i--) {
       if (!porteur(bloc[i])) {

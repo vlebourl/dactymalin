@@ -72,13 +72,20 @@ describe('invariant corpus × palier (P5, aucune exception)', () => {
     }
   });
 
-  /* Les items multi-mots servent à entraîner l'espace : ce sont des GROUPES
-     NOMINAUX, jamais un couple sujet + verbe conjugué (« tu es »), qui
-     frôlerait l'interdit « phrases complètes ». */
-  it('les items multi-mots sont des groupes nominaux', () => {
-    const determinants = new Set(['un', 'une', 'le', 'la', 'les', 'du', 'de', 'mon', 'ma', 'mes']);
+  /* Les items multi-mots servent à entraîner l'espace : groupes nominaux et,
+     depuis la demande du 2026-08-28, PETITES PHRASES (sujet + verbe). Ils
+     restent courts (2 à 4 mots) et démarrent sur un déterminant, un pronom
+     sujet, ou un nom déjà présent seul dans le corpus (« papa chante »). */
+  it('les items multi-mots sont de petits groupes ou de petites phrases', () => {
+    const debuts = new Set([
+      'un', 'une', 'le', 'la', 'les', 'du', 'de', 'mon', 'ma', 'mes',
+      'je', 'tu', 'il', 'elle', 'on',
+    ]);
     for (const m of CORPUS.filter((x) => x.includes(' '))) {
-      expect(determinants.has(m.split(' ')[0])).toBe(true);
+      const mots = m.split(' ');
+      expect(mots.length, m).toBeGreaterThanOrEqual(2);
+      expect(mots.length, m).toBeLessThanOrEqual(4);
+      expect(debuts.has(mots[0]) || CORPUS.includes(mots[0]), m).toBe(true);
     }
   });
 
