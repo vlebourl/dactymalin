@@ -50,7 +50,10 @@ export function V1Accueil() {
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
-        <button className={[u.bouton, u.primaire, u.geant].join(' ')} onClick={() => envoi({ type: 'commencer' })}>
+        <button
+          className={[u.bouton, u.primaire, u.geant].join(' ')}
+          onClick={() => envoi({ type: 'commencer', perso: false })}
+        >
           On commence !
         </button>
 

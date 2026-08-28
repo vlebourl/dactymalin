@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
 import { creerEtat, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
-import { composerBloc, pouceDeLEspace } from '../core/generator';
+import { composerBloc, composerBlocPerso, pouceDeLEspace } from '../core/generator';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -39,16 +39,25 @@ export function V4Lecon() {
   const debutant = app.palier <= PALIER_MAX_DEBUTANT;
 
   const items = useMemo(
-    () => composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
+    () =>
+      app.blocPerso
+        ? composerBlocPerso(app.motsPerso, id)
+        : composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
     // un nouveau bloc à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.palier, app.bloc],
+    [id, app.palier, app.bloc, app.blocPerso],
   );
 
   // Latence de départ 0 : en débutant elle y reste plafonnée (P6).
   const [e, envoyer] = useReducer(reducer, undefined, () => creerEtat(items, performance.now(), 0));
 
-  const ensemble = useMemo(() => ensembleTouches(id, app.palier), [id, app.palier]);
+  /* « Notre leçon » (mode libre) : les mots de la famille peuvent employer des
+     lettres pas encore enseignées — le clavier les allume quand même. */
+  const ensemble = useMemo(() => {
+    const base = ensembleTouches(id, app.palier);
+    if (app.blocPerso) for (const it of items) for (const c of it.texte) base.add(c);
+    return base;
+  }, [id, app.palier, app.blocPerso, items]);
   const item = e.items[e.i];
   const attendu = item?.texte[e.curseur] ?? '';
   const enCelebration = e.celebration !== null;

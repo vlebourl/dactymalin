@@ -37,11 +37,14 @@ export type EtatApp = Sauvegarde & {
   touchesNouvelles: string[];
   verrMaj: boolean;
   premierLancement: boolean;
+  /** Le bloc courant joue « Notre leçon » (mots de la famille, mode libre). */
+  blocPerso: boolean;
 };
 
 export type Action =
   | { type: 'vue'; vue: Vue; raison?: RaisonVue }
-  | { type: 'commencer' }
+  | { type: 'commencer'; perso?: boolean }
+  | { type: 'motsPerso'; mots: string[] }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
   | { type: 'guideDoigtVu' }
@@ -59,7 +62,18 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
       };
 
     case 'commencer':
-      return { ...etat, vue: 'V4', premierLancement: false, palierOuvert: null };
+      /* `perso` absent = on garde le mode courant : depuis V5, « On continue ! »
+         reste dans la leçon (perso ou non) que l'enfant était en train de jouer. */
+      return {
+        ...etat,
+        vue: 'V4',
+        premierLancement: false,
+        palierOuvert: null,
+        blocPerso: action.perso ?? etat.blocPerso,
+      };
+
+    case 'motsPerso':
+      return { ...etat, motsPerso: action.mots };
 
     case 'disposition': {
       const change = action.id !== etat.disposition;
@@ -87,6 +101,23 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
       return etat.verrMaj === action.actif ? etat : { ...etat, verrMaj: action.actif };
 
     case 'blocTermine': {
+      /* « Notre leçon » est HORS parcours : on tape nos mots pour le plaisir,
+         sans avancer ni compter dans le palier (mode libre, lettres non
+         enseignées comprises — rien n'y prouve la maîtrise du palier). */
+      if (etat.blocPerso) {
+        return {
+          ...etat,
+          vue: 'V5',
+          bloc: Math.min(etat.bloc + 1, BLOC_MAX),
+          blocsConsecutifs: etat.blocsConsecutifs + 1,
+          etoilesDuBloc: action.bilan.etoiles,
+          titreEncouragement: encouragementSuivant(etat.titreEncouragement),
+          aReinjecter: [],
+          itemsDuBloc: action.bilan.items,
+          touchesNouvelles: [],
+          palierOuvert: null,
+        };
+      }
       let maitrise = etat.maitrise;
       const dejaMaitrisees = new Set(Object.keys(maitrise).filter((c) => estMaitrisee(maitrise, c)));
       for (const c of action.bilan.propres) maitrise = noterOccurrence(maitrise, c, etat.bloc);
@@ -133,6 +164,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
     maitrise: etat.maitrise,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,
+    motsPerso: etat.motsPerso,
   };
 }
 
@@ -151,6 +183,7 @@ export function etatDeDepart(cle?: string): EtatApp {
     touchesNouvelles: [],
     verrMaj: false,
     premierLancement: !sauve.dispositionChoisieALaMain,
+    blocPerso: false,
   };
 }
 

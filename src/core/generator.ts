@@ -1,6 +1,6 @@
 import type { IdDisposition } from './layouts';
-import { chiffresDisponibles, motsDisponibles, syllabesDisponibles } from './corpus';
-import { ensembleTouches, PALIER_MAJUSCULES, touchesAValider } from './paliers';
+import { chiffresDisponibles, estTypable, motsDisponibles, syllabesDisponibles } from './corpus';
+import { ensembleTouches, PALIER_MAJUSCULES, PALIER_MAX, touchesAValider } from './paliers';
 
 export type GenreItem = 'mot' | 'nombre' | 'syllabe';
 
@@ -119,6 +119,25 @@ export type OptionsBloc = {
  * Ordre de préférence strict (P5) : vrai mot > nombre > syllabe.
  * Aucun item ne contient un caractère hors de l'ensemble déclaré du palier.
  */
+/**
+ * « Notre leçon » (mode libre, demande du 2026-08-28) : les mots de la famille,
+ * tels quels, sans filtre de palier. Seule exigence : chaque caractère doit
+ * EXISTER sur la disposition (ensemble du dernier palier), sinon la touche
+ * cible n'existerait pas et la leçon se bloquerait.
+ */
+export function composerBlocPerso(
+  mots: string[],
+  id: IdDisposition,
+  graine?: number,
+): Item[] {
+  const ensemble = ensembleTouches(id, PALIER_MAX);
+  const rnd = alea(graine ?? Math.floor(Math.random() * 2 ** 31));
+  const jouables = [...new Set(mots)].filter((m) => estTypable(m, ensemble));
+  return melange(jouables, rnd)
+    .slice(0, TAILLE_BLOC_MAX)
+    .map((texte) => ({ texte, genre: 'mot' as const }));
+}
+
 export function composerBloc(o: OptionsBloc): Item[] {
   const rnd = alea(o.graine ?? Math.floor(Math.random() * 2 ** 31));
   const taille = Math.min(

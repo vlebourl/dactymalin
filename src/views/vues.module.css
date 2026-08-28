@@ -354,6 +354,23 @@
   border-color: var(--teal-vif);
 }
 
+/* Zone « Nos mots à nous » des réglages, un mot par ligne. */
+.champMots {
+  padding: 8px 12px;
+  border-radius: var(--r-bouton);
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  font: inherit;
+  font-size: 15px;
+  width: min(18em, 45vw);
+  resize: vertical;
+}
+
+.champMots:focus {
+  outline: none;
+  border-color: var(--teal-vif);
+}
+
 .hautParleur {
   display: inline-grid;
   place-items: center;

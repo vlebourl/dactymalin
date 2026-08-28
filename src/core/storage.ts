@@ -23,6 +23,8 @@ export type Sauvegarde = {
   maitrise: Maitrise;
   guideDoigtVu: boolean;
   reglages: Reglages;
+  /** Mots choisis par la famille pour « Notre leçon » (mode libre). */
+  motsPerso: string[];
 };
 
 /** Borne haute du compteur de blocs : au-delà, la valeur relue est aberrante. */
@@ -38,7 +40,18 @@ export const DEFAUTS: Sauvegarde = {
   maitrise: {},
   guideDoigtVu: false,
   reglages: { sons: true, texteEspace: false, animationsDouces: true },
+  motsPerso: [],
 };
+
+/** Liste « Notre leçon » assainie : textes courts, dédoublonnés, bornés. */
+export function motsPersoValides(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const sortie = v
+    .filter((m): m is string => typeof m === 'string')
+    .map((m) => m.trim())
+    .filter((m) => m.length >= 1 && m.length <= 30);
+  return [...new Set(sortie)].slice(0, 100);
+}
 
 /**
  * Repli LEGACY : numéro du prochain bloc reconstruit depuis la maîtrise, pour
@@ -86,6 +99,7 @@ export function valider(brut: unknown): Sauvegarde {
     bloc: entierBorne(o.bloc, 1, BLOC_MAX, blocDeDepart(maitrise)),
     maitrise,
     guideDoigtVu: bool(o.guideDoigtVu, false),
+    motsPerso: motsPersoValides(o.motsPerso),
     reglages: {
       sons: bool(r.sons, true),
       texteEspace: bool(r.texteEspace, false),
@@ -116,6 +130,13 @@ export function estIntact(brut: unknown): boolean {
      doit être valide, sinon le backup a plus de valeur que ce fichier-là. */
   if (o.bloc !== undefined && !entier(o.bloc, 1, BLOC_MAX)) return false;
   if (typeof o.guideDoigtVu !== 'boolean') return false;
+  /* `motsPerso` est un champ AJOUTÉ (même logique que `bloc`) : absent =
+     sauvegarde saine d'une version antérieure ; présent, il doit être une
+     liste de textes. */
+  if (o.motsPerso !== undefined) {
+    if (!Array.isArray(o.motsPerso)) return false;
+    if (!o.motsPerso.every((m) => typeof m === 'string')) return false;
+  }
   if (!o.maitrise || typeof o.maitrise !== 'object' || Array.isArray(o.maitrise)) return false;
   for (const [cle, val] of Object.entries(o.maitrise as Record<string, unknown>)) {
     if (cle.length !== 1) return false;
