@@ -77,9 +77,10 @@ Copie du modèle ecoride, vérifié le 2026-08-28 :
 - **Build pack** : Dockerfile multi-stage (build Vite + serveur), port 3000,
   healthcheck `GET /api/health`.
 - **Domaine** : `typing.tiarkaerell.com`, TLS par le proxy Coolify.
-- **Déclencheur** : GitHub Actions sur `main` → runner self-hosted
-  `homelab-runner` → `GET http://localhost:8000/api/v1/deploy?uuid=<app>` avec
-  `Bearer $COOLIFY_TOKEN`, puis polling du déploiement.
+- **Déclencheur** : webhook Coolify sur la source **Gitea**. Un push sur
+  `main` de `vlb/typing-app` déclenche build et déploiement. Pas de GitHub
+  Actions ni de runner : le montage d'ecoride n'existe que parce qu'un bump de
+  version doit précéder son deploy, ce que cette app n'a pas.
 - **Migrations** : `drizzle-kit migrate` au démarrage du conteneur, précédé du
   **backup Coolify obligatoire** (même garde-fou qu'ecoride : pas de backup
   réussi ⇒ pas de migration ⇒ la révision ne démarre pas).
@@ -111,20 +112,23 @@ s'arrêter après n'importe laquelle.
 
 ## Étape 0 — Prérequis hors dépôt (à faire par Vincent)
 
-Le dépôt n'a **aucun remote git** aujourd'hui (`git remote -v` est vide). Sans
-lui, pas de déploiement Coolify.
+Le dépôt est hébergé sur **Gitea** (`https://git.tiarkaerell.com/vlb/typing-app`,
+privé), pas sur GitHub : c'est la règle en vigueur ici, tea plutôt que gh.
 
-| # | Action | Où |
-|---|---|---|
-| 0.1 | Créer le dépôt privé `vlebourl/typing_app` et `git push -u origin main` | GitHub |
-| 0.2 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com |
-| 0.3 | Créer l'application Coolify (source = le dépôt, build pack Dockerfile) et noter son UUID | UI Coolify, `192.168.1.48` |
-| 0.4 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify |
-| 0.5 | Renseigner les secrets GitHub `COOLIFY_TOKEN`, `COOLIFY_APP_UUID` | Settings → Secrets du dépôt |
-| 0.6 | Renseigner les variables d'environnement de l'app | UI Coolify |
+| # | Action | Où | Qui |
+|---|---|---|---|
+| 0.1 | Dépôt privé `vlb/typing-app` créé | Gitea | **fait** (`tea repo create`) |
+| 0.2 | Remote `origin` en HTTPS ajouté | local | **fait** |
+| 0.3 | Premier `git push -u origin main` | local | Vincent |
+| 0.4 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com | Vincent |
+| 0.5 | Créer l'application Coolify — source Gitea `vlb/typing-app`, branche `main`, build pack Dockerfile, auto-deploy activé | UI Coolify, `192.168.1.48` | Vincent |
+| 0.6 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify | Vincent |
+| 0.7 | Renseigner les variables d'environnement de l'app | UI Coolify | Vincent |
 
-Je ne fais aucune de ces actions moi-même : elles créent des ressources
-publiques et manipulent des secrets.
+Le push initial me reste fermé : la SSH Gitea (`:30143`) est injoignable depuis
+ce Mac, et le hook `deny-secrets.sh` m'interdit de lire le token dans la config
+tea. Le reste (0.4 à 0.7) crée des ressources publiques et manipule des
+secrets — c'est à toi.
 
 ## Étape 1 — Squelette serveur (≈ 30 min)
 
@@ -259,16 +263,16 @@ l'autre, et couper le serveur en pleine leçon ne se voit pas.
 
 ## Étape 6 — Déploiement Coolify (≈ 1 h)
 
-**Ajouts** — `.github/workflows/deploy.yml`,
-`docs/DEPLOIEMENT-RUNBOOK.md`.
+**Ajouts** — `docs/DEPLOIEMENT-RUNBOOK.md`, `.githooks/pre-push`.
 
-- `on: push: branches: [main]`, job sur le runner self-hosted `homelab-runner`.
-- `curl -f "http://localhost:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}"`
-  avec `Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}`, puis polling de
-  `/api/v1/deployments/<uuid>` toutes les 15 s, 24 tentatives.
-- Le job ne part **qu'après** `npm run build`, `npm test` et `npm run e2e` verts.
-- Pas de bump de version automatique : contrairement à ecoride, cette app n'a
-  pas de PWA à invalider. On garde le workflow le plus court possible.
+- Le déploiement est déclenché par **Coolify lui-même**, sur push `main` de la
+  source Gitea. Rien à écrire dans le dépôt pour ça.
+- Le filet de sécurité passe donc **avant** le push, pas après : un hook
+  `pre-push` versionné (`git config core.hooksPath .githooks`) refuse de
+  pousser si `npm run build`, `npm test` ou `npm run e2e` échouent. Sans runner
+  CI, c'est la seule barrière — et elle vaut mieux qu'un déploiement rouge.
+- Le runbook documente le rollback : Coolify garde les révisions précédentes,
+  on redéploie l'avant-dernière depuis l'UI.
 
 **Fini quand** : un push sur `main` met `https://typing.tiarkaerell.com` à jour
 tout seul.
