@@ -56,7 +56,15 @@ export async function sauvegarderAvantMigration(o: OptionsSauvegarde): Promise<V
   const uuid = uuidBaseDepuisUrl(databaseUrl);
   const entetes = { Authorization: `Bearer ${apiToken}`, 'Content-Type': 'application/json' };
 
-  const listes = await fetchImpl(`${api}/databases/${uuid}/backups`, { headers: entetes });
+  /* Un `fetch failed` nu ne dit pas QUI on n'a pas pu joindre : depuis un
+     conteneur, `host.docker.internal` ne résout pas sous Linux. */
+  const listes = await fetchImpl(`${api}/databases/${uuid}/backups`, { headers: entetes }).catch(
+    (e: unknown) => {
+      throw new Error(
+        `Coolify injoignable sur ${api} (${e instanceof Error ? e.message : e}).`,
+      );
+    },
+  );
   if (!listes.ok) throw new Error(`Coolify : lecture des sauvegardes impossible (${listes.status}).`);
   const configs = (await listes.json()) as { uuid: string; enabled: boolean }[];
   const active = configs.find((c) => c.enabled);
