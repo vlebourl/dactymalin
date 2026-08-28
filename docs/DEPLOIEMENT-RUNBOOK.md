@@ -4,9 +4,15 @@ Tout est en place. Ce document sert le jour où quelque chose cloche.
 
 ## En une phrase
 
-Un `git push` sur `main` de `vlb/typing-app` (Gitea) déclenche un webhook vers
-Coolify, qui reconstruit l'image depuis le `Dockerfile` et remplace le
-conteneur. Le conteneur sauvegarde la base, migre, puis démarre.
+`npm run deploy` demande à Coolify de reconstruire l'image depuis le
+`Dockerfile` et de remplacer le conteneur ; celui-ci sauvegarde la base, migre,
+puis démarre.
+
+Le webhook Gitea est configuré mais **ne délivre pas** : Gitea refuse par défaut
+d'appeler une adresse privée (`ALLOWED_HOST_LIST`), et l'hôte Coolify est en
+`192.168.1.48`. D'où le déclenchement explicite. Pour le faire marcher un jour,
+il faudrait ajouter `192.168.1.48` à `ALLOWED_HOST_LIST` dans la configuration
+de Gitea.
 
 ## Les coordonnées
 
@@ -32,12 +38,10 @@ curl -s http://192.168.1.48:3003/api/health
 `db: "ok"` = la base répond. `db: "absente"` = l'application tourne sans
 `DATABASE_URL` : les comptes sont indisponibles, mais l'app reste jouable.
 
-## Déployer à la main
+## Déployer
 
 ```sh
-ssh lyra@coolify 'sudo -n bash -c '"'"'T=$(cat /root/.coolify-claude-token); \
-  curl -s -H "Authorization: Bearer $T" \
-  "http://localhost:8000/api/v1/deploy?uuid=x9tbvf1mbspphk7ml1c68dlv"'"'"''
+npm run deploy      # scripts/deployer.sh : déclenche, attend, montre les logs si ça casse
 ```
 
 ## Revenir en arrière
@@ -54,6 +58,8 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | `vite: not found` au build | Coolify injecte `NODE_ENV=production` dès le build, `npm ci` saute les devDependencies | `ENV NODE_ENV=development` + `npm ci --include=dev` dans l'étage de build |
 | Le conteneur démarre puis meurt | pas de sauvegarde planifiée ACTIVE sur la base | l'activer dans Coolify — c'est volontaire : pas de sauvegarde, pas de migration |
 | `Invalid origin` en développement | Vite sert sur `:3000` et proxifie vers `:3001` | déjà traité : les origines locales sont déclarées de confiance hors production |
+| `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
+| Le webhook Gitea ne part pas | Gitea bloque les adresses privées | `npm run deploy`, ou ouvrir `ALLOWED_HOST_LIST` côté Gitea |
 
 ## Ce qui protège les données
 
