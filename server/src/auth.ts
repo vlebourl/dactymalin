@@ -17,7 +17,14 @@ export function creerAuth(base: Base, env: Env) {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL ?? `http://localhost:${env.PORT}`,
     basePath: '/api/auth',
-    trustedOrigins: env.FRONTEND_URL ? [env.FRONTEND_URL] : [],
+    /* En production, le front et l'API partagent l'origine : rien à ajouter.
+       En développement, Vite sert sur :3000 et proxifie vers :3001 — l'origine
+       du navigateur diffère alors de baseURL, et Better Auth refusait tout
+       avec « Invalid origin ». */
+    trustedOrigins: [
+      ...(env.FRONTEND_URL ? [env.FRONTEND_URL] : []),
+      ...(env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']),
+    ],
     emailAndPassword: {
       enabled: true,
       /* Rien à vérifier par email tant qu'aucun email ne part. */
