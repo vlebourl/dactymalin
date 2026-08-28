@@ -1,0 +1,41 @@
+# Pile de DÉVELOPPEMENT uniquement. En production, Coolify construit l'image
+# depuis le Dockerfile et fournit une base PostgreSQL séparée.
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://tapeavecmoi:tapeavecmoi@postgres:5432/tapeavecmoi
+      BETTER_AUTH_SECRET: developpement-uniquement-32-caracteres-minimum
+      BETTER_AUTH_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: tapeavecmoi
+      POSTGRES_PASSWORD: tapeavecmoi
+      POSTGRES_DB: tapeavecmoi
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tapeavecmoi']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

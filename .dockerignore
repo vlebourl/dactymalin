@@ -1,0 +1,12 @@
+node_modules
+dist
+test-results
+playwright-report
+.git
+.env
+.env.*
+gan-harness
+maquettes
+recherche
+vues
+*.pdf
