@@ -11,10 +11,14 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "server:dev": "PORT=3001 tsx watch server/src/index.ts",
-    "server:start": "node --import tsx server/src/index.ts"
+    "server:start": "node --import tsx server/src/index.ts",
+    "test:db": "TEST_DATABASE_URL=postgresql://tapeavecmoi:tapeavecmoi@localhost:55432/tapeavecmoi vitest run server",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
+    "better-auth": "^1.7.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.5",
     "postgres": "^3.4.9",

@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 /* Tables Better Auth (utilisateur, session, compte, vérification). Elles sont
    décrites ici pour que les migrations soient versionnées comme le reste :
@@ -7,7 +7,9 @@ export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: timestamp('email_verified', { withTimezone: true }),
+  /* Better Auth attend un BOOLÉEN ici, pas une date : déclaré en timestamp,
+     l'insertion mourait sur « value.toISOString is not a function ». */
+  emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -31,6 +33,9 @@ export const account = pgTable('account', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
+  /* `issuer` est attendu par Better Auth 1.7 : absent, l'inscription échouait
+     en 500 avec « The field "issuer" does not exist ». */
+  issuer: text('issuer'),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
   accessToken: text('access_token'),

@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { fileURLToPath } from 'node:url';
 import { creerApp, VERSION } from './app';
+import { creerAuth } from './auth';
 import { creerBase, sondeDe } from './db/client';
 import { lireEnv } from './env';
 
@@ -17,7 +18,7 @@ const app = creerApp({
   env,
   racineClient,
   statique: serveStatic({ root: './dist' }),
-  ...(base ? { pingBase: sondeDe(base) } : {}),
+  ...(base ? { base, pingBase: sondeDe(base), auth: creerAuth(base, env) } : {}),
 });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
