@@ -1,0 +1,21 @@
+#!/bin/sh
+# Un push sur `main` DÉCLENCHE le déploiement : Coolify écoute le webhook Gitea.
+# Il n'y a donc pas de CI pour rattraper une erreur après coup — le filet est
+# ici, avant l'envoi. Activation (une fois par clone) :
+#
+#   git config core.hooksPath .githooks
+#
+# Contournement en cas d'urgence : git push --no-verify
+set -e
+
+branche=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branche" != "main" ]; then
+  echo "pre-push : branche $branche, pas de vérification (seul main déploie)."
+  exit 0
+fi
+
+echo "pre-push : types, tests, e2e — un push sur main part en production."
+npx tsc --noEmit
+npx vitest run
+npx playwright test
+echo "pre-push : tout est vert, envoi."

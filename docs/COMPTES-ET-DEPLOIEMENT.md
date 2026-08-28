@@ -303,3 +303,25 @@ sur l'app avec compte.
    de passe parent. Coût : un prénom perdu si le mot de passe est perdu.
 3. **Suppression** : un bouton « supprimer notre compte et tout effacer » dans
    V9Compte, effectif immédiatement, sans corbeille. À faire à l'étape 3.
+
+
+---
+
+# Journal de réalisation — 2026-08-28
+
+Les sept étapes sont faites. Ce qui a changé par rapport au plan :
+
+- **Gitea, pas GitHub** (règle en vigueur : tea, pas gh). Le dépôt est
+  `vlb/typing-app`. Coolify clone par clé de déploiement en lecture seule, sur
+  l'adresse LAN `192.168.1.225:30143` — le domaine passe par Cloudflare, qui ne
+  laisse passer que le 443.
+- **Pas de CI**, donc pas de workflow : le webhook Gitea suffit, et le filet est
+  un hook `pre-push` versionné (`.githooks/pre-push`).
+- **Nginx Proxy Manager** publie `typing.tiarkaerell.com` vers le port hôte
+  **3003**. Coolify ne gère pas le TLS ici.
+- **`estIntact`** sert de validateur côté serveur : le plan disait « le même
+  code que le client », c'est littéralement le même import.
+- Le mode libre (« Notre liste à nous ») accepte tout ce que la disposition sait
+  écrire, et non plus le seul curriculum.
+
+Coordonnées, vérifications et retours arrière : `docs/DEPLOIEMENT-RUNBOOK.md`.
