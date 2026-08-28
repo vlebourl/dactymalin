@@ -12,19 +12,28 @@ export const MOTS: string[] = [
   'un', 'une', 'tu', 'nu', 'jus', 'fut', 'net', 'tenu', 'tenue', 'sujet', 'neuf',
   'juste', 'justes', 'jeune', 'jeunes', 'jeu', 'je', 'ne', 'te', 'se', 'et',
   'tes', 'ses', 'sent', 'tente', 'tentes', 'un jus', 'un sujet', 'une tente',
+  'jet', 'jets', 'sujets', 'tenues', 'nette', 'nettes', 'juteuse',
+  'un jeu', 'tu sens', 'je tente', 'une tenue',
 
   // — palier 2 (+ a i r v)
   'vrai', 'vraie', 'faire', 'avis', 'train', 'suivant', 'univers', 'fruit', 'juin',
   'avenir', 'venir', 'tenir', 'rire', 'vite', 'rive', 'avant', 'ravi', 'artiste',
   'ainsi', 'instant', 'veste', 'raisin', 'nature', 'trente', 'servir', 'nuit',
-  'un train', 'une nuit',
+  'navire', 'averse', 'navet', 'tartine', 'tissu', 'vitre', 'usine', 'farine',
+  'vivre', 'suivre', 'jaune', 'ruse', 'vitrine',
+  'un train', 'une nuit', 'tu viens', 'je ris', 'un fruit vert', 'un vrai festin',
 
   // — palier 3 (+ o l d b m)
   'maison', 'bateau', 'lundi', 'soleil', 'tableau', 'bandit', 'monde', 'dinosaure',
   'ballon', 'oiseau', 'domino', 'salade', 'limonade', 'bonjour', 'moulin', 'bouton',
   'tomate', 'malade', 'melon', 'dessin', 'olive', 'danser', 'bonbon', 'animal',
   'salut', 'demain', 'aussi', 'belle', 'boule', 'route', 'libre', 'solide', 'lumiere',
-  'un ballon', 'la maison', 'mon bateau',
+  'lion', 'lune', 'mardi', 'samedi', 'radis', 'salon', 'ombre', 'sable', 'table',
+  'jardin', 'jambon', 'mouton', 'souris', 'abeille', 'famille', 'vanille', 'bille',
+  'balade', 'matin', 'monstre', 'blond', 'violet', 'marron', 'bleu', 'noir',
+  'dos', 'bras', 'jambe', 'moto', 'auto', 'ours', 'midi',
+  'un ballon', 'la maison', 'mon bateau', 'la lune brille', 'le lion dort',
+  'il est midi', 'il fait beau', 'un beau matin', 'je dessine', 'tu danses',
 
   // — palier 4 (+ g h p c)
   'chat', 'papa', 'cheval', 'chien', 'grand', 'poisson', 'chocolat', 'gomme',
@@ -32,18 +41,30 @@ export const MOTS: string[] = [
   'printemps', 'grenouille', 'peinture', 'chanson', 'citrouille', 'escargot',
   'hibou', 'papillon', 'pluie', 'sourire', 'chaton', 'dauphin', 'girafe', 'singe',
   'tigre', 'cochon', 'lapin', 'poule', 'canard', 'phoque',
-  'un chat', 'le chien', 'du chocolat',
+  'orage', 'nuage', 'espace', 'glace', 'pirate', 'prince', 'dragon', 'magie',
+  'plante', 'poire', 'pomme', 'prune', 'orange', 'citron', 'carotte', 'chou',
+  'champignon', 'panda', 'renard', 'requin', 'mouche', 'vache', 'biche', 'loup',
+  'pingouin', 'plume', 'grotte', 'piscine', 'cabane', 'copine', 'cartable',
+  'un chat', 'le chien', 'du chocolat', 'le chat dort', 'un gros chien',
+  'papa chante', 'le poisson nage', 'je mange une pomme', 'la glace au chocolat',
 
   // — palier 5 (+ é è à ç ; ç seulement quand la disposition l'ouvre)
   'ecole', 'eleve', 'tres', 'apres', 'bebe', 'elephant', 'cafe', 'etoile',
   'ecole', 'cinema', 'fevrier', 'reveil', 'poesie', 'planete',
   'probleme', 'pere', 'mere', 'frere', 'regle', 'legume', 'ocean', 'sante',
   'verite', 'deja', 'voila', 'garcon', 'francais', 'lecon', 'facon',
+  'velo', 'metro', 'ete', 'fee', 'musee', 'idee', 'journee', 'annee',
+  'chevre', 'lievre', 'panthere', 'riviere', 'sirene',
+  'mon velo est rouge', 'la fee vole',
 
   // — palier 6 (+ q w x y z ù)
   'quatre', 'wagon', 'sandwich', 'taxi', 'zebre', 'yeux', 'quinze', 'zero', 'bizarre',
   'voyage', 'crayon', 'royaume', 'quille', 'musique', 'cirque', 'xylophone',
   'quarante', 'joyeux', 'physique', 'pyjama', 'quelque', 'ou',
+  'yaourt', 'yoga', 'zoo', 'onze', 'douze', 'treize', 'seize', 'gaz', 'riz',
+  'lezard', 'quartier', 'question', 'quand', 'pourquoi', 'mystere', 'wapiti',
+  'noyau', 'tuyau', 'rayon', 'moyen',
+  'le zebre est bizarre',
 ];
 
 /**
@@ -59,6 +80,12 @@ const ACCENTUES: Record<string, string> = {
   sante: 'santé', verite: 'vérité', deja: 'déjà', voila: 'voilà',
   garcon: 'garçon', francais: 'français', lecon: 'leçon', facon: 'façon',
   zebre: 'zèbre', zero: 'zéro', lumiere: 'lumière', ou: 'où',
+  velo: 'vélo', metro: 'métro', ete: 'été', fee: 'fée', musee: 'musée',
+  idee: 'idée', journee: 'journée', annee: 'année', chevre: 'chèvre',
+  lievre: 'lièvre', panthere: 'panthère', riviere: 'rivière', sirene: 'sirène',
+  lezard: 'lézard', mystere: 'mystère',
+  'mon velo est rouge': 'mon vélo est rouge', 'la fee vole': 'la fée vole',
+  'le zebre est bizarre': 'le zèbre est bizarre',
 };
 
 /** Syllabes de dernier recours, toujours ÉTIQUETÉES « on lit et on tape ». */
