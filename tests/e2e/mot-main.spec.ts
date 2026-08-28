@@ -17,19 +17,29 @@ test('le mot GAUCHE/DROITE suit la main cible, en gros et en couleur', async ({ 
   const { frapper } = await import('./helpers/keyboard');
   const vus = new Set<string>();
 
+  /* Lecture ATOMIQUE (un seul evaluate) : lire le doigt puis le mot en deux
+     allers-retours laissait la main changer entre les deux sous charge. */
   const verifier = async () => {
-    const doigt = (await page.locator('[data-doigt]').getAttribute('data-doigt'))!;
-    const cote = doigt.includes('gauche') ? 'gauche' : 'droite';
-    const mot = page.locator('[data-cote-main]');
-    await expect(mot).toHaveAttribute('data-cote-main', cote);
-    await expect(mot).toHaveText(cote === 'gauche' ? 'GAUCHE' : 'DROITE');
-    const style = await mot.evaluate((el) => {
-      const s = getComputedStyle(el);
-      return { couleur: s.color, taille: parseFloat(s.fontSize) };
+    const info = await page.evaluate(() => {
+      const doigt = document.querySelector<HTMLElement>('[data-doigt]')?.dataset.doigt;
+      const mot = document.querySelector<HTMLElement>('[data-cote-main]');
+      if (!doigt || !mot) return null;
+      const s = getComputedStyle(mot);
+      return {
+        doigt,
+        cote: mot.dataset.coteMain,
+        texte: mot.textContent,
+        couleur: s.color,
+        taille: parseFloat(s.fontSize),
+      };
     });
-    expect(style.couleur).toBe(cote === 'gauche' ? TEAL_VIF : ORANGE_VIF);
+    if (!info) return;
+    const cote = info.doigt.includes('gauche') ? 'gauche' : 'droite';
+    expect(info.cote).toBe(cote);
+    expect(info.texte).toBe(cote === 'gauche' ? 'GAUCHE' : 'DROITE');
+    expect(info.couleur).toBe(cote === 'gauche' ? TEAL_VIF : ORANGE_VIF);
     // « en gros » : nettement plus grand que la consigne courante (15-20 px)
-    expect(style.taille).toBeGreaterThanOrEqual(22);
+    expect(info.taille).toBeGreaterThanOrEqual(22);
     vus.add(cote);
   };
 
