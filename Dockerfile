@@ -21,5 +21,6 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/server ./server
 COPY --from=build /app/src ./src
+COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
 EXPOSE 3000
-CMD ["node", "--import", "tsx", "server/src/index.ts"]
+CMD ["node", "--import", "tsx", "server/scripts/start-production.ts"]
