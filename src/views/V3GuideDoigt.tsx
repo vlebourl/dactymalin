@@ -28,7 +28,6 @@ export function V3GuideDoigt() {
             id={app.disposition}
             ensemble={ensembleTouches(app.disposition, app.palier)}
             taille="clamp(16px, 4.4vw, 54px)"
-            etiquetteFrontiere="la frontière"
             espace={{ etat: 'ouvert', pouce: 'gauche' }}
           />
           <div className={v.coteMain}>

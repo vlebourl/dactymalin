@@ -223,6 +223,13 @@ export function V4Lecon() {
 
   return (
     <div className={v.ecran}>
+      {/* Le mot GAUCHE/DROITE en GROS, dans le coin haut du côté concerné :
+          l'enfant le repère sans quitter le mot des yeux. */}
+      {!enCelebration && (
+        <span className={v.coinMain} data-cote-main={mainCible} aria-hidden="true">
+          {mainCible === 'gauche' ? 'GAUCHE' : 'DROITE'}
+        </span>
+      )}
       <header className={v.entete}>
         <button className={v.retour} onClick={() => envoi({ type: 'vue', vue: 'V1' })} aria-label="Revenir à l'accueil">
           ←
@@ -338,7 +345,6 @@ export function V4Lecon() {
               avecMaj={app.palier >= PALIER_MAX_DEBUTANT + 1}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
-              etiquetteFrontiere="la frontière"
               espace={{
                 etat:
                   e.fausse === 'Space'
