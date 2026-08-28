@@ -106,3 +106,41 @@ test.describe('touches dessinables mais non proposables', () => {
     await expect(page.locator('[data-code="Digit4"] svg')).toHaveCount(0);
   });
 });
+
+/* Régression : à 1440×900, le repli (flex-wrap) de la rangée mains+clavier
+   envoyait la main gauche AU-DESSUS du clavier, la droite en dessous, et la
+   page débordait verticalement. Les mains doivent ENCADRER le clavier. */
+test.describe('V3 : les mains encadrent le clavier', () => {
+  for (const [largeur, hauteur] of [
+    [1440, 900],
+    [1280, 720],
+  ] as const) {
+    test(`${largeur}×${hauteur} : mains de part et d'autre, page sans ascenseur`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: largeur, height: hauteur });
+      await ouvrir(page, 'fr-FR', 1);
+      await page.getByRole('button', { name: 'Revoir : où mettre mes doigts' }).click();
+      await expect(page.locator('body')).toHaveAttribute('data-vue', 'V3');
+
+      const gauche = (await page.getByText('main gauche', { exact: true }).locator('..').boundingBox())!;
+      const droite = (await page.getByText('main droite', { exact: true }).locator('..').boundingBox())!;
+      const toucheG = (await page.locator('[data-code="KeyQ"]').boundingBox())!;
+      const toucheD = (await page.locator('[data-code="KeyM"]').boundingBox())!;
+
+      // chaque main est SUR LE CÔTÉ du clavier, pas au-dessus ni en dessous
+      expect(gauche.x + gauche.width).toBeLessThan(toucheG.x);
+      expect(droite.x).toBeGreaterThan(toucheD.x + toucheD.width);
+      // ... et sur la même ligne que lui (le duo encadre, centré)
+      const centre = (b: { y: number; height: number }) => b.y + b.height / 2;
+      expect(Math.abs(centre(gauche) - centre(droite))).toBeLessThanOrEqual(2);
+      expect(centre(gauche)).toBeGreaterThan(toucheG.y - 100);
+      expect(centre(gauche)).toBeLessThan(toucheG.y + 400);
+
+      const deborde = await page.evaluate(
+        () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+      );
+      expect(deborde, 'la page déborde verticalement').toBeLessThanOrEqual(1);
+    });
+  }
+});
