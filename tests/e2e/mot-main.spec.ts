@@ -46,9 +46,16 @@ test('le mot GAUCHE/DROITE suit la main cible, en gros et en couleur', async ({ 
   // au fil de la frappe, les deux mains doivent finir par être annoncées
   for (let i = 0; i < 40 && vus.size < 2; i++) {
     await verifier();
-    const texte = (await motCourant(page))!;
+    const texte = await motCourant(page);
     const c = await curseur(page);
-    await frapper(page, 'fr-FR', texte[c]);
+    /* Pendant la célébration de fin de mot, le curseur est déjà au-delà du
+       dernier caractère : il n'y a rien à frapper, on laisse passer l'image. */
+    const lettre = texte?.[c];
+    if (lettre === undefined) {
+      await page.waitForTimeout(60);
+      continue;
+    }
+    await frapper(page, 'fr-FR', lettre);
     await page.waitForTimeout(60);
     if ((await page.locator('body').getAttribute('data-vue')) !== 'V4') break;
   }

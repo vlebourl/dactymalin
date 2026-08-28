@@ -28,8 +28,6 @@ export type OptionsClavier = {
   espace?: { etat: 'eteint' | 'ouvert' | 'cible' | 'fausse'; pouce: Main };
   /** taille d'une touche : nombre de px, ou toute longueur CSS (clamp…) */
   taille?: number | string;
-  /** étiquette de la frontière (V3 et V4) */
-  etiquetteFrontiere?: string;
 };
 
 function etatDe(t: Touche, o: OptionsClavier): EtatTouche {
@@ -99,12 +97,11 @@ export function Keyboard(o: OptionsClavier) {
 
   return (
     <div style={{ ['--taille' as string]: taille, ['--jeu' as string]: `calc(${taille} * 0.13)` }}>
+      {/* Clavier d'un SEUL tenant : la séparation gauche/droite se lit dans la
+          COULEUR des touches (teal / orange), plus dans un écart physique —
+          l'enfant doit reconnaître son vrai clavier. */}
       <div className={s.clavier}>
         {bloc('gauche')}
-        <div className={s.frontiere} aria-hidden="true">
-          <span className={s.frontiereTrait} />
-          {o.etiquetteFrontiere && <span className={s.frontiereEtiquette}>{o.etiquetteFrontiere}</span>}
-        </div>
         {bloc('droite')}
       </div>
       {o.espace && (

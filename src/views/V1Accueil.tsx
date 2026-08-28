@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { disposition } from '../core/layouts';
+import { composerBlocPerso } from '../core/generator';
+import { motsPersoValides } from '../core/storage';
 import { ensembleTouches } from '../core/paliers';
 import { Keyboard } from '../ui/Keyboard';
 import { useApp, useEnvoi } from '../state';
@@ -23,6 +26,12 @@ export function V1Accueil() {
   const app = useApp();
   const envoi = useEnvoi();
   const d = disposition(app.disposition);
+  /* Le choix est posé DÈS L'ACCUEIL : le parcours, ou notre liste à nous.
+     La liste s'écrit ici même — elle était enfouie dans les réglages. */
+  const [listeOuverte, setListeOuverte] = useState(false);
+  const [mots, setMots] = useState(app.motsPerso.join('\n'));
+  const motsPrets = motsPersoValides(mots.split(/[\n,;]+/));
+  const listeJouable = composerBlocPerso(motsPrets, app.disposition).length > 0;
 
   return (
     <div className={v.ecran}>
@@ -50,12 +59,47 @@ export function V1Accueil() {
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
-        <button
-          className={[u.bouton, u.primaire, u.geant].join(' ')}
-          onClick={() => envoi({ type: 'commencer', perso: false })}
-        >
-          On commence !
-        </button>
+        <div className={v.choixDepart}>
+          <button
+            className={[u.bouton, u.primaire, u.geant].join(' ')}
+            onClick={() => envoi({ type: 'commencer', perso: false })}
+          >
+            On commence !
+          </button>
+          <button
+            className={[u.bouton, u.geant].join(' ')}
+            aria-expanded={listeOuverte}
+            onClick={() => setListeOuverte((x) => !x)}
+          >
+            Notre liste à nous
+          </button>
+        </div>
+
+        {listeOuverte && (
+          <div className={v.panneauListe}>
+            <label className={v.promessePalier} htmlFor="mots-perso">
+              Un mot par ligne (les prénoms de la famille, les mots de l'école…).
+            </label>
+            <textarea
+              id="mots-perso"
+              className={v.champMots}
+              aria-label="Notre liste à nous"
+              rows={5}
+              value={mots}
+              onChange={(ev) => setMots(ev.target.value)}
+            />
+            <button
+              className={[u.bouton, u.primaire].join(' ')}
+              disabled={!listeJouable}
+              onClick={() => {
+                envoi({ type: 'motsPerso', mots: motsPrets });
+                envoi({ type: 'commencer', perso: true });
+              }}
+            >
+              On tape notre liste !
+            </button>
+          </div>
+        )}
 
         <p className={v.ligneClavier}>
           Ton clavier : <b>{d.nom}</b>
