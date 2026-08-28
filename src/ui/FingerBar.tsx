@@ -32,10 +32,20 @@ export const CONSIGNES: Record<Doigt, [string, string]> = {
  */
 export function FingerBar({ actif }: { actif: Doigt | null }) {
   const [main, doigt] = actif ? CONSIGNES[actif] : ['Pose tes mains', 'de chaque côté'];
+  const cote = actif ? (actif.includes('gauche') ? 'gauche' : 'droite') : null;
   return (
     <div className={s.bande} data-doigt={actif ?? 'aucun'}>
       <p className={s.consigneMain}>
-        <b>{main}</b>
+        {cote ? (
+          <b
+            className={[s.motMain, cote === 'droite' ? s.motMainDroite : ''].join(' ')}
+            data-cote-main={cote}
+          >
+            {cote === 'gauche' ? 'GAUCHE' : 'DROITE'}
+          </b>
+        ) : (
+          <b>{main}</b>
+        )}
         <br />· {doigt}
       </p>
       <div className={s.pastilles}>
