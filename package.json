@@ -14,7 +14,8 @@
     "server:start": "node --import tsx server/src/index.ts",
     "test:db": "TEST_DATABASE_URL=postgresql://tapeavecmoi:tapeavecmoi@localhost:55432/tapeavecmoi vitest run server",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "deploy": "bash scripts/deployer.sh"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
