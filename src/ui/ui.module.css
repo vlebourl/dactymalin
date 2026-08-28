@@ -372,6 +372,20 @@
   font-weight: 700;
 }
 
+/* Le mot GAUCHE/DROITE en gros, dans la couleur de sa main (teal/orange),
+   en plus de la consigne du doigt — repère immédiat pour l'enfant. */
+.motMain {
+  display: block;
+  font-size: clamp(22px, 2.6vw, 34px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--teal-vif);
+}
+
+.motMainDroite {
+  color: var(--orange-vif);
+}
+
 .pastilles {
   display: flex;
   align-items: center;
