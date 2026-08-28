@@ -408,7 +408,25 @@ function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
   useEffect(() => {
     const parent = refBoite.current?.parentElement;
     const boite = parent?.getBoundingClientRect();
-    const bloc = parent?.querySelector<HTMLElement>(`[data-bloc="${main}"]`)?.getBoundingClientRect();
+    /* Le bloc d'une main est désormais découpé en un SEGMENT par rangée : sa
+       boîte est l'union des segments, pas celle du premier. */
+    const segments = [...(parent?.querySelectorAll<HTMLElement>(`[data-bloc="${main}"]`) ?? [])];
+    const bloc = segments.length
+      ? segments.slice(1).reduce(
+          (u, el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              left: Math.min(u.left, r.left),
+              right: Math.max(u.right, r.right),
+              top: Math.min(u.top, r.top),
+              bottom: Math.max(u.bottom, r.bottom),
+            };
+          },
+          (({ left, right, top, bottom }) => ({ left, right, top, bottom }))(
+            segments[0].getBoundingClientRect(),
+          ),
+        )
+      : undefined;
     const touche = parent
       ?.querySelector<HTMLElement>(`[data-bloc="${main}"] [data-etat="cible"]`)
       ?.getBoundingClientRect();

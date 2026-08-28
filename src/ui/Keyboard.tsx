@@ -63,10 +63,21 @@ export function Keyboard(o: OptionsClavier) {
   const taille = typeof o.taille === 'number' ? `${o.taille}px` : (o.taille ?? '46px');
   const final = ensembleTouches(o.id, PALIER_MAX);
 
-  const rangeeDe = (main: Main, i: number) => {
+  /**
+   * UNE rangée = UNE ligne continue, comme sur le vrai clavier. Les touches de
+   * chaque main y forment un SEGMENT (`data-bloc`) : les deux colonnes d'avant
+   * ne pouvaient pas s'aligner — chaque colonne prenait la largeur de sa
+   * rangée la plus large, et le trou à la jointure changeait d'une rangée à
+   * l'autre (T|Y béant, B|N collé).
+   */
+  const segment = (main: Main, i: number) => {
     const touches = d.rangees[i].filter((t) => t.main === main && (o.avecMaj || !t.modificateur));
     return (
-      <div key={i} className={[s.rangee, s[`decalage${i}`] ?? ''].filter(Boolean).join(' ')}>
+      <span
+        className={[s.segment, o.blocPulse === main ? s.pulse : ''].filter(Boolean).join(' ')}
+        data-bloc={main}
+        data-pulse={o.blocPulse === main ? 'oui' : undefined}
+      >
         {touches.map((t) => (
           <Key
             key={t.code}
@@ -75,23 +86,14 @@ export function Keyboard(o: OptionsClavier) {
             verrouillee={i === 0 && verrouilleeDe(t, o.ensemble, final)}
           />
         ))}
-      </div>
+      </span>
     );
   };
 
-  const bloc = (main: Main) => (
-    <div
-      className={[
-        s.bloc,
-        main === 'gauche' ? s.blocGauche : s.blocDroite,
-        o.blocPulse === main ? s.pulse : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      data-bloc={main}
-      data-pulse={o.blocPulse === main ? 'oui' : undefined}
-    >
-      {d.rangees.map((_, i) => rangeeDe(main, i))}
+  const rangee = (i: number) => (
+    <div key={i} className={[s.rangee, s[`decalage${i}`] ?? ''].filter(Boolean).join(' ')}>
+      {segment('gauche', i)}
+      {segment('droite', i)}
     </div>
   );
 
@@ -100,10 +102,7 @@ export function Keyboard(o: OptionsClavier) {
       {/* Clavier d'un SEUL tenant : la séparation gauche/droite se lit dans la
           COULEUR des touches (teal / orange), plus dans un écart physique —
           l'enfant doit reconnaître son vrai clavier. */}
-      <div className={s.clavier}>
-        {bloc('gauche')}
-        {bloc('droite')}
-      </div>
+      <div className={s.clavier}>{d.rangees.map((_, i) => rangee(i))}</div>
       {o.espace && (
         <div className={s.zoneEspace}>
           <div

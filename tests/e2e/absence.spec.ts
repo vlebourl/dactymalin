@@ -9,6 +9,9 @@ import { DELAI_INACTIVITE } from '../../src/core/aide';
  * pendant que l'enfant était ailleurs, et il retrouvait la main qui pulse.
  */
 test.describe('fenêtre laissée de côté', () => {
+  /* Une main pulse = tous ses SEGMENTS de rangée pulsent (le clavier est une
+     suite de rangées continues, plus deux colonnes) : on compte la présence,
+     pas le nombre d'éléments. */
   const pulse = (p: import('@playwright/test').Page) => p.locator('[data-pulse="oui"]');
 
   test("l'aide d'inactivité ne monte pas pendant l'absence, et repart au retour", async ({
@@ -28,6 +31,6 @@ test.describe('fenêtre laissée de côté', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await page.waitForTimeout(500);
     expect(await pulse(page).count(), "l'aide était déjà là au retour").toBe(0);
-    await expect(pulse(page)).toHaveCount(1, { timeout: DELAI_INACTIVITE + 2000 });
+    await expect(pulse(page).first()).toBeVisible({ timeout: DELAI_INACTIVITE + 2000 });
   });
 });

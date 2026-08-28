@@ -354,10 +354,11 @@
   border-color: var(--teal-vif);
 }
 
-/* Zone « Nos mots à nous » des réglages, un mot par ligne. */
+/* Zone « Nos mots à nous », un mot par ligne. Rayon MODESTE : le rayon des
+   boutons (une gélule) rognait le début et la fin de chaque ligne de texte. */
 .champMots {
-  padding: 8px 12px;
-  border-radius: var(--r-bouton);
+  padding: 10px 14px;
+  border-radius: 12px;
   border: 2px solid var(--liseré-fort);
   background: var(--fond-carte);
   font: inherit;
@@ -758,6 +759,14 @@
 .coinMain[data-cote-main='droite'] {
   right: clamp(52px, 7vw, 110px);
   color: var(--orange-vif);
+}
+
+/* Dans le panneau de l'accueil, le champ prend toute la largeur : la famille
+   y écrit de vrais mots, pas une note en marge. */
+.panneauListe .champMots {
+  width: 100%;
+  font-size: 17px;
+  line-height: 1.55;
 }
 
 /* Accueil : les deux départs possibles, côte à côte. */
