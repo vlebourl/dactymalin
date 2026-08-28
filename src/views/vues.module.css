@@ -737,36 +737,52 @@
   }
 }
 
-/* Le mot GAUCHE / DROITE de la main à utiliser : en GROS, collé dans le coin
-   haut du côté concerné (correction du 2026-08-28 — il était perdu au milieu
-   de la bande basse). Décalé pour ne pas recouvrir la flèche de retour. */
-.coinMain {
-  position: fixed;
-  top: clamp(4px, 1vh, 12px);
-  font-size: clamp(30px, 4.6vw, 62px);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  color: var(--teal-vif);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.coinMain[data-cote-main='gauche'] {
-  left: clamp(52px, 7vw, 110px);
-}
-
-.coinMain[data-cote-main='droite'] {
-  right: clamp(52px, 7vw, 110px);
-  color: var(--orange-vif);
-}
-
+/* Le mot GAUCHE / DROITE de la main à employer : en GROS, juste au-dessus du
+   clavier et poussé du côté de sa main. Il était collé tout en haut de l'écran,
+   trop loin du regard de l'enfant. */
 /* Dans le panneau de l'accueil, le champ prend toute la largeur : la famille
    y écrit de vrais mots, pas une note en marge. */
 .panneauListe .champMots {
   width: 100%;
   font-size: 17px;
   line-height: 1.55;
+}
+
+.motMainHaut {
+  /* Même gabarit que le clavier lui-même, pas que la rangée mains comprises :
+     le mot doit surplomber les touches, pas flotter au bord de l'écran. */
+  width: min(1180px, 88vw);
+  margin: 0 0 4px;
+  font-size: clamp(26px, 3.6vw, 48px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.motMainHaut > span {
+  color: var(--teal-vif);
+}
+
+.motMainHaut:has([data-cote-main='droite']) {
+  justify-content: flex-end;
+}
+
+.motMainHaut > [data-cote-main='droite'] {
+  color: var(--orange-vif);
+}
+
+/* Les deux mains restent présentes à chaque tour ; celle qui ne joue pas
+   s'efface sans disparaître — l'enfant garde le repère des deux côtés. */
+/* `data-main-active`, pas `data-active` : ce dernier appartient déjà aux
+   pastilles de doigt de la bande basse. */
+.coteMain[data-main-active='non'] {
+  opacity: 0.28;
+}
+
+.coteMain[data-main-active='oui'] {
+  opacity: 1;
 }
 
 /* Accueil : les deux départs possibles, côte à côte. */

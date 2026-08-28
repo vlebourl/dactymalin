@@ -8,7 +8,7 @@ import { ouvrir, motCourant, sauvegarde } from './helpers/app';
    3. le choix « parcours » / « notre liste » est offert dès l'accueil, et la
       liste s'écrit sur place. */
 
-test('1. le mot de la main est en gros, dans le coin haut de son côté', async ({ page }) => {
+test('1. le mot de la main est en gros, au-dessus du clavier, de son côté', async ({ page }) => {
   await ouvrir(page, 'fr-FR', 1);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole('button', { name: 'On commence !' }).click();
@@ -16,26 +16,55 @@ test('1. le mot de la main est en gros, dans le coin haut de son côté', async 
 
   const mot = page.locator('[data-cote-main]');
   await expect(mot).toBeVisible();
-  const info = await mot.evaluate((el) => {
+  const m = await page.evaluate(() => {
+    const el = document.querySelector('[data-cote-main]') as HTMLElement;
     const b = el.getBoundingClientRect();
+    const clavier = document.querySelector('[data-bloc="gauche"]')!.getBoundingClientRect();
     return {
-      cote: (el as HTMLElement).dataset.coteMain,
+      cote: el.dataset.coteMain,
       texte: el.textContent,
       taille: parseFloat(getComputedStyle(el).fontSize),
       centreX: b.left + b.width / 2,
       bas: b.bottom,
-      largeurFenetre: window.innerWidth,
-      hauteurFenetre: window.innerHeight,
+      hautClavier: clavier.top,
+      centreClavierX: window.innerWidth / 2,
     };
   });
-  expect(info.texte).toBe(info.cote === 'gauche' ? 'GAUCHE' : 'DROITE');
-  // « en gros » : au moins le double de la consigne de la bande basse
-  expect(info.taille).toBeGreaterThanOrEqual(30);
-  // « en haut » : entièrement dans le premier cinquième de l'écran
-  expect(info.bas).toBeLessThan(info.hauteurFenetre * 0.2);
-  // « à gauche ou à droite selon la main »
-  if (info.cote === 'gauche') expect(info.centreX).toBeLessThan(info.largeurFenetre * 0.4);
-  else expect(info.centreX).toBeGreaterThan(info.largeurFenetre * 0.6);
+  expect(m.texte).toBe(m.cote === 'gauche' ? 'GAUCHE' : 'DROITE');
+  // « en gros »
+  expect(m.taille).toBeGreaterThanOrEqual(26);
+  // « au-dessus du clavier », et pas collé en haut de l'écran
+  expect(m.bas).toBeLessThanOrEqual(m.hautClavier);
+  expect(m.hautClavier - m.bas).toBeLessThan(120);
+  // « du côté de sa main »
+  if (m.cote === 'gauche') expect(m.centreX).toBeLessThan(m.centreClavierX);
+  else expect(m.centreX).toBeGreaterThan(m.centreClavierX);
+});
+
+test('1 bis. les deux mains encadrent le clavier à chaque tour', async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 1);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.getByRole('button', { name: 'On commence !' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+
+  /* Demande du 2026-08-28 : les schémas de main sont là À CHAQUE TOUR, de part
+     et d'autre du clavier — ils n'apparaissaient qu'à l'aide du barreau 3. */
+  const g = (await page.locator('[data-main="gauche"]').boundingBox())!;
+  const d = (await page.locator('[data-main="droite"]').boundingBox())!;
+  const clavier = (await page.locator('[data-bloc="gauche"]').first().boundingBox())!;
+  const clavierD = (await page.locator('[data-bloc="droite"]').first().boundingBox())!;
+  expect(g.x + g.width).toBeLessThanOrEqual(clavier.x);
+  expect(d.x).toBeGreaterThanOrEqual(clavierD.x + clavierD.width);
+  // à la même hauteur, de part et d'autre
+  expect(Math.abs(g.y + g.height / 2 - (d.y + d.height / 2))).toBeLessThanOrEqual(2);
+  // celle qui joue est allumée, l'autre reste visible mais en retrait
+  const opacites = await page.evaluate(() => ({
+    gauche: getComputedStyle(document.querySelector('[data-main="gauche"]')!).opacity,
+    droite: getComputedStyle(document.querySelector('[data-main="droite"]')!).opacity,
+  }));
+  expect(Number(opacites.gauche)).toBeGreaterThan(0);
+  expect(Number(opacites.droite)).toBeGreaterThan(0);
+  expect(opacites.gauche).not.toBe(opacites.droite);
 });
 
 test('2. le clavier est d’un seul tenant, les mains se lisent à la couleur', async ({ page }) => {
@@ -50,16 +79,22 @@ test('2. le clavier est d’un seul tenant, les mains se lisent à la couleur', 
      plus longue. Le trou à la jointure changeait donc d'une rangée à l'autre
      (T|Y béant de 58 px, B|N collé à 0). Une rangée = une ligne continue. */
   const rangees = await page.evaluate(() => {
-    const clavier = document.querySelector('[data-bloc="gauche"]')!.closest('div')!.parentElement!;
+    /* On remonte au CLAVIER : `[data-bloc]` est un segment de rangée, son
+       parent est la rangée, et le parent de la rangée est le clavier. */
+    const clavier = document.querySelector('[data-bloc="gauche"]')!.parentElement!.parentElement!;
     return [...clavier.children].map((r) => {
       const g = r.querySelector('[data-bloc="gauche"]')!;
       const d = r.querySelector('[data-bloc="droite"]')!;
-      const der = g.lastElementChild!.getBoundingClientRect();
-      const pre = d.firstElementChild!.getBoundingClientRect();
-      /* On compare au `gap` DÉCLARÉ, pas à l'écart entre deux touches voisines :
-         la touche cible est agrandie, et fausserait la mesure quand elle tombe
-         au bord du segment. */
-      return { jointure: pre.x - (der.x + der.width), gap: parseFloat(getComputedStyle(r).gap) };
+      /* `offsetLeft`/`offsetWidth` : la boîte de MISE EN PAGE, pas la boîte
+         peinte. La touche cible est agrandie par une transformation ; sur la
+         rangée où elle tombe au bord du segment, sa boîte peinte mangeait
+         4,5 px de la jointure et le test échouait pour rien. */
+      const der = g.lastElementChild as HTMLElement;
+      const pre = d.firstElementChild as HTMLElement;
+      return {
+        jointure: pre.offsetLeft - (der.offsetLeft + der.offsetWidth),
+        gap: parseFloat(getComputedStyle(r).gap),
+      };
     });
   });
   expect(rangees.length).toBeGreaterThanOrEqual(4);
