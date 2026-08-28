@@ -1,5 +1,5 @@
 {
-  "id": "d4c4c5fb-0a7c-44a8-b11b-8b6b28296e6e",
+  "id": "a5ac8924-5970-41e0-b05b-11e8d53ae887",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -19,6 +19,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "account_id": {
           "name": "account_id",
@@ -318,9 +324,10 @@
         },
         "email_verified": {
           "name": "email_verified",
-          "type": "timestamp with time zone",
+          "type": "boolean",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": false
         },
         "image": {
           "name": "image",

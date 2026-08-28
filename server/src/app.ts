@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Hono, type MiddlewareHandler } from 'hono';
+import type { Auth } from './auth';
+import type { Base } from './db/client';
+import { routesProfils } from './routes/profils';
 import type { Env } from './env';
 
 export type Deps = {
@@ -16,6 +19,10 @@ export type Deps = {
    * répondant l'index.html.
    */
   statique?: MiddlewareHandler;
+  /** Better Auth ; absent sans base (développement hors ligne). */
+  auth?: Auth;
+  /** Base de données ; absente sans `DATABASE_URL`. */
+  base?: Base;
 };
 
 /** Version du paquet, lue une fois : elle sert de repère de déploiement. */
@@ -42,6 +49,18 @@ export function creerApp(deps: Deps) {
     const db = deps.pingBase ? ((await deps.pingBase().catch(() => false)) ? 'ok' : 'ko') : 'absente';
     return c.json({ ok: true, status: db === 'ko' ? 'degraded' : 'healthy', version: VERSION, db });
   });
+
+  /* Better Auth sert tout /api/auth : inscription, connexion, session,
+     déconnexion. Sans base, la route répond 503 — l'app reste jouable, seuls
+     les comptes sont indisponibles. */
+  if (deps.auth) {
+    const auth = deps.auth;
+    app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+  } else {
+    app.all('/api/auth/*', (c) => c.json({ erreur: 'comptes indisponibles' }, 503));
+  }
+
+  if (deps.auth && deps.base) app.route('/api/profils', routesProfils(deps.base, deps.auth));
 
   // Toute autre route /api est une erreur d'appel, jamais l'index.html du client.
   app.all('/api/*', (c) => c.json({ erreur: 'route inconnue' }, 404));
