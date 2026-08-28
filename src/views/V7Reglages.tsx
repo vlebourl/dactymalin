@@ -32,6 +32,20 @@ export function V7Reglages() {
         </h1>
 
         <div className={v.reglages}>
+          {/* Réservé aux parents : c'est le seul chemin vers l'écran de compte. */}
+          <div className={v.ligneReglage}>
+            <span>
+              <b>Notre compte</b>
+              <br />
+              <span className={v.promessePalier}>
+                Pour retrouver la progression des enfants sur un autre ordinateur. Facultatif.
+              </span>
+            </span>
+            <button className={v.petitBouton} onClick={() => envoi({ type: 'vue', vue: 'V9' })}>
+              Ouvrir
+            </button>
+          </div>
+
           {/* Radios ILLUSTRÉS : on choisit un clavier en le reconnaissant. */}
           <div className={[v.ligneReglage, v.ligneClaviers].join(' ')}>
             <span>

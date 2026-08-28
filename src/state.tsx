@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
+import { pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
-export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7';
+export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V9';
 
 /** Pourquoi l'app a changé de vue d'elle-même (V2 après incohérence, F7). */
 export type RaisonVue = 'incoherence';
@@ -206,8 +207,20 @@ export function FournisseurApp({
      bouge (verrMaj), et une liste de champs à tenir à jour finissait toujours
      par oublier le dernier ajouté. */
   useEffect(() => {
-    sauver(aSauvegarder(etat), cle);
-  }, [etat, cle]);
+    const sauvegarde = aSauvegarder(etat);
+    sauver(sauvegarde, cle);
+    /* Envoi en ARRIÈRE-PLAN, et seulement si un compte est lié à ce profil.
+       `pousser` ne lève jamais : une leçon ne doit pas dépendre du réseau. */
+    pousser(idProfil ?? 'p1', sauvegarde);
+  }, [etat, cle, idProfil]);
+
+  /* Retour du réseau : on rejoue ce qui attendait. */
+  useEffect(() => {
+    const reprendre = () => void viderLaFile();
+    window.addEventListener('online', reprendre);
+    void viderLaFile();
+    return () => window.removeEventListener('online', reprendre);
+  }, []);
 
   useEffect(() => demanderPersistance(), []);
 
