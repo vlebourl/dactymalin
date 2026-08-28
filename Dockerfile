@@ -2,8 +2,11 @@
 # dist/ du client, comme sur ecoride. Un seul conteneur à déployer.
 FROM node:22-alpine AS build
 WORKDIR /app
+# Coolify injecte NODE_ENV=production dans le BUILD : `npm ci` sautait alors
+# les devDependencies, et `vite` — l'outil de construction — n'existait pas.
+ENV NODE_ENV=development
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
 RUN npx vite build
 
