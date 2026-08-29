@@ -77,9 +77,10 @@ Copie du modèle ecoride, vérifié le 2026-08-28 :
 - **Build pack** : Dockerfile multi-stage (build Vite + serveur), port 3000,
   healthcheck `GET /api/health`.
 - **Domaine** : `typing.tiarkaerell.com`, TLS par le proxy Coolify.
-- **Déclencheur** : webhook Coolify sur la source **Gitea**. Un push sur
-  `main` de `vlb/typing-app` déclenche build et déploiement. Pas de GitHub
-  Actions ni de runner : le montage d'ecoride n'existe que parce qu'un bump de
+- **Déclencheur** : GitHub Actions. Un push sur `main` de
+  `vlebourl/dactymalin` lance `.github/workflows/deploy.yml` sur le runner
+  auto-hébergé `homelab-runner`, qui appelle l'API Coolify en localhost. Même
+  montage que le dépôt ecoride. Le webhook a été essayé et abandonné : le montage d'ecoride n'existe que parce qu'un bump de
   version doit précéder son deploy, ce que cette app n'a pas.
 - **Migrations** : `drizzle-kit migrate` au démarrage du conteneur, précédé du
   **backup Coolify obligatoire** (même garde-fou qu'ecoride : pas de backup
@@ -112,12 +113,14 @@ s'arrêter après n'importe laquelle.
 
 ## Étape 0 — Prérequis hors dépôt (à faire par Vincent)
 
-Le dépôt est hébergé sur **Gitea** (`https://git.tiarkaerell.com/vlb/typing-app`,
-privé), pas sur GitHub : c'est la règle en vigueur ici, tea plutôt que gh.
+Le dépôt est hébergé sur **GitHub** (`https://github.com/vlebourl/dactymalin`,
+public). Il a d'abord vécu sur Gitea en privé ; la migration a eu lieu le
+2026-08-29, parce qu'aucun déclencheur automatique ne pouvait sortir de Gitea
+vers une adresse privée.
 
 | # | Action | Où | Qui |
 |---|---|---|---|
-| 0.1 | Dépôt privé `vlb/typing-app` créé | Gitea | **fait** (`tea repo create`) |
+| 0.1 | Dépôt public `vlebourl/dactymalin` créé | GitHub | **fait** |
 | 0.2 | Remote `origin` en HTTPS ajouté | local | **fait** |
 | 0.3 | Premier `git push -u origin main` | local | Vincent |
 | 0.4 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com | Vincent |
@@ -125,9 +128,10 @@ privé), pas sur GitHub : c'est la règle en vigueur ici, tea plutôt que gh.
 | 0.6 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify | Vincent |
 | 0.7 | Renseigner les variables d'environnement de l'app | UI Coolify | Vincent |
 
-Le push initial me reste fermé : la SSH Gitea (`:30143`) est injoignable depuis
-ce Mac, et le hook `deny-secrets.sh` m'interdit de lire le token dans la config
-tea. Le reste (0.4 à 0.7) crée des ressources publiques et manipule des
+Historique : le push initial vers Gitea était resté fermé — la SSH Gitea
+(`:30143`) injoignable depuis ce Mac, et `deny-secrets.sh` interdisant la
+lecture du token tea. Sans objet depuis le passage sur GitHub.
+Le reste (0.4 à 0.7) crée des ressources publiques et manipule des
 secrets — c'est à toi.
 
 ## Étape 1 — Squelette serveur (≈ 30 min)
@@ -265,8 +269,8 @@ l'autre, et couper le serveur en pleine leçon ne se voit pas.
 
 **Ajouts** — `docs/DEPLOIEMENT-RUNBOOK.md`, `.githooks/pre-push`.
 
-- Le déploiement est déclenché par **Coolify lui-même**, sur push `main` de la
-  source Gitea. Rien à écrire dans le dépôt pour ça.
+- Le déploiement est déclenché par **GitHub Actions**, sur push `main`, via le
+  runner auto-hébergé. C'est `.github/workflows/deploy.yml` qui le porte.
 - Le filet de sécurité passe donc **avant** le push, pas après : un hook
   `pre-push` versionné (`git config core.hooksPath .githooks`) refuse de
   pousser si `npm run build`, `npm test` ou `npm run e2e` échouent. Sans runner
@@ -315,8 +319,9 @@ Les sept étapes sont faites. Ce qui a changé par rapport au plan :
   sans clé. Le montage Gitea précédent clonait par clé de déploiement sur
   l'adresse LAN `192.168.1.225:30143` : il fonctionnait pour le clone, mais
   aucun webhook ne pouvait en sortir vers une adresse privée.
-- **Pas de CI**, donc pas de workflow : le webhook Gitea suffit, et le filet est
-  un hook `pre-push` versionné (`.githooks/pre-push`).
+- **Un seul workflow**, le déploiement. Les tests restent tenus par le hook
+  `pre-push` versionné (`.githooks/pre-push`), qui refuse un push non vert :
+  le filet passe donc AVANT le push, pas après.
 - **Nginx Proxy Manager** publie `typing.tiarkaerell.com` vers le port hôte
   **3003**. Coolify ne gère pas le TLS ici.
 - **`estIntact`** sert de validateur côté serveur : le plan disait « le même
