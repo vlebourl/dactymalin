@@ -1,0 +1,60 @@
+# Déploiement automatique sur Coolify.
+#
+# Pourquoi un runner auto-hébergé plutôt qu'un webhook : Coolify est derrière
+# Cloudflare, qui répond « Just a moment… » (403) aux POST de GitHub. Le runner
+# vit DANS le réseau et appelle Coolify en localhost — aucune connexion
+# entrante, donc rien à traverser. Même montage que le dépôt ecoride.
+name: Déploiement
+
+on:
+  push:
+    branches: [main]
+
+# Un déploiement à la fois : deux pushs rapprochés reconstruisaient deux fois
+# la même image, et l'ordre d'arrivée décidait de la version en ligne.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Déployer sur Coolify
+    runs-on: homelab-runner
+    steps:
+      - name: Déclencher le déploiement
+        run: |
+          REPONSE=$(curl -s -f -X GET \
+            "http://localhost:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
+          echo "$REPONSE"
+          UUID=$(echo "$REPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['deployments'][0]['deployment_uuid'])")
+          echo "deploy_uuid=$UUID" >> $GITHUB_ENV
+
+      - name: Attendre le verdict
+        run: |
+          echo "Déploiement ${{ env.deploy_uuid }} en cours…"
+          for i in $(seq 1 24); do
+            sleep 15
+            ETAT=$(curl -s \
+              "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status'))")
+            echo "[$((i * 15))s] $ETAT"
+            [ "$ETAT" = "finished" ] && exit 0
+            [ "$ETAT" = "failed" ] && echo "Déploiement en échec." && exit 1
+          done
+          echo "Toujours $ETAT après 360 s — abandon de l'attente."
+          exit 1
+
+      # Le déploiement peut « finir » sur un conteneur qui ne répond pas :
+      # c'est la santé de l'application qui fait foi, pas celle du build.
+      - name: Vérifier que l'application répond
+        run: |
+          for i in $(seq 1 10); do
+            sleep 6
+            if curl -sf http://192.168.1.48:3003/api/health | grep -q '"ok":true'; then
+              curl -s http://192.168.1.48:3003/api/health; echo; exit 0
+            fi
+          done
+          echo "L'application ne répond pas sur /api/health après le déploiement."
+          exit 1

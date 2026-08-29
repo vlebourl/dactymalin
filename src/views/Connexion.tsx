@@ -50,7 +50,12 @@ export function Connexion({ onConnecte }: { onConnecte: (c: Compte) => void }) {
   return (
     <div className={v.ecran}>
       <div className={v.centre}>
-        <h1 className={v.titre}>Tape avec moi</h1>
+        {/* Même logo que l'accueil : le portail est désormais le PREMIER écran
+            de l'application, c'est lui qui la nomme. Le nom est une image (cf.
+            V1Accueil), donc il porte son texte alternatif. */}
+        <h1 className={`${v.titre} ${v.titreLogo}`}>
+          <img src="/logo-dactymalin.png" alt="DactyMalin" className={v.logo} />
+        </h1>
         <p className={v.sousTitre}>
           Un compte de parent, une fois, sur cet appareil.
           <br />

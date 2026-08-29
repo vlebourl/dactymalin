@@ -48,7 +48,13 @@ export function V1Accueil() {
       </header>
 
       <div className={v.centre}>
-        <h1 className={v.titre}>Tape avec moi</h1>
+        {/* Le nom est une image : le logo porte une typographie et un jeu de
+            couleurs que la police de l'app ne reproduit pas. Il reste dans un
+            h1 avec son texte alternatif — la hiérarchie et les lecteurs
+            d'écran ne doivent rien perdre au passage. */}
+        <h1 className={`${v.titre} ${v.titreLogo}`}>
+          <img src="/logo-dactymalin.png" alt="DactyMalin" className={v.logo} />
+        </h1>
         <p className={v.sousTitre}>Apprends où poser tes doigts sur ton vrai clavier.</p>
 
         {/* Illustration à plat, sans mains ni personnage. */}

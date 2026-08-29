@@ -1,4 +1,4 @@
-/* « Tape avec moi » — jetons de design.
+/* « DactyMalin » — jetons de design.
    Deux teintes de base et deux seulement : teal = main gauche, orange = main droite.
    Aucune touche ne change JAMAIS de teinte de base ; seuls la saturation,
    l'anneau, le halo et l'échelle varient — donc tout reste lisible en gris. */

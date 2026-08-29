@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { verrMajActif } from '../core/detect';
-import { MAJ_DROITE, MAJ_GAUCHE } from '../core/layouts';
+import { MAJ_DROITE, MAJ_GAUCHE, touches, type IdDisposition } from '../core/layouts';
 
 export type Frappe = {
   code: string;
@@ -27,17 +27,49 @@ function surUnControle(): boolean {
   return CONTROLES.has(cible.tagName) || cible.tabIndex >= 0;
 }
 
+/** Verr.Maj rapporté par le navigateur ; `null` quand il ne le rapporte pas. */
+function etatVerrMaj(e: KeyboardEvent): boolean | null {
+  try {
+    return e.getModifierState('CapsLock');
+  } catch {
+    /* getModifierState absent : on s'en remet au repli observable */
+    return null;
+  }
+}
+
+/**
+ * Certains pilotes synthétiques laissent dans `key` le caractère SANS Maj.
+ * On ne corrige donc que si `key` vaut exactement le caractère direct de la
+ * disposition configurée : un vrai événement navigateur, déjà modifié, ne
+ * correspond pas et ressort brut. Une exception assumée : si le clavier
+ * PHYSIQUE n'est pas celui qui est configuré, la valeur produite peut
+ * coïncider avec un caractère direct de la table et se voir réinterprétée
+ * comme sur la disposition enseignée — c'est précisément l'incohérence que
+ * la surveillance F7 finit par détecter.
+ */
+function appliquerMaj(id: IdDisposition | undefined, e: KeyboardEvent): string {
+  if (!id || !e.shiftKey) return e.key;
+  const touche = touches(id).find((t) => t.code === e.code);
+  if (touche?.base !== e.key) return e.key;
+  if (touche.maj) return touche.maj;
+  /* Verr.Maj + Maj produit une MINUSCULE : capitaliser ici validait comme
+     réussite une frappe dont la sortie physique est bien un `a`. */
+  if (etatVerrMaj(e)) return e.key;
+  return /^[a-z]$/.test(e.key) ? e.key.toUpperCase() : e.key;
+}
+
 /**
  * Écoute globale du clavier physique.
- * Rend le couple (code, key) brut : c'est lui, et lui seul, qui porte
- * l'information de disposition. Le CÔTÉ de la touche Maj est suivi
- * explicitement : `shiftKey` ne dit pas laquelle des deux est tenue, et la
- * règle contralatérale n'était donc jamais vérifiée.
+ * Rend le couple (code, key) brut pour la détection de disposition. Quand une
+ * disposition connue est fournie, corrige seulement les pilotes qui laissent
+ * dans `key` la valeur sans Maj. Le CÔTÉ de la touche Maj est suivi
+ * explicitement : `shiftKey` ne dit pas laquelle des deux est tenue.
  */
 export function useKeyInput(
   actif: boolean,
   surFrappe: (f: Frappe) => void,
   surVerrMaj?: (actif: boolean) => void,
+  idDisposition?: IdDisposition,
 ): void {
   const refFrappe = useRef(surFrappe);
   const refVerrMaj = useRef(surVerrMaj);
@@ -62,13 +94,7 @@ export function useKeyInput(
     const oublierMaj = () => majTenues.clear();
 
     const signalerVerrMaj = (e: KeyboardEvent) => {
-      let etat: boolean | null = null;
-      try {
-        etat = e.getModifierState('CapsLock');
-      } catch {
-        /* getModifierState absent : on s'en remet au repli observable */
-      }
-      refVerrMaj.current?.(verrMajActif(e.key, e.shiftKey, etat));
+      refVerrMaj.current?.(verrMajActif(e.key, e.shiftKey, etatVerrMaj(e)));
     };
 
     const surTouche = (e: KeyboardEvent) => {
@@ -90,7 +116,7 @@ export function useKeyInput(
          ShiftLeft/ShiftRight soit observé — jamais une réussite. */
       refFrappe.current({
         code: e.code,
-        key: e.key,
+        key: appliquerMaj(idDisposition, e),
         repeat: e.repeat,
         avecMaj: e.shiftKey,
         majGauche: majTenues.has(MAJ_GAUCHE),
@@ -112,5 +138,5 @@ export function useKeyInput(
       window.removeEventListener('keyup', surRelache);
       window.removeEventListener('blur', oublierMaj);
     };
-  }, [actif]);
+  }, [actif, idDisposition]);
 }

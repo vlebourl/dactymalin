@@ -204,7 +204,7 @@ describe('tables de disposition', () => {
 const MATRICE: Record<'fr-FR' | 'fr-CH', string[][]> = {
   'fr-FR': [
     ['Backquote', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7',
-      'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal', 'Backspace'],
+      'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal'],
     ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP',
       'BracketLeft', 'BracketRight'],
     ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon',
@@ -214,7 +214,7 @@ const MATRICE: Record<'fr-FR' | 'fr-CH', string[][]> = {
   ],
   'fr-CH': [
     ['Backquote', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7',
-      'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal', 'Backspace'],
+      'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal'],
     ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP',
       'BracketLeft', 'BracketRight'],
     ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon',
@@ -230,16 +230,12 @@ describe('matrice physique exhaustive', () => {
     expect(rendu).toEqual(MATRICE[id]);
   });
 
-  it.each(['fr-FR', 'fr-CH'] as const)(
-    '%s dessine le Retour arrière, sans jamais le proposer',
-    (id) => {
-      const retour = touches(id).find((t) => t.code === 'Backspace');
-      expect(retour, 'Retour arrière absent de la table').toBeDefined();
-      expect(retour!.nom, 'le Retour arrière doit être dessiné avec un libellé').toBeTruthy();
-      expect(retour!.base).toBeUndefined();
-      expect(estProposable(retour!)).toBe(false);
-    },
-  );
+  /* Le Retour arrière a été RETIRÉ du dessin : il n'avait aucun rôle et
+     occupait le bout de la rangée des chiffres. Ce test empêche qu'il
+     revienne par la réécriture d'une table. */
+  it.each(['fr-FR', 'fr-CH'] as const)('%s ne dessine aucun Retour arrière', (id) => {
+    expect(touches(id).find((t) => t.code === 'Backspace')).toBeUndefined();
+  });
 
   it('les touches mortes sont déclarées là où elles existent physiquement', () => {
     const morte = (id: 'fr-FR' | 'fr-CH', code: string) =>

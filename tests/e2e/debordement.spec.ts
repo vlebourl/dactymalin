@@ -80,7 +80,7 @@ test.describe('touches dessinables mais non proposables', () => {
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
-    for (const code of ['Backspace', 'BracketLeft', 'Backquote', 'Minus', 'Equal']) {
+    for (const code of ['BracketLeft', 'Backquote', 'Minus', 'Equal']) {
       const touche = page.locator(`[data-code="${code}"]`);
       await expect(touche, `${code} devrait être dessinée`).toBeVisible();
       await expect(touche, `${code} devrait être éteinte`).toHaveAttribute('data-etat', 'eteinte');
@@ -92,11 +92,11 @@ test.describe('touches dessinables mais non proposables', () => {
     await expect(page.locator('[data-code="Digit1"] svg')).toHaveCount(1);
   });
 
-  test('CH-FR : le ^ mort et le Retour arrière sont là, éteints', async ({ page }) => {
+  test('CH-FR : le ^ mort est là, éteint', async ({ page }) => {
     await ouvrir(page, 'fr-CH', 1);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
-    for (const code of ['Equal', 'BracketRight', 'Backspace', 'Minus']) {
+    for (const code of ['Equal', 'BracketRight', 'Minus']) {
       await expect(page.locator(`[data-code="${code}"]`)).toHaveAttribute('data-etat', 'eteinte');
     }
     // les chiffres, eux, sont ouverts dès le palier 1 : ni cadenas ni extinction
@@ -104,6 +104,8 @@ test.describe('touches dessinables mais non proposables', () => {
       'eteinte',
     );
     await expect(page.locator('[data-code="Digit4"] svg')).toHaveCount(0);
+    // le Retour arrière a été retiré du dessin : plus aucune trace
+    await expect(page.locator('[data-code="Backspace"]')).toHaveCount(0);
   });
 });
 
