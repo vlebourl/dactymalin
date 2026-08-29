@@ -24,6 +24,12 @@ test('le parent crée une liste, l’enfant la joue, le palier ne bouge pas', as
   // — la liste survit à un rechargement : elle vit sur le compte, pas ici.
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  await expect(page.getByText('Dictée de la semaine')).toBeVisible();
+  await page.getByLabel('Revenir').click();
+  await page.getByLabel('Revenir').click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
 
   // — côté enfant : la carte est sur l'accueil, un seul appui la lance.
   const carte = page.getByRole('button', { name: /Dictée de la semaine/ });
@@ -79,4 +85,43 @@ test('le parent est averti du mot que le clavier ne sait pas écrire', async ({ 
   // le bloc ne contient que ce que le clavier écrit
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
   expect(await motCourant(page)).toBe('papa');
+});
+
+/* « Les listes appartiennent au foyer : les deux enfants voient les mêmes »
+   (#9). Une liste pend au COMPTE et non au profil — sans quoi le parent
+   saisirait la même dictée deux fois. */
+test('les deux enfants du foyer voient la même liste', async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 1, false, 'Timo');
+
+  // le parent prépare la dictée, et ajoute le second enfant
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  await page.getByLabel('Nom de la liste').fill('La famille');
+  await page.getByLabel('Les mots de la liste').fill('papi\nmamie');
+  await page.getByRole('button', { name: 'Créer la liste' }).click();
+  await expect(page.getByText('La famille')).toBeVisible();
+
+  await page.getByLabel('Prénom du nouvel enfant').fill('Zoé');
+  await page.getByRole('button', { name: 'Ajouter un enfant' }).click();
+  await expect(page.getByLabel('Prénom de Zoé')).toBeVisible();
+
+  /* Deux enfants : l'app repasse par « Qui joue ? ». Chacun ouvre SON accueil,
+     et la carte y est. */
+  await page.reload();
+  for (const prenom of ['Timo', 'Zoé']) {
+    await page.waitForSelector('body[data-vue="V0"]');
+    await page.getByRole('button', { name: prenom }).click();
+    /* Zoé n'a encore rien joué sur cet appareil : elle traverse d'abord son
+       onboarding — clavier, puis doigts. Timo arrive directement sur le sien. */
+    if ((await page.locator('body').getAttribute('data-vue')) === 'V2') {
+      await page
+        .locator('[data-disposition="fr-FR"]')
+        .getByRole('button', { name: "C'est celui-là" })
+        .click();
+      await page.getByRole('button', { name: "J'ai compris" }).click();
+    }
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+    await expect(page.getByRole('button', { name: /La famille/ })).toBeVisible();
+    await page.reload();
+  }
 });

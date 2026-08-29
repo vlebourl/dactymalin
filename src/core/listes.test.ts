@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LISTES_MAX, NOM_LISTE_MAX, listeValidee, motsIntapables } from './listes';
+import { LISTES_MAX, NOM_LISTE_MAX, estJouable, listeValidee, motsIntapables } from './listes';
 
 /* Le validateur est partagé client/serveur (#9) : une seule définition de ce
    qu'est une liste acceptable, pas deux qui divergeraient. */
@@ -52,5 +52,22 @@ describe('motsIntapables', () => {
 describe('plafond de listes', () => {
   it('vaut 30, la borne annoncée par la spec', () => {
     expect(LISTES_MAX).toBe(30);
+  });
+});
+
+/* Une liste appartient au COMPTE, mais une disposition appartient à l'APPAREIL.
+   Une liste écrite sur un clavier peut n'avoir plus un seul mot tapable sur
+   l'autre : sa carte lancerait un bloc vide, un cul-de-sac que l'enfant ne
+   saurait pas expliquer. */
+describe('estJouable', () => {
+  const liste = (mots: string[]) => ({ id: 'l', nom: 'n', mots, creeLe: '2026-08-29T00:00:00.000Z' });
+
+  it('vraie dès qu’un mot est tapable sur cette disposition', () => {
+    expect(estJouable(liste(['papa', 'la fête']), 'fr-FR')).toBe(true);
+  });
+
+  it('fausse quand la disposition ne sait écrire aucun mot', () => {
+    expect(estJouable(liste(['la fête', 'ЖЖЖ']), 'fr-FR')).toBe(false);
+    expect(estJouable(liste([]), 'fr-FR')).toBe(false);
   });
 });

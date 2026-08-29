@@ -40,6 +40,19 @@ describe('lancer une liste depuis une carte', () => {
     expect(reducer(enCours, { type: 'commencer', liste: AUTRE }).listeJouee).toEqual(AUTRE);
   });
 
+  /* Régression (revue de #9) : « Notre leçon » — la liste unique d'avant la
+     bibliothèque — rejouait la DERNIÈRE carte jouée. Elle demande le mode
+     libre sans charge utile (`perso: true`), et la liste précédente survivait
+     à la demande : l'enfant appuyait sur « Notre liste à nous » et retrouvait
+     la dictée de l'école. Un `perso` EXPLICITE annonce un nouveau départ ;
+     seul son absence veut dire « on continue ». */
+  it('« Notre leçon » ne rejoue pas la carte d’avant', () => {
+    const apresCarte = reducer(base(), { type: 'commencer', liste: DICTEE });
+    const notreLecon = reducer(apresCarte, { type: 'commencer', perso: true });
+    expect(notreLecon.blocPerso).toBe(true);
+    expect(notreLecon.listeJouee).toBeNull();
+  });
+
   it('revenir au parcours oublie la liste', () => {
     const enCours = reducer(base(), { type: 'commencer', liste: DICTEE });
     const parcours = reducer(enCours, { type: 'commencer', perso: false });
