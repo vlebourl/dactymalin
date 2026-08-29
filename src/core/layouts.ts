@@ -73,11 +73,11 @@ const majG = (): Touche => ({
 const majD = (): Touche => ({
   code: MAJ_DROITE, main: 'droite', nom: 'Maj', large: 1.7, modificateur: true,
 });
-/* Retour arrière : DESSINÉE, éteinte, sans aucun rôle — rien ne s'écrit jamais
-   de faux, il n'y a donc rien à effacer (cahier 4.2, spec F3). */
-const retour = (): Touche => ({
-  code: 'Backspace', main: 'droite', nom: '⌫', large: 1.6, inerte: true,
-});
+/* Le Retour arrière n'est PAS dessiné. Le cahier (4.2, spec F3) le voulait
+   présent mais éteint ; à l'usage il n'apportait rien — rien ne s'écrit jamais
+   de faux, il n'y a donc rien à effacer — et il occupait le bout de la rangée
+   des chiffres, là où l'œil d'un enfant cherche le clavier. `inerte` reste
+   utilisé par le `²` de FR-FR. */
 
 /* ------------------------------------------------------------------ FR-FR */
 /* Matrice PHYSIQUE complète du bloc alphanumérique ISO, d'après kbdfr.
@@ -102,7 +102,6 @@ const FR_FR: Disposition = {
       d('Digit0', 'à', '0'),
       d('Minus', ')', '°'),
       d('Equal', '=', '+'),
-      retour(),
     ],
     [
       g('KeyQ', 'a'),
@@ -173,7 +172,6 @@ const FR_CH: Disposition = {
       d('Digit0', '0', '='),
       d('Minus', "'", '?'),
       d('Equal', '^', '`', { morte: true }),
-      retour(),
     ],
     [
       g('KeyQ', 'q'),
@@ -237,7 +235,7 @@ export function touches(id: IdDisposition): Touche[] {
  * DESSINABLE ≠ PROPOSABLE. Toute touche physique est dessinée ; seules celles
  * qui produisent réellement un caractère utilisable peuvent devenir une cible.
  * Sont dessinées mais jamais proposées : les touches mortes (`^`, `¨`), les
- * inertes (Retour arrière, `²`) et les modificateurs.
+ * inertes (`²`) et les modificateurs.
  */
 export function estProposable(t: Touche): boolean {
   return !t.morte && !t.inerte && !t.modificateur;
