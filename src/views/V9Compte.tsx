@@ -8,7 +8,7 @@ import {
   type Compte,
   type ProfilDistant,
 } from '../core/sync';
-import { remplacerIndex } from '../core/profils';
+import { prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
 import { useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -23,7 +23,7 @@ export function V9Compte() {
   const [compte, setCompte] = useState<Compte | null>(null);
   const [profils, setProfils] = useState<ProfilDistant[]>([]);
   const [file, setFile] = useState(0);
-  /** Prénoms en cours de saisie, par profil : le champ suit le parent. */
+  /** Brouillons de prénom, par profil : seulement ceux que le parent a tapés. */
   const [saisie, setSaisie] = useState<Record<string, string>>({});
   const [echec, setEchec] = useState<string | null>(null);
 
@@ -32,7 +32,10 @@ export function V9Compte() {
     /* Le cache local suit le compte : un prénom corrigé ici doit s'afficher
        tout de suite sur l'écran « Qui joue ? » et dans la leçon. */
     remplacerIndex(liste.map((p) => ({ id: p.id, nom: p.prenom })));
-    setSaisie(Object.fromEntries(liste.map((p) => [p.id, p.prenom])));
+    /* On ne touche PAS aux champs : la liste arrive du réseau, donc à un
+       moment qu'on ne choisit pas, et elle effaçait le prénom que le parent
+       était en train de taper. Un champ sans brouillon affiche déjà celui du
+       serveur. */
   };
 
   const rafraichir = async () => {
@@ -53,16 +56,29 @@ export function V9Compte() {
    */
   const renommer = async (id: string) => {
     const prenom = (saisie[id] ?? '').trim();
-    if (!prenom) return;
+    /* Le même jugement que l'écran de création, et la même borne : un champ
+       vidé ne partait EN SILENCE nulle part, et `maxLength` coupait à la
+       vingtième lettre un prénom que le serveur acceptait jusqu'à trente. */
+    if (!prenomValide(prenom)) {
+      setEchec(
+        prenom.length === 0
+          ? 'Écrivez le prénom de l’enfant : un profil ne peut pas être sans nom.'
+          : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`,
+      );
+      return;
+    }
     setEchec(null);
     try {
       await renommerProfilDistant(id, prenom);
+      /* Le brouillon a servi : le champ repart du prénom que le SERVEUR
+         confirme, pas de ce qu'on croyait avoir envoyé. */
+      setSaisie(({ [id]: _, ...reste }) => reste);
       adopterListe(await profilsDistants());
     } catch {
       /* On remet ce que le serveur sait, et on DIT pourquoi : un champ qui
          revient tout seul à l'ancien prénom, sans un mot, laisse le parent
          croire qu'il a mal tapé. */
-      adopterListe(profils);
+      setSaisie(({ [id]: _, ...reste }) => reste);
       setEchec("Le renommage n'a pas pu être enregistré : vérifiez la connexion.");
     }
   };
@@ -112,9 +128,11 @@ export function V9Compte() {
                   <input
                     className={v.champNom}
                     value={saisie[p.id] ?? p.prenom}
-                    maxLength={20}
                     aria-label={`Prénom de ${p.prenom}`}
-                    onChange={(e) => setSaisie({ ...saisie, [p.id]: e.target.value })}
+                    onChange={(e) => {
+                      setSaisie({ ...saisie, [p.id]: e.target.value });
+                      setEchec(null);
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && void renommer(p.id)}
                   />
                   <button

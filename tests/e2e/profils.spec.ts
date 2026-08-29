@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { assureProfil, cleProfil, connecte, courrielUnique, inscrit, ouvrir, sauvegarde } from './helpers/app';
+import { PRENOM_MAX } from '../../src/core/profils';
 
 /**
  * Profils enfants DU COMPTE (#4). Leur identifiant serveur est leur seul
@@ -24,6 +25,54 @@ test("un compte tout neuf demande le prénom du premier enfant, il n'y a pas de 
     profils: { prenom: string }[];
   };
   expect(profils.map((p) => p.prenom)).toEqual(['Timo']);
+});
+
+test('un prénom vide est refusé, et personne ne devient « Joueur 1 »', async ({ page }) => {
+  await inscrit(page);
+  await page.goto('/');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+
+  // champ laissé vide, puis rempli d'espaces : refusé, avec un motif dit
+  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await expect(page.getByRole('status')).toHaveText(/écris ton prénom/i);
+  await page.getByLabel('Ton prénom').fill('   ');
+  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await expect(page.getByRole('status')).toHaveText(/écris ton prénom/i);
+
+  // on est toujours sur l'écran, et le compte n'a hérité d'AUCUN profil
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+  const { profils } = (await (await page.request.get('/api/profils')).json()) as {
+    profils: unknown[];
+  };
+  expect(profils).toHaveLength(0);
+
+  // le prénom corrigé passe, et le message s'en va
+  await page.getByLabel('Ton prénom').fill('Timo');
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
+});
+
+test('un prénom trop long est refusé et le dit, plutôt que de couper en silence', async ({
+  page,
+}) => {
+  await inscrit(page);
+  await page.goto('/');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+
+  const tropLong = 'a'.repeat(PRENOM_MAX + 5);
+  await page.getByLabel('Ton prénom').fill(tropLong);
+  /* Ce qui a été tapé reste À L'ÉCRAN : couper à la trentième lettre sans un
+     mot laisse l'enfant devant un prénom qui n'est pas le sien. */
+  await expect(page.getByLabel('Ton prénom')).toHaveValue(tropLong);
+  await expect(page.getByRole('status')).toHaveText(new RegExp(`${PRENOM_MAX} lettres`));
+
+  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+  const { profils } = (await (await page.request.get('/api/profils')).json()) as {
+    profils: unknown[];
+  };
+  expect(profils).toHaveLength(0);
 });
 
 test("la progression d'avant la mise à jour rejoint le premier enfant créé", async ({ page }) => {
@@ -126,6 +175,27 @@ test('renommer un enfant conserve sa progression', async ({ page }) => {
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
   expect((await sauvegarde(page)).palier).toBe(4);
+});
+
+test('un renommage vide ou trop long est refusé, et le dit', async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 4, false, 'Timo');
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+
+  await page.getByLabel('Prénom de Timo').fill('   ');
+  await page.getByRole('button', { name: 'Renommer' }).click();
+  await expect(page.getByRole('alert')).toHaveText(/ne peut pas être sans nom/i);
+
+  await page.getByLabel('Prénom de Timo').fill('a'.repeat(PRENOM_MAX + 5));
+  await page.getByRole('button', { name: 'Renommer' }).click();
+  await expect(page.getByRole('alert')).toHaveText(new RegExp(`${PRENOM_MAX} lettres`));
+
+  // le profil n'a pas bougé, ni son prénom ni sa progression
+  const { profils } = (await (await page.request.get('/api/profils')).json()) as {
+    profils: { prenom: string; etat: { palier: number } | null }[];
+  };
+  expect(profils[0].prenom).toBe('Timo');
+  expect(profils[0].etat?.palier).toBe(4);
 });
 
 test('changer de joueur revient au choix, chacun retrouve sa progression', async ({ page }) => {

@@ -17,6 +17,23 @@ export const CLE_CHOISIR = 'tapeavecmoi.choisir';
 export type Profil = { id: string; nom: string };
 export type IndexProfils = { version: 2; actif: string | null; liste: Profil[] };
 
+/**
+ * Longueur maximale d'un prénom. Le serveur applique CETTE constante-ci : deux
+ * bornes séparées finissent par diverger, et c'est l'écran qui accuse alors
+ * l'enfant d'une faute que le serveur n'a pas commise.
+ */
+export const PRENOM_MAX = 30;
+
+/**
+ * Un prénom acceptable : au moins une lettre une fois les espaces retirés, et
+ * pas plus long que la borne. Écrire ce jugement ICI, et non dans l'écran,
+ * évite qu'il ne dise « c'est bon » quand le serveur répondra « non ».
+ */
+export const prenomValide = (nom: string): boolean => {
+  const propre = nom.trim();
+  return propre.length >= 1 && propre.length <= PRENOM_MAX;
+};
+
 /** Progression d'un profil : une clé par identifiant SERVEUR. */
 export const cleDe = (id: string): string => `${CLE}.${id}`;
 
