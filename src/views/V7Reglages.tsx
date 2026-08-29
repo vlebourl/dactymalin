@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
-import { CLE_CHOISIR } from '../core/profils';
+import { chargerIndex, CLE_CHOISIR, progressionEnCache } from '../core/profils';
 import { motsPersoValides, type Reglages } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
 import { MiniClavier } from '../ui/MiniClavier';
@@ -15,6 +16,18 @@ const INTERRUPTEURS: Array<{ cle: keyof Reglages; libelle: string; detail: strin
 export function V7Reglages() {
   const app = useApp();
   const envoi = useEnvoi();
+
+  /* Les enfants DU COMPTE, lus dans le cache et non au réseau : les réglages
+     s'ouvrent aussi dans le train. Un enfant que cet appareil n'a jamais vu
+     jouer n'a pas de palier ici — l'annoncer à « leçon 1 » serait faux. */
+  const enfants = useMemo(
+    () =>
+      chargerIndex().liste.map((p) => ({
+        ...p,
+        palier: progressionEnCache(p.id)?.palier ?? null,
+      })),
+    [],
+  );
 
   return (
     <div className={v.ecran}>
@@ -32,6 +45,31 @@ export function V7Reglages() {
         </h1>
 
         <div className={v.reglages}>
+          {/* Les enfants du compte, avec où ils en sont. En LECTURE SEULE :
+              ajouter, renommer et supprimer sont des gestes de parent, et cet
+              écran-ci s'ouvre depuis l'accueil de l'enfant. */}
+          <div className={v.ligneReglage}>
+            {/* Un `div`, pas un `span` : une liste n'est pas du contenu de
+                phrase, et le navigateur la sortait du `span` en la reparentant. */}
+            <div>
+              <h2 className={v.titrePetit}>Nos enfants</h2>
+              <ul className={v.listeEnfants}>
+                {enfants.map((e) => (
+                  <li key={e.id} className={v.promessePalier}>
+                    {e.nom} —{' '}
+                    {e.palier === null ? "pas encore joué sur cet appareil" : `leçon ${e.palier}`}
+                  </li>
+                ))}
+                {enfants.length === 0 && (
+                  <li className={v.promessePalier}>Aucun enfant sur le compte.</li>
+                )}
+              </ul>
+            </div>
+            <button className={v.petitBouton} onClick={() => envoi({ type: 'vue', vue: 'V9' })}>
+              Gérer les enfants
+            </button>
+          </div>
+
           {/* Réservé aux parents : c'est le seul chemin vers l'écran de compte. */}
           <div className={v.ligneReglage}>
             <span>

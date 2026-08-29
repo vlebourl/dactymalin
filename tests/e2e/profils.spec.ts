@@ -128,85 +128,44 @@ test('les profils du compte se retrouvent sur un autre appareil', async ({ brows
   await autre.close();
 });
 
-test('deux enfants du même prénom restent deux joueurs, chacun sa progression', async ({
-  page,
-}) => {
+test('chaque enfant a sa progression, indexée par son identifiant', async ({ page }) => {
+  /* L'invariant de #4 : la clé d'une progression est l'IDENTIFIANT du profil.
+     Deux enfants ne partagent donc jamais la leur, quoi qu'il arrive à leurs
+     prénoms. Depuis #18, le foyer refuse deux prénoms identiques — la preuve
+     qu'aucune fusion par prénom n'existe vit dans `sync.test.ts` et
+     `profils.test.ts`, qui fabriquent des homonymes que le serveur enverrait. */
   await ouvrir(page, 'fr-FR', 3, false, 'Timo');
   const premier = cleProfil(page);
   expect((await sauvegarde(page)).palier).toBe(3);
 
-  // un second Timo, créé depuis « Qui joue ? »
-  await page.getByLabel('Réglages').click();
-  await page.getByRole('button', { name: 'Changer de joueur' }).click();
+  await page.request.post('/api/profils', { data: { prenom: 'Zoé' } });
+  await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
-  await page.getByRole('button', { name: 'Nouveau joueur' }).click();
-  await page.getByLabel('Ton prénom').fill('Timo');
-  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await page.getByRole('button', { name: 'Zoé' }).click();
 
-  // il démarre à neuf, sur SA clé : le premier Timo n'a pas été absorbé
+  // Zoé démarre à neuf, sur SA clé : Timo n'a pas été touché
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
-  const cles = await page.evaluate((prefixe) =>
-    Object.keys(localStorage).filter((c) => c.startsWith(prefixe) && !c.endsWith('.backup')),
+  const cles = await page.evaluate(
+    (prefixe) =>
+      Object.keys(localStorage).filter((c) => c.startsWith(prefixe) && !c.endsWith('.backup')),
     'tapeavecmoi.v1.',
   );
   expect(cles.length).toBe(2);
-  expect(await page.evaluate((c) => JSON.parse(localStorage.getItem(c) ?? '{}').palier, premier)).toBe(3);
-
-  // au rechargement, les deux homonymes sont là, distincts
-  await page.reload();
-  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
-  await expect(page.getByRole('button', { name: 'Timo' })).toHaveCount(2);
-});
-
-test('renommer un enfant conserve sa progression', async ({ page }) => {
-  await ouvrir(page, 'fr-FR', 4, false, 'Timo');
-  await page.getByLabel('Réglages').click();
-  await page.getByRole('button', { name: 'Ouvrir' }).click();
-  await expect(page.getByText('palier 4')).toBeVisible();
-
-  await page.getByLabel('Prénom de Timo').fill('Timothée');
-  await page.getByRole('button', { name: 'Renommer' }).click();
-
-  // même profil, même progression : le prénom n'était pas son identité
-  await expect(page.getByLabel('Prénom de Timothée')).toBeVisible();
-  await expect(page.getByText('palier 4')).toBeVisible();
-  expect((await sauvegarde(page)).palier).toBe(4);
-
-  await page.reload();
-  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
-  expect((await sauvegarde(page)).palier).toBe(4);
-});
-
-test('un renommage vide ou trop long est refusé, et le dit', async ({ page }) => {
-  await ouvrir(page, 'fr-FR', 4, false, 'Timo');
-  await page.getByLabel('Réglages').click();
-  await page.getByRole('button', { name: 'Ouvrir' }).click();
-
-  await page.getByLabel('Prénom de Timo').fill('   ');
-  await page.getByRole('button', { name: 'Renommer' }).click();
-  await expect(page.getByRole('alert')).toHaveText(/ne peut pas être sans nom/i);
-
-  await page.getByLabel('Prénom de Timo').fill('a'.repeat(PRENOM_MAX + 5));
-  await page.getByRole('button', { name: 'Renommer' }).click();
-  await expect(page.getByRole('alert')).toHaveText(new RegExp(`${PRENOM_MAX} lettres`));
-
-  // le profil n'a pas bougé, ni son prénom ni sa progression
-  const { profils } = (await (await page.request.get('/api/profils')).json()) as {
-    profils: { prenom: string; etat: { palier: number } | null }[];
-  };
-  expect(profils[0].prenom).toBe('Timo');
-  expect(profils[0].etat?.palier).toBe(4);
+  expect(
+    await page.evaluate((c) => JSON.parse(localStorage.getItem(c) ?? '{}').palier, premier),
+  ).toBe(3);
 });
 
 test('changer de joueur revient au choix, chacun retrouve sa progression', async ({ page }) => {
   await ouvrir(page, 'fr-FR', 3, false, 'Timo');
+  /* Le second enfant est ajouté par le PARENT (#18) : l'écran de l'enfant ne
+     crée plus personne. */
+  await page.request.post('/api/profils', { data: { prenom: 'Zoé' } });
+
   await page.getByLabel('Réglages').click();
   await page.getByRole('button', { name: 'Changer de joueur' }).click();
-  await expect(page.getByRole('button', { name: 'Timo' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Nouveau joueur' }).click();
-  await page.getByLabel('Ton prénom').fill('Zoé');
-  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+  await page.getByRole('button', { name: 'Zoé' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
 
   await page.reload();

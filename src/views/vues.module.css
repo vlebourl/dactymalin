@@ -932,3 +932,28 @@
   color: var(--orange-vif);
   font-weight: 600;
 }
+
+/* Confirmation de suppression : le seul geste irréversible de l'app se
+   détache du reste de la ligne, pour qu'un « oui » ne parte pas à l'aveugle. */
+.confirmation {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--orange-pale);
+  color: var(--encre);
+  font-weight: 600;
+}
+
+/* Les enfants listés dans les réglages : lecture seule, sans un bouton qui
+   détruise quoi que ce soit à portée d'un enfant. */
+.listeEnfants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
