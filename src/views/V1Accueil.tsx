@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { disposition } from '../core/layouts';
 import { composerBlocPerso } from '../core/generator';
+import { estJouable } from '../core/listes';
 import { motsPersoValides } from '../core/storage';
 import { ensembleTouches } from '../core/paliers';
 import { Keyboard } from '../ui/Keyboard';
@@ -32,6 +33,10 @@ export function V1Accueil() {
   const [mots, setMots] = useState(app.motsPerso.join('\n'));
   const motsPrets = motsPersoValides(mots.split(/[\n,;]+/));
   const listeJouable = composerBlocPerso(motsPrets, app.disposition).length > 0;
+  /* Une carte qui lance un bloc vide n'est pas une carte : la liste vient du
+     COMPTE, la disposition vient de CET appareil, et les deux peuvent ne pas
+     s'accorder. Mieux vaut pas de carte qu'une carte sans rien à taper. */
+  const jouables = app.listes.filter((liste) => estJouable(liste, app.disposition));
 
   return (
     <div className={v.ecran}>
@@ -83,9 +88,9 @@ export function V1Accueil() {
 
         {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
             saisit rien : il reconnaît la carte de sa dictée et appuie. */}
-        {app.listes.length > 0 && (
+        {jouables.length > 0 && (
           <ul className={v.cartesListes} aria-label="Les listes de la maison">
-            {app.listes.map((liste) => (
+            {jouables.map((liste) => (
               <li key={liste.id}>
                 <button
                   className={v.carteListe}

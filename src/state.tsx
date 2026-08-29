@@ -75,17 +75,18 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
     case 'commencer': {
       /* `perso` absent = on garde le mode courant : depuis V5, « On continue ! »
          reste dans la leçon (perso ou non) que l'enfant était en train de jouer. */
-      const perso = action.liste ? true : (action.perso ?? etat.blocPerso);
       return {
         ...etat,
         vue: 'V4',
         premierLancement: false,
         palierOuvert: null,
-        blocPerso: perso,
-        /* Appuyer sur une carte impose SA liste ; « On continue ! » rejoue la
-           même ; repartir sur le parcours l'oublie, sinon un second bloc
-           ressortirait les mots de la dictée. */
-        listeJouee: perso ? (action.liste ?? etat.listeJouee) : null,
+        blocPerso: action.liste ? true : (action.perso ?? etat.blocPerso),
+        /* Appuyer sur une carte impose SA liste. Un `perso` EXPLICITE annonce
+           un nouveau départ — le parcours, ou « Notre leçon » et ses mots à
+           elle — donc la carte d'avant est oubliée. Seule son ABSENCE veut
+           dire « on continue » : c'est « On continue ! » de V5, qui rejoue la
+           même liste. */
+        listeJouee: action.liste ?? (action.perso === undefined ? etat.listeJouee : null),
       };
     }
 

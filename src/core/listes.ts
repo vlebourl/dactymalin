@@ -51,3 +51,13 @@ export function listeValidee(nom: unknown, mots: unknown): { nom: string; mots: 
 export function motsIntapables(mots: string[], id: IdDisposition): string[] {
   return mots.filter((m) => !estEcrivable(m, id));
 }
+
+/**
+ * Cette liste donne-t-elle un bloc sur CETTE disposition ? Une liste
+ * appartient au compte, une disposition appartient à l'appareil : les mots de
+ * la dictée écrite sur l'AZERTY du salon peuvent n'être plus tapables sur le
+ * clavier suisse de la tablette. Sa carte lancerait alors un bloc vide, et
+ * l'enfant n'aurait rien à taper ni rien à comprendre.
+ */
+export const estJouable = (liste: Liste, id: IdDisposition): boolean =>
+  liste.mots.some((m) => estEcrivable(m, id));
