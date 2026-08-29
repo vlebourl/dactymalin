@@ -351,3 +351,55 @@
 .lien:hover {
   color: var(--encre);
 }
+
+/* Le compte connecté, sur tous les écrans (#19). Discret par construction :
+   une seule ligne, en petit et en encre douce, au-dessus de l'en-tête de la
+   vue. Il ne prend pas la place du contenu — c'est la raison d'être de la
+   colonne flex qui l'entoure — et il ne cherche pas l'œil de l'enfant. */
+.bandeauCompte {
+  width: 100%;
+  padding: 3px clamp(12px, 3vw, 34px);
+  font-size: 13px;
+  line-height: 1.3;
+  /* `--encre-doux` tombait à 4,7:1 sur ce fond, et à 3,3:1 une fois estompé —
+     sous le minimum AA, et loin des 7:1 que le cahier vise. Discret ne veut
+     pas dire illisible : c'est la TAILLE et la position qui effacent ce
+     bandeau, pas un contraste raté. `--encre-mot` donne 8,7:1. */
+  color: var(--encre-mot);
+  background: var(--fond-creux);
+  border-bottom: 1px solid var(--liseré);
+  text-align: right;
+  /* Une adresse longue ne pousse jamais la mise en page : elle se coupe. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pendant la leçon, il s'efface. Cahier des charges, écran V4 : « un enfant de
+   7 ans ne doit décoder qu'UNE SEULE chose à l'écran », « rien sur les côtés ».
+   Une adresse d'adulte n'y a pas sa place, et le parent qui se demande sur
+   quel compte il est ne se le demande pas pendant que son enfant tape. */
+:global(body[data-vue='V4']) .bandeauCompte {
+  display: none;
+}
+
+.bandeauEtiquette {
+  font-weight: 400;
+}
+
+.bandeauAdresse {
+  font-weight: 600;
+}
+
+/* La colonne qui tient le bandeau puis l'écran : sans elle, la vue occupe
+   toute la hauteur et le bandeau la déborderait. */
+.cadreAppli {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.contenuAppli {
+  flex: 1;
+  min-height: 0;
+}
