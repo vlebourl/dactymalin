@@ -64,7 +64,8 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | Le conteneur démarre puis meurt | pas de sauvegarde planifiée ACTIVE sur la base | l'activer dans Coolify — c'est volontaire : pas de sauvegarde, pas de migration |
 | `Invalid origin` en développement | Vite sert sur `:3000` et proxifie vers `:3001` | déjà traité : les origines locales sont déclarées de confiance hors production |
 | `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
-| Le webhook Gitea ne part pas | Gitea bloque les adresses privées | `npm run deploy`, ou ouvrir `ALLOWED_HOST_LIST` côté Gitea |
+| Un push ne déclenche rien | le runner `homelab-runner` est hors ligne | `sudo systemctl status actions.runner.vlebourl-dactymalin.homelab-runner` sur l'hôte Coolify |
+| Webhook GitHub renvoyant 403 | Cloudflare défie les POST de GitHub (« Just a moment… ») | ne pas utiliser de webhook : le runner appelle Coolify en localhost |
 
 ## Ce qui protège les données
 
