@@ -1,4 +1,4 @@
-import { CLE } from './storage';
+import { CLE, charger, type Sauvegarde } from './storage';
 
 /**
  * Profils enfants, tels que le SERVEUR les connaît (#4). L'identifiant serveur
@@ -23,6 +23,18 @@ export type IndexProfils = { version: 2; actif: string | null; liste: Profil[] }
  * l'enfant d'une faute que le serveur n'a pas commise.
  */
 export const PRENOM_MAX = 30;
+
+/**
+ * Un compte de famille, pas une classe : la borne protège la base. Elle vit
+ * ici pour la même raison que `PRENOM_MAX` — l'écran doit pouvoir expliquer un
+ * plafond avec le nombre que le serveur applique vraiment.
+ */
+export const PROFILS_MAX = 12;
+
+/** Comparaison de deux prénoms « dans le même foyer » : ni la casse ni les
+ * espaces de bord ne distinguent deux enfants aux yeux d'un parent. */
+export const memePrenom = (a: string, b: string): boolean =>
+  a.trim().toLocaleLowerCase('fr') === b.trim().toLocaleLowerCase('fr');
 
 /**
  * Un prénom acceptable : au moins une lettre une fois les espaces retirés, et
@@ -89,7 +101,43 @@ export function remplacerIndex(profils: Profil[]): IndexProfils {
     liste: profils,
   };
   sauverIndex(ix);
+  /* Un enfant supprimé — ici ou depuis un autre appareil — emporte sa
+     progression en cache. La laisser en ferait un fantôme : de la place prise
+     pour toujours, et le travail d'un enfant qui a quitté le compte gardé sur
+     un appareil qui n'a plus rien à en faire. */
+  for (const id of idsEnCache()) {
+    if (!profils.some((p) => p.id === id)) oublierProgression(id);
+  }
   return ix;
+}
+
+/**
+ * Identifiants dont une progression traîne en cache. La clé nue `tapeavecmoi.v1`
+ * (et sa sauvegarde de secours) est celle d'AVANT les identifiants serveur :
+ * elle n'appartient à aucun profil, et la reprise en a encore besoin.
+ */
+function idsEnCache(): string[] {
+  const prefixe = `${CLE}.`;
+  const ids: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const cle = localStorage.key(i);
+      if (!cle?.startsWith(prefixe) || cle.endsWith('.backup')) continue;
+      ids.push(cle.slice(prefixe.length));
+    }
+  } catch {
+    /* stockage refusé : rien à énumérer */
+  }
+  return ids;
+}
+
+function oublierProgression(id: string): void {
+  try {
+    localStorage.removeItem(cleDe(id));
+    localStorage.removeItem(`${cleDe(id)}.backup`);
+  } catch {
+    /* rien à effacer */
+  }
 }
 
 /** Un profil qui vient d'être créé sur le serveur : il devient l'actif. */
@@ -99,6 +147,23 @@ export function ajouterProfil(p: Profil): IndexProfils {
   const suivant: IndexProfils = { version: 2, actif: p.id, liste };
   sauverIndex(suivant);
   return suivant;
+}
+
+/**
+ * Progression d'un profil telle qu'elle est en cache ICI, ou `null` si cet
+ * appareil n'en a pas. Le `null` compte : `charger` rendrait les valeurs par
+ * défaut, et les réglages annonceraient « leçon 1 » à un enfant qui a
+ * peut-être une leçon 6 sur la tablette.
+ */
+export function progressionEnCache(id: string): Sauvegarde | null {
+  try {
+    if (localStorage.getItem(cleDe(id)) === null && localStorage.getItem(`${cleDe(id)}.backup`) === null) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return charger(cleDe(id));
 }
 
 /**

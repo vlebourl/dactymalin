@@ -23,7 +23,10 @@ import u from '../ui/ui.module.css';
 export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
   const [ix, setIx] = useState<IndexProfils>(() => chargerIndex());
   const [nom, setNom] = useState('');
-  const [creation, setCreation] = useState(ix.liste.length === 0);
+  /* Le champ n'existe qu'au tout premier enfant du compte : le parent vient
+     de se connecter, il est devant l'écran (#5). Ensuite, l'ajout est un geste
+     de parent qui se fait dans les réglages (#18). */
+  const creation = ix.liste.length === 0;
   const [occupe, setOccupe] = useState(false);
   /** Ce que le RÉSEAU a refusé : n'existe qu'après un essai. */
   const [echecReseau, setEchecReseau] = useState<string | null>(null);
@@ -130,10 +133,13 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
             </button>
           </p>
         ) : (
-          <p className={v.ligneClavier}>
-            <button className={v.petitBouton} onClick={() => setCreation(true)}>
-              Nouveau joueur
-            </button>
+          /* PAS de « Nouveau joueur » ici (#18) : ajouter un enfant est un
+             geste de parent, il se fait dans les réglages. Sur cet écran-ci,
+             l'enfant choisit — c'est tout ce qu'il a à y faire. Le champ
+             ci-dessus n'apparaît qu'au tout premier enfant du compte, quand le
+             parent vient justement de se connecter (#5). */
+          <p className={v.promessePalier}>
+            Un enfant à ajouter ? C'est dans les réglages, avec un parent.
           </p>
         )}
       </div>
