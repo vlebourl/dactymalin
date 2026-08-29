@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { Hono, type MiddlewareHandler } from 'hono';
 import type { Auth } from './auth';
 import type { Base } from './db/client';
+import { routesListes } from './routes/listes';
 import { routesProfils } from './routes/profils';
 import type { Env } from './env';
 
@@ -60,7 +61,10 @@ export function creerApp(deps: Deps) {
     app.all('/api/auth/*', (c) => c.json({ erreur: 'comptes indisponibles' }, 503));
   }
 
-  if (deps.auth && deps.base) app.route('/api/profils', routesProfils(deps.base, deps.auth));
+  if (deps.auth && deps.base) {
+    app.route('/api/profils', routesProfils(deps.base, deps.auth));
+    app.route('/api/listes', routesListes(deps.base, deps.auth));
+  }
 
   // Toute autre route /api est une erreur d'appel, jamais l'index.html du client.
   app.all('/api/*', (c) => c.json({ erreur: 'route inconnue' }, 404));

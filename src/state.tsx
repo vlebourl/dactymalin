@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
+import type { Liste } from './core/listes';
 import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
-import { pousser, viderLaFile } from './core/sync';
+import { listesDistantes, pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
@@ -40,11 +41,20 @@ export type EtatApp = Sauvegarde & {
   premierLancement: boolean;
   /** Le bloc courant joue « Notre leçon » (mots de la famille, mode libre). */
   blocPerso: boolean;
+  /**
+   * La bibliothèque du COMPTE, telle que le serveur la donne. Elle ne descend
+   * pas dans la sauvegarde du profil : les deux enfants du foyer voient les
+   * mêmes listes, et c'est le compte qui les possède (#9).
+   */
+  listes: Liste[];
+  /** La liste que ce bloc fait taper, si l'enfant a appuyé sur une carte. */
+  listeJouee: Liste | null;
 };
 
 export type Action =
   | { type: 'vue'; vue: Vue; raison?: RaisonVue }
-  | { type: 'commencer'; perso?: boolean }
+  | { type: 'commencer'; perso?: boolean; liste?: Liste }
+  | { type: 'listes'; listes: Liste[] }
   | { type: 'motsPerso'; mots: string[] }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
@@ -62,7 +72,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         blocsConsecutifs: action.vue === 'V1' ? 0 : etat.blocsConsecutifs,
       };
 
-    case 'commencer':
+    case 'commencer': {
       /* `perso` absent = on garde le mode courant : depuis V5, « On continue ! »
          reste dans la leçon (perso ou non) que l'enfant était en train de jouer. */
       return {
@@ -70,8 +80,18 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         vue: 'V4',
         premierLancement: false,
         palierOuvert: null,
-        blocPerso: action.perso ?? etat.blocPerso,
+        blocPerso: action.liste ? true : (action.perso ?? etat.blocPerso),
+        /* Appuyer sur une carte impose SA liste. Un `perso` EXPLICITE annonce
+           un nouveau départ — le parcours, ou « Notre leçon » et ses mots à
+           elle — donc la carte d'avant est oubliée. Seule son ABSENCE veut
+           dire « on continue » : c'est « On continue ! » de V5, qui rejoue la
+           même liste. */
+        listeJouee: action.liste ?? (action.perso === undefined ? etat.listeJouee : null),
       };
+    }
+
+    case 'listes':
+      return { ...etat, listes: action.listes };
 
     case 'motsPerso':
       return { ...etat, motsPerso: action.mots };
@@ -185,6 +205,8 @@ export function etatDeDepart(cle?: string): EtatApp {
     verrMaj: false,
     premierLancement: !sauve.dispositionChoisieALaMain,
     blocPerso: false,
+    listes: [],
+    listeJouee: null,
   };
 }
 
@@ -228,6 +250,16 @@ export function FournisseurApp({
     window.addEventListener('online', reprendre);
     void viderLaFile();
     return () => window.removeEventListener('online', reprendre);
+  }, []);
+
+  /* La bibliothèque appartient au COMPTE : on va la chercher une fois le
+     joueur monté, et l'espace parent la rafraîchit quand il s'ouvre. Un échec
+     est silencieux — l'accueil ne montre alors que le parcours, et la leçon ne
+     dépend jamais du réseau. */
+  useEffect(() => {
+    void listesDistantes()
+      .then((listes) => dispatch({ type: 'listes', listes }))
+      .catch(() => {});
   }, []);
 
   useEffect(() => demanderPersistance(), []);
