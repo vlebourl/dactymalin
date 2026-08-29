@@ -60,9 +60,15 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });
-  if (!r.ok) throw Object.assign(new Error(`${init?.method ?? 'GET'} ${url} → ${r.status}`), {
-    statut: r.status,
-  });
+  if (!r.ok) {
+    /* Le serveur dit PRÉCISÉMENT ce qui ne va pas (`code`) : le jeter obligeait
+       l'écran à inventer une explication, et il en inventait une fausse. */
+    const corps = (await r.json().catch(() => null)) as { code?: string } | null;
+    throw Object.assign(new Error(`${init?.method ?? 'GET'} ${url} → ${r.status}`), {
+      statut: r.status,
+      code: corps?.code,
+    });
+  }
   return (await r.json()) as T;
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { messageDEchec } from '../core/erreurs-compte';
 import { compteCourant, connecter, creerCompte, type Compte } from '../core/sync';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -37,12 +38,12 @@ export function Connexion({ onConnecte }: { onConnecte: (c: Compte) => void }) {
       const compte = await compteCourant();
       if (!compte) throw new Error('session absente après authentification');
       onConnecte(compte);
-    } catch {
-      setErreur(
-        mode === 'creation'
-          ? "Impossible de créer le compte. L'adresse est peut-être déjà prise, ou le mot de passe trop court (10 caractères au moins)."
-          : 'Adresse ou mot de passe incorrect.',
-      );
+    } catch (echec) {
+      /* On dit ce que le SERVEUR a répondu. L'ancien message inventait deux
+         causes possibles et se trompait sur les deux : une inscription refusée
+         pour tout autre motif — trop de tentatives, panne, réseau — accusait le
+         mot de passe de l'utilisateur. */
+      setErreur(messageDEchec(echec, mode));
       setOccupe(false);
     }
   };
