@@ -190,16 +190,29 @@ export const connecter = (email: string, motDePasse: string) =>
   );
 
 /**
+ * Tout ce que cet appareil savait du compte qui part : le compte lui-même, sa
+ * bibliothèque, les profils, leurs progressions, et ce qui restait à envoyer.
+ *
+ * UNE seule définition, partagée par la déconnexion et par la suppression du
+ * compte. Deux copies d'une séquence de destruction finiraient par diverger, et
+ * celle qu'on oublierait de mettre à jour laisserait derrière elle exactement
+ * ce qu'elle promet d'effacer.
+ */
+function oublierTout(): void {
+  oublierLeCompte();
+  effacer(CLE_FILE);
+  effacer(CLE_MAJ);
+  oublierProfils();
+}
+
+/**
  * Déconnexion. Le cache appartient au compte qui part : profils ET
  * progressions s'en vont avec lui, ainsi que ce qui restait à envoyer — le
  * pousser sous la prochaine session le donnerait au mauvais compte.
  */
 export const deconnecter = async () => {
   await json('/api/auth/sign-out', { method: 'POST', body: '{}' });
-  oublierLeCompte();
-  effacer(CLE_FILE);
-  effacer(CLE_MAJ);
-  oublierProfils();
+  oublierTout();
 };
 
 /* ----------------------------------------------------------------- profils */
@@ -221,6 +234,18 @@ export const renommerProfilDistant = (id: string, prenom: string) =>
 
 export const supprimerProfilDistant = (id: string) =>
   json(`/api/profils/${id}`, { method: 'DELETE' });
+
+/**
+ * Supprime le compte et tout ce qu'il contient (#6). Le stockage local part
+ * ensuite, en entier : garder la progression d'enfants qui n'existent plus
+ * ferait revenir leurs prénoms sur l'écran du prochain compte ouvert ici.
+ *
+ * La route ne prend pas d'identifiant — elle supprime celui de la session.
+ */
+export const supprimerLeCompte = async () => {
+  await json('/api/compte', { method: 'DELETE' });
+  oublierTout();
+};
 
 /* ------------------------------------------------------------- bibliothèque */
 

@@ -120,3 +120,22 @@ export function messageDEchecListe(erreur: unknown): string {
 
   return parDefaut(statut, 'La session a expiré. Il faut se reconnecter.');
 }
+
+/**
+ * Et pour la suppression du compte (#6). Elle exige le serveur : un bouton
+ * resté muet laisserait le parent croire qu'il est parti sans laisser de
+ * trace, alors que son compte est intact. C'est la pire issue possible pour un
+ * geste qu'on ne fait qu'une fois, en partant.
+ */
+export function messageDEchecCompte(erreur: unknown): string {
+  const { statut } = (erreur ?? {}) as Echec;
+
+  if (statut === undefined) {
+    /* « Rien n'a été supprimé » serait un mensonge si le réseau tombait APRÈS
+       que le serveur a supprimé : on ne sait pas de quel côté la coupure a eu
+       lieu. On dit ce qu'on sait — la réponse n'est pas arrivée — et ce qu'il
+       faut faire pour le vérifier. */
+    return "La suppression n’a pas pu être confirmée : le serveur n’a pas répondu. Vérifiez la connexion à Internet, puis rouvrez cet écran pour voir où en est le compte.";
+  }
+  return parDefaut(statut, 'La session a expiré : reconnectez-vous, puis recommencez.');
+}

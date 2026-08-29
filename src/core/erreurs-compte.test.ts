@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { messageDEchec, messageDEchecListe, messageDEchecProfil } from './erreurs-compte';
+import {
+  messageDEchec,
+  messageDEchecCompte,
+  messageDEchecListe,
+  messageDEchecProfil,
+} from './erreurs-compte';
 import { LISTES_MAX } from './listes';
 import { PRENOM_MAX, PROFILS_MAX } from './profils';
 
@@ -107,5 +112,23 @@ describe('messageDEchecListe', () => {
 
   it('hors ligne, il dit aussi que rien n’est perdu', () => {
     expect(messageDEchecListe({})).toMatch(/rien n’est perdu|rien n'est perdu/i);
+  });
+});
+
+/* #6 — supprimer son compte exige le serveur. Un bouton muet laisserait croire
+   que le compte est parti alors qu'il est intact : c'est la pire des issues
+   pour un geste qu'on ne fait qu'une fois, en partant. */
+describe('messageDEchecCompte', () => {
+  /* Il ne jure PAS que rien n'a été supprimé : si le réseau tombe après que le
+     serveur a agi, personne ne le sait de ce côté-ci. Il dit ce qu'on sait. */
+  it('hors ligne, il dit que la suppression n’est pas confirmée', () => {
+    expect(messageDEchecCompte({})).toMatch(/n’a pas pu être confirmée/i);
+    expect(messageDEchecCompte({})).toMatch(/Internet/i);
+    expect(messageDEchecCompte({})).not.toMatch(/^Rien n/);
+  });
+
+  it('session finie ou serveur en panne : chacun son motif', () => {
+    expect(messageDEchecCompte({ statut: 401 })).toMatch(/session/i);
+    expect(messageDEchecCompte({ statut: 503 })).toMatch(/problème/i);
   });
 });
