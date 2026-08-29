@@ -144,3 +144,27 @@ test('3 bis. le champ de la liste ne rogne pas les mots', async ({ page }) => {
   expect(m.debordeEnHauteur).toBeLessThanOrEqual(1);
 });
 
+
+/**
+ * #12 — l'accueil redevient l'écran qui dit « appuie ici pour jouer » : le
+ * bouton du parcours et les cartes des listes, rien d'autre. Le champ de
+ * saisie a quitté l'accueil ET les réglages ; c'est un geste de parent, il vit
+ * dans l'espace parent.
+ */
+test("l'accueil et les réglages n'ont plus de champ de saisie de mots", async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 1);
+
+  await expect(page.getByRole('button', { name: 'On commence !' })).toBeVisible();
+  await expect(page.locator('textarea')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /liste à nous/i })).toHaveCount(0);
+
+  await page.getByLabel('Réglages').click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V7');
+  await expect(page.locator('textarea')).toHaveCount(0);
+
+  /* La carte du clavier ne propose plus « Notre leçon » non plus : elle n'a
+     plus de mots à elle à jouer. */
+  await page.getByLabel('Revenir').click();
+  await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
+  await expect(page.getByRole('button', { name: /Notre leçon/ })).toHaveCount(0);
+});

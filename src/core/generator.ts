@@ -121,26 +121,25 @@ export type OptionsBloc = {
  * Aucun item ne contient un caractère hors de l'ensemble déclaré du palier.
  */
 /**
- * « Notre leçon » (mode libre, demande du 2026-08-28) : les mots de la famille,
- * tels quels, sans filtre de palier. Seule exigence : chaque caractère doit
- * EXISTER sur la disposition (ensemble du dernier palier), sinon la touche
- * cible n'existerait pas et la leçon se bloquerait.
+ * Le bloc d'une LISTE de la maison : les mots tels quels, sans filtre de
+ * palier. Seule exigence : chaque caractère doit EXISTER sur la disposition,
+ * sinon la touche cible n'existerait pas et la leçon se bloquerait.
  */
 /** Vrai si CHAQUE caractère existe sur la disposition, Maj comprise. */
 export function estEcrivable(texte: string, id: IdDisposition): boolean {
   return [...texte].every((c) => c === ' ' || !!toucheDe(id, c));
 }
 
-export function composerBlocPerso(
+export function composerBlocDeListe(
   mots: string[],
   id: IdDisposition,
   graine?: number,
 ): Item[] {
   const rnd = alea(graine ?? Math.floor(Math.random() * 2 ** 31));
-  /* Mode LIBRE : le seul critère est « le clavier peut l'écrire », pas « le
-     parcours l'a enseigné ». La liste de la famille refusait « le 20 octobre
-     c'est papa » à cause de l'apostrophe, absente du curriculum mais bien
-     présente sur la touche 4 de l'AZERTY. */
+  /* Le seul critère est « le clavier peut l'écrire », pas « le parcours l'a
+     enseigné ». Une liste de la famille refusait « le 20 octobre c'est papa »
+     à cause de l'apostrophe, absente du curriculum mais bien présente sur la
+     touche 4 de l'AZERTY. */
   const jouables = [...new Set(mots)].filter((m) => estEcrivable(m, id));
   return melange(jouables, rnd)
     .slice(0, TAILLE_BLOC_MAX)

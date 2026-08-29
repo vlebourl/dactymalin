@@ -31,6 +31,16 @@ describe('listeValidee', () => {
     expect(listeValidee('Vide', 'pas un tableau')).toBeNull();
   });
 
+  /* Le validateur est partagé avec le SERVEUR : ce qui arrive par le réseau
+     n'est pas forcément un tableau de chaînes. Un élément qui n'en est pas une
+     est écarté, il ne fait pas tomber la route. */
+  it('écarte ce qui n’est pas un texte, sans se laisser tromper par la forme', () => {
+    expect(listeValidee('Mêlée', ['chat', 42, null, { mot: 'chien' }, ['loup']])?.mots).toEqual([
+      'chat',
+    ]);
+    expect(listeValidee('Que du bruit', [42, null])).toBeNull();
+  });
+
   it('reprend les bornes de mots existantes : 30 caractères, 100 mots', () => {
     expect(listeValidee('Longs', ['x'.repeat(30)])?.mots).toEqual(['x'.repeat(30)]);
     expect(listeValidee('Longs', ['x'.repeat(31)])).toBeNull();
@@ -45,7 +55,7 @@ describe('listeValidee', () => {
 });
 
 /* Le parent doit comprendre POURQUOI un mot n'arrivera jamais dans la leçon :
-   `composerBlocPerso` les écarte en silence au moment de jouer. */
+   `composerBlocDeListe` les écarte en silence au moment de jouer. */
 describe('motsIntapables', () => {
   it('nomme les mots que la disposition ne sait pas écrire directement', () => {
     expect(motsIntapables(['papa', 'la fête', 'ЖЖЖ'], 'fr-FR')).toEqual(['la fête', 'ЖЖЖ']);

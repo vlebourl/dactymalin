@@ -889,15 +889,6 @@
   opacity: 1;
 }
 
-/* Accueil : les deux départs possibles, côte à côte. */
-.choixDepart {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(10px, 2vw, 22px);
-}
-
 .panneauListe {
   display: flex;
   flex-direction: column;

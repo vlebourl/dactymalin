@@ -86,10 +86,15 @@ d('profils et progression', () => {
   });
 
   /* #12 — l'ancienne liste unique a quitté la sauvegarde, sans code de
-     migration. Un appareil de la famille qui n'a pas encore rechargé pousse
-     donc encore une progression qui la porte : le serveur l'accepte, sinon
-     cette tablette-là cesserait de synchroniser jusqu'à ce que quelqu'un
-     pense à la rafraîchir. */
+     migration. Un appareil qui n'a pas encore rechargé pousse donc encore une
+     progression qui la porte : le serveur l'ACCEPTE, plutôt que de répondre
+     400 et de faire échouer un envoi par ailleurs sain.
+     
+     Ce test ne couvre que ce sens-là. Dans l'autre — un vieux code qui LIT un
+     état écrit par un appareil à jour — la fusion d'alors attend encore le
+     champ et se brise sur son absence. C'est une conséquence assumée du
+     « aucun code de migration » de la spec : le produit est en bêta, et un
+     rechargement suffit à donner le code d'aujourd'hui. */
   it("accepte une progression d'un appareil pas encore mis à jour", async () => {
     const h = await inscrire(`n${Date.now()}@exemple.fr`);
     const { id } = (await (
