@@ -1,4 +1,4 @@
-# Cahier des charges — « Tape avec moi »
+# Cahier des charges — « DactyMalin »
 ### Application web d'apprentissage du clavier, 7-12 ans, français
 
 ---
@@ -341,7 +341,7 @@ Sept vues. Wireframes en ASCII, à l'échelle des proportions réelles.
 
 **Éléments.**
 - Icône engrenage discrète en haut à droite (→ V7).
-- Titre : « Tape avec moi ».
+- Titre : « DactyMalin ».
 - Illustration à plat d'un clavier vu de dessus, **sans mains, sans personnage**.
 - Bouton primaire très grand : « On commence ! ».
 - Ligne d'état du clavier : « Ton clavier : Français (AZERTY) » + petit bouton « Changer » (→ V2).
@@ -352,7 +352,7 @@ Sept vues. Wireframes en ASCII, à l'échelle des proportions réelles.
 +------------------------------------------------------+
 |                                              [ @ ]   |
 |                                                      |
-|                  Tape avec moi                       |
+|                  DactyMalin                       |
 |                                                      |
 |        +----------------------------------+          |
 |        |   illustration clavier a plat    |          |
@@ -739,6 +739,6 @@ apparente.
 Les maquettes de ce document ont été générées avec Google Stitch. L'outil rend mal deux choses :
 
 1. **La rangée des chiffres du clavier virtuel** apparaît remplie de symboles décoratifs inventés au lieu des vraies légendes AZERTY. La spécification correcte est : chaque touche porte deux légendes, le chiffre en haut et le caractère en bas — `1 &`, `2 é`, `3 "`, `4 '`, `5 (`, `6 -`, `7 è`, `8 _`, `9 ç`, `0 à`. C'est cette spécification qui fait foi, pas le dessin.
-2. **Le nom du produit dérive** sur certains écrans (« ClavierCopains », « DactyloApprenti »). Le nom retenu est **« Tape avec moi »**, et lui seul.
+2. **Le nom du produit dérive** sur certains écrans (« ClavierCopains », « DactyloApprenti »). Le nom retenu est **« DactyMalin »**, et lui seul.
 
 Ces deux points sont des limites du générateur d'images, pas des décisions de conception. Ils n'affectent aucune règle de ce cahier des charges, et n'empêchent pas de démarrer l'implémentation. Le texte de ce document prime sur les maquettes en cas de divergence.

@@ -100,7 +100,7 @@ Copie du modèle ecoride, vérifié le 2026-08-28 :
 7. `reseau.spec.ts` réécrit : notre origine seule est autorisée.
 
 Chaque étape garde l'app jouable sans compte. Si le serveur est éteint,
-« Tape avec moi » redevient exactement l'app d'aujourd'hui.
+« DactyMalin » redevient exactement l'app d'aujourd'hui.
 
 ---
 
