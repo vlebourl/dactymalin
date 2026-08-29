@@ -1,10 +1,9 @@
 #!/bin/bash
 # Déclenche un déploiement Coolify et attend le verdict.
 #
-# Pourquoi pas le webhook Gitea : Gitea refuse par défaut d'appeler une adresse
-# privée (ALLOWED_HOST_LIST), et l'hôte Coolify est en 192.168.1.48. Le webhook
-# reste configuré — s'il se met à passer un jour, tant mieux — mais le chemin
-# sûr est celui-ci, explicite et vérifiable.
+# Un push sur main déclenche déjà le déploiement (webhook GitHub → Coolify).
+# Ce script sert à redéployer SANS pousser, ou à voir le verdict et les logs
+# sans ouvrir l'interface.
 #
 # Prérequis : `ssh lyra@coolify` fonctionne, et le jeton API est sur l'hôte
 # dans /root/.coolify-claude-token (lisible par root seulement).

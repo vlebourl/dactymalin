@@ -121,7 +121,7 @@ privé), pas sur GitHub : c'est la règle en vigueur ici, tea plutôt que gh.
 | 0.2 | Remote `origin` en HTTPS ajouté | local | **fait** |
 | 0.3 | Premier `git push -u origin main` | local | Vincent |
 | 0.4 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com | Vincent |
-| 0.5 | Créer l'application Coolify — source Gitea `vlb/typing-app`, branche `main`, build pack Dockerfile, auto-deploy activé | UI Coolify, `192.168.1.48` | Vincent |
+| 0.5 | Créer l'application Coolify — source GitHub `vlebourl/dactymalin`, branche `main`, build pack Dockerfile, webhook de push | UI Coolify, `192.168.1.48` | Vincent |
 | 0.6 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify | Vincent |
 | 0.7 | Renseigner les variables d'environnement de l'app | UI Coolify | Vincent |
 
@@ -311,10 +311,10 @@ sur l'app avec compte.
 
 Les sept étapes sont faites. Ce qui a changé par rapport au plan :
 
-- **Gitea, pas GitHub** (règle en vigueur : tea, pas gh). Le dépôt est
-  `vlb/typing-app`. Coolify clone par clé de déploiement en lecture seule, sur
-  l'adresse LAN `192.168.1.225:30143` — le domaine passe par Cloudflare, qui ne
-  laisse passer que le 443.
+- **GitHub**, dépôt public `vlebourl/dactymalin`. Coolify le clone en HTTPS
+  sans clé. Le montage Gitea précédent clonait par clé de déploiement sur
+  l'adresse LAN `192.168.1.225:30143` : il fonctionnait pour le clone, mais
+  aucun webhook ne pouvait en sortir vers une adresse privée.
 - **Pas de CI**, donc pas de workflow : le webhook Gitea suffit, et le filet est
   un hook `pre-push` versionné (`.githooks/pre-push`).
 - **Nginx Proxy Manager** publie `typing.tiarkaerell.com` vers le port hôte
