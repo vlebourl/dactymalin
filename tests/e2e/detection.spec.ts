@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ouvrirNeuf } from './helpers/app';
+import { ouvrirNeuf, sauvegarde } from './helpers/app';
 import { frapperCouple } from './helpers/keyboard';
 
 /**
@@ -35,8 +35,7 @@ test.describe('détection de disposition (V2)', () => {
       .locator('[data-disposition="fr-CH"]')
       .getByRole('button', { name: "C'est celui-là" })
       .click();
-    const sauve = await page.evaluate(() => localStorage.getItem('tapeavecmoi.v1'));
-    expect(JSON.parse(sauve ?? '{}')).toMatchObject({
+    expect(await sauvegarde(page)).toMatchObject({
       disposition: 'fr-CH',
       dispositionChoisieALaMain: true,
     });

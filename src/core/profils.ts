@@ -1,36 +1,46 @@
 import { CLE } from './storage';
 
 /**
- * Multi-profils LOCAUX (demande du 2026-08-28) : plusieurs enfants sur le même
- * appareil, chacun sa progression, toujours zéro backend. Le premier profil
- * (`p1`) garde la clé localStorage historique `tapeavecmoi.v1` : une
- * progression d'avant les profils devient « Joueur 1 » sans migration de
- * données. Seuls les profils suivants reçoivent une clé suffixée.
+ * Profils enfants, tels que le SERVEUR les connaît (#4). L'identifiant serveur
+ * est leur SEUL identifiant ; ce module n'est plus qu'un cache local, indexé
+ * par cet identifiant, pour que « Qui joue ? » s'affiche sans attendre le
+ * réseau et que la leçon reprenne hors ligne.
+ *
+ * Il n'invente donc plus de profil : un compte sans enfant a zéro profil, et
+ * c'est l'écran de choix qui demande le premier prénom. Il n'apparie plus rien
+ * par prénom non plus — deux Timo sont deux enfants, pas un seul.
  */
 export const CLE_PROFILS = 'tapeavecmoi.profils';
 /** Drapeau de session : forcer l'écran « Qui joue ? » au prochain chargement. */
 export const CLE_CHOISIR = 'tapeavecmoi.choisir';
 
 export type Profil = { id: string; nom: string };
-export type IndexProfils = { version: 1; actif: string | null; liste: Profil[] };
+export type IndexProfils = { version: 2; actif: string | null; liste: Profil[] };
 
-export const cleDe = (id: string): string => (id === 'p1' ? CLE : `${CLE}.${id}`);
+/** Progression d'un profil : une clé par identifiant SERVEUR. */
+export const cleDe = (id: string): string => `${CLE}.${id}`;
 
+const VIDE: IndexProfils = { version: 2, actif: null, liste: [] };
+
+/**
+ * `version: 2` : la version 1 indexait par identifiant LOCAL (`p1`, `p<hasard>`)
+ * et ces identifiants-là ne veulent plus rien dire. Un cache d'avant est donc
+ * ignoré, jamais relu comme s'il portait des identifiants serveur.
+ */
 function lire(): IndexProfils | null {
   try {
     const brut = JSON.parse(localStorage.getItem(CLE_PROFILS) ?? 'null') as unknown;
     if (!brut || typeof brut !== 'object') return null;
     const o = brut as Record<string, unknown>;
-    if (o.version !== 1 || !Array.isArray(o.liste)) return null;
+    if (o.version !== 2 || !Array.isArray(o.liste)) return null;
     const liste = o.liste.filter(
       (p): p is Profil =>
         !!p && typeof p === 'object' &&
         typeof (p as Profil).id === 'string' && (p as Profil).id.length > 0 &&
         typeof (p as Profil).nom === 'string',
     );
-    if (liste.length === 0) return null;
     const actif = typeof o.actif === 'string' && liste.some((p) => p.id === o.actif) ? o.actif : null;
-    return { version: 1, actif, liste };
+    return { version: 2, actif, liste };
   } catch {
     return null;
   }
@@ -44,32 +54,40 @@ export function sauverIndex(ix: IndexProfils): void {
   }
 }
 
-/**
- * Index des profils, créé au premier passage : la sauvegarde historique
- * (ou son absence — tout premier lancement) devient le profil « Joueur 1 ».
- */
+/** Le cache tel qu'il est, sans rien inventer ni écrire. */
 export function chargerIndex(): IndexProfils {
-  const existant = lire();
-  if (existant) return existant;
-  const ix: IndexProfils = { version: 1, actif: 'p1', liste: [{ id: 'p1', nom: 'Joueur 1' }] };
+  return lire() ?? { ...VIDE };
+}
+
+/**
+ * Le compte fait foi : la liste du serveur REMPLACE le cache. Le joueur actif
+ * ne survit que s'il est toujours au compte — un profil supprimé ailleurs ne
+ * doit pas rester ouvert ici.
+ */
+export function remplacerIndex(profils: Profil[]): IndexProfils {
+  const { actif } = chargerIndex();
+  const ix: IndexProfils = {
+    version: 2,
+    actif: actif && profils.some((p) => p.id === actif) ? actif : null,
+    liste: profils,
+  };
   sauverIndex(ix);
   return ix;
 }
 
-export function creerProfil(ix: IndexProfils, nom: string): [IndexProfils, string] {
-  const id = `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-  const suivant: IndexProfils = {
-    ...ix,
-    actif: id,
-    liste: [...ix.liste, { id, nom: nom.trim() || `Joueur ${ix.liste.length + 1}` }],
-  };
+/** Un profil qui vient d'être créé sur le serveur : il devient l'actif. */
+export function ajouterProfil(p: Profil): IndexProfils {
+  const ix = chargerIndex();
+  const liste = [...ix.liste.filter((q) => q.id !== p.id), p];
+  const suivant: IndexProfils = { version: 2, actif: p.id, liste };
   sauverIndex(suivant);
-  return [suivant, id];
+  return suivant;
 }
 
 /**
  * Profil à ouvrir au chargement, ou `null` si l'écran « Qui joue ? » doit
- * décider : plusieurs joueurs, ou changement demandé depuis les réglages.
+ * décider : zéro profil (il demandera le premier prénom), plusieurs joueurs,
+ * ou changement demandé depuis les réglages.
  * SANS effet de bord (appelée depuis un initialisateur React, StrictMode la
  * rejoue) : c'est l'écran « Qui joue ? » qui efface le drapeau, à son montage.
  */
@@ -81,7 +99,7 @@ export function profilInitial(): string | null {
   } catch {
     /* pas de sessionStorage : on n'affiche le choix que s'il y a à choisir */
   }
-  if (choisir || ix.liste.length > 1) return null;
+  if (choisir || ix.liste.length !== 1) return null;
   return ix.liste[0].id;
 }
 
@@ -109,4 +127,26 @@ export function activerProfil(id: string): void {
 export function nomProfilActif(): string | null {
   const ix = chargerIndex();
   return ix.liste.find((p) => p.id === ix.actif)?.nom ?? null;
+}
+
+/**
+ * Déconnexion : le cache appartient au compte qui part. On efface l'index ET
+ * les progressions qu'il indexait — céder l'appareil ne doit pas céder ce que
+ * les enfants du compte précédent ont fait.
+ */
+export function oublierProfils(): void {
+  try {
+    const prefixe = `${CLE}.`;
+    /* `CLE` nue est la clé d'AVANT les identifiants serveur : plus personne ne
+       l'écrit, mais une installation d'avant #4 en garde une, et la laisser
+       serait laisser la progression d'un enfant au compte suivant. */
+    const aEffacer: string[] = [CLE_PROFILS, CLE];
+    for (let i = 0; i < localStorage.length; i++) {
+      const cle = localStorage.key(i);
+      if (cle?.startsWith(prefixe)) aEffacer.push(cle);
+    }
+    for (const cle of aEffacer) localStorage.removeItem(cle);
+  } catch {
+    /* stockage refusé : il n'y avait rien à effacer */
+  }
 }
