@@ -23,8 +23,6 @@ export type Sauvegarde = {
   maitrise: Maitrise;
   guideDoigtVu: boolean;
   reglages: Reglages;
-  /** Mots choisis par la famille pour « Notre leçon » (mode libre). */
-  motsPerso: string[];
 };
 
 /** Borne haute du compteur de blocs : au-delà, la valeur relue est aberrante. */
@@ -40,11 +38,15 @@ export const DEFAUTS: Sauvegarde = {
   maitrise: {},
   guideDoigtVu: false,
   reglages: { sons: true, texteEspace: false, animationsDouces: true },
-  motsPerso: [],
 };
 
-/** Liste « Notre leçon » assainie : textes courts, dédoublonnés, bornés. */
-export function motsPersoValides(v: unknown): string[] {
+/**
+ * Une liste de mots assainie : textes courts, dédoublonnés, bornés. Elle
+ * servait à « Notre leçon », la liste unique d'avant la bibliothèque ; c'est
+ * aujourd'hui le validateur des mots d'une liste nommée (`listes.ts`), et ses
+ * bornes n'ont pas bougé.
+ */
+export function motsValides(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   const sortie = v
     .filter((m): m is string => typeof m === 'string')
@@ -99,7 +101,6 @@ export function valider(brut: unknown): Sauvegarde {
     bloc: entierBorne(o.bloc, 1, BLOC_MAX, blocDeDepart(maitrise)),
     maitrise,
     guideDoigtVu: bool(o.guideDoigtVu, false),
-    motsPerso: motsPersoValides(o.motsPerso),
     reglages: {
       sons: bool(r.sons, true),
       texteEspace: bool(r.texteEspace, false),
@@ -130,13 +131,10 @@ export function estIntact(brut: unknown): boolean {
      doit être valide, sinon le backup a plus de valeur que ce fichier-là. */
   if (o.bloc !== undefined && !entier(o.bloc, 1, BLOC_MAX)) return false;
   if (typeof o.guideDoigtVu !== 'boolean') return false;
-  /* `motsPerso` est un champ AJOUTÉ (même logique que `bloc`) : absent =
-     sauvegarde saine d'une version antérieure ; présent, il doit être une
-     liste de textes. */
-  if (o.motsPerso !== undefined) {
-    if (!Array.isArray(o.motsPerso)) return false;
-    if (!o.motsPerso.every((m) => typeof m === 'string')) return false;
-  }
+  /* `motsPerso` — l'ancienne liste unique — n'est PLUS contrôlé (#12). Une
+     sauvegarde d'avant son retrait le porte encore : le champ est ignoré, pas
+     rejeté. Le contrôler encore ferait renvoyer au backup une progression
+     parfaitement saine à cause d'un champ que plus personne ne lit. */
   if (!o.maitrise || typeof o.maitrise !== 'object' || Array.isArray(o.maitrise)) return false;
   for (const [cle, val] of Object.entries(o.maitrise as Record<string, unknown>)) {
     if (cle.length !== 1) return false;

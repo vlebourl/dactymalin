@@ -31,11 +31,6 @@ describe('fusion de deux progressions du même enfant', () => {
     expect(r.maitrise).toEqual({ e: [1, 2, 5], f: [3], j: [1] });
   });
 
-  it('unit les mots de la famille et les assainit', () => {
-    const r = fusionner(A({ motsPerso: ['chat', 'lune'] }), A({ motsPerso: ['lune', 'papa'] }));
-    expect(r.motsPerso).toEqual(['chat', 'lune', 'papa']);
-  });
-
   it('le guide des doigts reste vu dès qu\'il l\'a été une fois', () => {
     expect(fusionner(A({ guideDoigtVu: true }), A({ guideDoigtVu: false })).guideDoigtVu).toBe(true);
   });
@@ -50,8 +45,8 @@ describe('fusion de deux progressions du même enfant', () => {
   });
 
   it('est commutative : l\'ordre des appareils ne change rien', () => {
-    const a = A({ palier: 3, maitrise: { e: [1] }, motsPerso: ['a'] }, 1000);
-    const b = A({ palier: 5, maitrise: { f: [2] }, motsPerso: ['b'] }, 2000);
+    const a = A({ palier: 3, maitrise: { e: [1] }, bloc: 4 }, 1000);
+    const b = A({ palier: 5, maitrise: { f: [2] }, bloc: 7 }, 2000);
     expect(fusionner(a, b)).toEqual(fusionner(b, a));
   });
 
