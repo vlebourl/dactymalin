@@ -7,8 +7,10 @@ import { fusionner } from './fusion';
  *
  * Règle non négociable : aucun appel réseau ne bloque jamais une leçon. Tout
  * part en arrière-plan, tout échec est silencieux côté enfant, et la file
- * d'attente survit à un rechargement. Sans compte connecté, il ne part
- * strictement rien.
+ * d'attente survit à un rechargement.
+ *
+ * Depuis que la connexion est obligatoire, « sans compte connecté » n'est plus
+ * un état de l'application : il n'y a qu'un seul compte, celui du portail.
  */
 
 export type ProfilDistant = {
@@ -71,7 +73,10 @@ export async function compteCourant(): Promise<Compte | null> {
     const s = await json<{ user?: Compte } | null>('/api/auth/get-session');
     return s?.user ?? null;
   } catch {
-    return null; // hors ligne, ou serveur absent : on joue quand même
+    /* Hors ligne ou serveur absent : pas de session CONNUE, donc le portail
+       reprend la main. Le démarrage hors ligne sur session en cache est un
+       ticket à part (#3) ; ici, pas de session = pas d'entrée. */
+    return null;
   }
 }
 
@@ -182,7 +187,24 @@ export const enAttente = (): number => lire<EnAttente[]>(CLE_FILE, []).length;
  * C'est le seul moment où l'app écrit dans le stockage d'un autre profil que
  * celui en cours de jeu ; il n'y a alors aucune leçon en train de tourner.
  */
-export async function associerEtFusionner(): Promise<void> {
+let association: Promise<void> | null = null;
+
+/**
+ * UN SEUL appariement à la fois, et les appels concurrents rejoignent celui
+ * qui court. Deux exécutions en parallèle lisent toutes deux une liste
+ * distante vide et créent chacune le même profil : le montage double de
+ * `StrictMode` suffisait à dédoubler « Joueur 1 » sur le serveur.
+ */
+export function associerEtFusionner(): Promise<void> {
+  if (!association) {
+    association = appariement().finally(() => {
+      association = null;
+    });
+  }
+  return association;
+}
+
+async function appariement(): Promise<void> {
   const locaux = chargerIndex().liste;
   const distants = await profilsDistants();
 
