@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
+import { messageDEchecProfil } from '../core/erreurs-compte';
+import {
+  chargerIndex,
+  prenomValide,
+  PRENOM_MAX,
+  remplacerIndex,
+} from '../core/profils';
 import {
   compteCourant,
+  creerProfilDistant,
   deconnecter,
   enAttente,
   profilsDistants,
   renommerProfilDistant,
+  supprimerProfilDistant,
   type Compte,
   type ProfilDistant,
 } from '../core/sync';
-import { prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
 import { useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -17,6 +25,11 @@ import u from '../ui/ui.module.css';
  * Écran PARENT. Il est le seul de l'app à parler comme à un adulte : mot de
  * passe, synchronisation, suppression. Un enfant n'a rien à faire ici, et on
  * n'y arrive que par les réglages.
+ *
+ * C'est ici que le parent GÈRE ses enfants (#18) — ajouter, renommer,
+ * supprimer. Les réglages, eux, se contentent de les lister : les boutons qui
+ * détruisent une progression ne sont pas à portée d'un enfant de sept ans qui
+ * cherchait le bouton des sons.
  */
 export function V9Compte() {
   const envoi = useEnvoi();
@@ -25,12 +38,16 @@ export function V9Compte() {
   const [file, setFile] = useState(0);
   /** Brouillons de prénom, par profil : seulement ceux que le parent a tapés. */
   const [saisie, setSaisie] = useState<Record<string, string>>({});
+  /** Enfant dont la suppression attend un « oui » explicite. */
+  const [aSupprimer, setASupprimer] = useState<string | null>(null);
+  const [nouveau, setNouveau] = useState('');
   const [echec, setEchec] = useState<string | null>(null);
 
   const adopterListe = (liste: ProfilDistant[]) => {
     setProfils(liste);
     /* Le cache local suit le compte : un prénom corrigé ici doit s'afficher
-       tout de suite sur l'écran « Qui joue ? » et dans la leçon. */
+       tout de suite sur l'écran « Qui joue ? » et dans la leçon, et un enfant
+       supprimé doit emporter sa progression en cache. */
     remplacerIndex(liste.map((p) => ({ id: p.id, nom: p.prenom })));
     /* On ne touche PAS aux champs : la liste arrive du réseau, donc à un
        moment qu'on ne choisit pas, et elle effaçait le prénom que le parent
@@ -50,23 +67,42 @@ export function V9Compte() {
     }
   };
 
+  useEffect(() => {
+    void rafraichir();
+  }, []);
+
+  /** Le motif d'un refus de prénom, dit avant même d'appeler le serveur. */
+  const refusLocal = (prenom: string): string | null =>
+    prenomValide(prenom)
+      ? null
+      : prenom.trim().length === 0
+        ? 'Écrivez le prénom de l’enfant : un profil ne peut pas être sans nom.'
+        : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`;
+
+  const ajouter = async () => {
+    const refus = refusLocal(nouveau);
+    if (refus) return setEchec(refus);
+    setEchec(null);
+    try {
+      await creerProfilDistant(nouveau.trim());
+      setNouveau('');
+      adopterListe(await profilsDistants());
+    } catch (erreur) {
+      /* Prénom déjà pris, plafond atteint, session expirée : le serveur dit
+         laquelle, et le parent la lit. Un bouton qui ne fait rien sans un mot
+         est un bouton cassé. */
+      setEchec(messageDEchecProfil(erreur));
+    }
+  };
+
   /**
    * Renommer. L'identité d'un enfant est son identifiant serveur : corriger
    * « Timo » en « Timothée » ne touche PAS à sa progression.
    */
   const renommer = async (id: string) => {
     const prenom = (saisie[id] ?? '').trim();
-    /* Le même jugement que l'écran de création, et la même borne : un champ
-       vidé ne partait EN SILENCE nulle part, et `maxLength` coupait à la
-       vingtième lettre un prénom que le serveur acceptait jusqu'à trente. */
-    if (!prenomValide(prenom)) {
-      setEchec(
-        prenom.length === 0
-          ? 'Écrivez le prénom de l’enfant : un profil ne peut pas être sans nom.'
-          : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`,
-      );
-      return;
-    }
+    const refus = refusLocal(prenom);
+    if (refus) return setEchec(refus);
     setEchec(null);
     try {
       await renommerProfilDistant(id, prenom);
@@ -74,18 +110,32 @@ export function V9Compte() {
          confirme, pas de ce qu'on croyait avoir envoyé. */
       setSaisie(({ [id]: _, ...reste }) => reste);
       adopterListe(await profilsDistants());
-    } catch {
-      /* On remet ce que le serveur sait, et on DIT pourquoi : un champ qui
-         revient tout seul à l'ancien prénom, sans un mot, laisse le parent
-         croire qu'il a mal tapé. */
+    } catch (erreur) {
       setSaisie(({ [id]: _, ...reste }) => reste);
-      setEchec("Le renommage n'a pas pu être enregistré : vérifiez la connexion.");
+      setEchec(messageDEchecProfil(erreur));
     }
   };
 
-  useEffect(() => {
-    void rafraichir();
-  }, []);
+  /**
+   * Supprimer, après un « oui » explicite : c'est le seul geste de l'app qui
+   * détruit une progression, et il est irréversible. La confirmation nomme
+   * l'enfant — « êtes-vous sûr ? » ne dit pas de QUI on parle.
+   */
+  const supprimer = async (id: string) => {
+    setEchec(null);
+    const actif = chargerIndex().actif;
+    try {
+      await supprimerProfilDistant(id);
+      setASupprimer(null);
+      adopterListe(await profilsDistants());
+      /* L'enfant supprimé était celui en train de jouer : son état est chargé
+         dans l'application entière, et le laisser tourner ferait écrire une
+         progression à un profil qui n'existe plus. */
+      if (id === actif) location.reload();
+    } catch (erreur) {
+      setEchec(messageDEchecProfil(erreur));
+    }
+  };
 
   return (
     <div className={v.ecran}>
@@ -117,11 +167,14 @@ export function V9Compte() {
                 ? 'Toutes les progressions sont synchronisées.'
                 : `${file} progression(s) en attente d'envoi.`}
             </p>
+
             {echec && (
               <p className={v.erreurCompte} role="alert">
                 {echec}
               </p>
             )}
+
+            <h2 className={v.titrePetit}>Nos enfants</h2>
             <ul className={v.listeProfils}>
               {profils.map((p) => (
                 <li key={p.id}>
@@ -144,13 +197,56 @@ export function V9Compte() {
                   </button>{' '}
                   <span className={v.promessePalier}>
                     {p.etat ? `palier ${p.etat.palier}` : 'aucune progression enregistrée'}
-                  </span>
+                  </span>{' '}
+                  {aSupprimer === p.id ? (
+                    <span className={v.confirmation}>
+                      Supprimer {p.prenom} et toute sa progression ? C'est définitif.{' '}
+                      <button
+                        className={v.petitBouton}
+                        onClick={() => void supprimer(p.id)}
+                      >{`Oui, supprimer ${p.prenom}`}</button>{' '}
+                      <button className={u.lien} onClick={() => setASupprimer(null)}>
+                        Annuler
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      className={u.lien}
+                      aria-label={`Supprimer ${p.prenom}`}
+                      onClick={() => {
+                        setEchec(null);
+                        setASupprimer(p.id);
+                      }}
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </li>
               ))}
               {profils.length === 0 && (
                 <li className={v.promessePalier}>Aucun profil sur le compte pour l'instant.</li>
               )}
             </ul>
+
+            {/* Ajouter un enfant est un geste de PARENT : il se fait ici, pas
+                sur l'écran où l'enfant vient choisir son prénom pour jouer. */}
+            <p className={v.ligneClavier}>
+              <input
+                className={v.champNom}
+                value={nouveau}
+                placeholder="Prénom du nouvel enfant"
+                aria-label="Prénom du nouvel enfant"
+                onChange={(e) => {
+                  setNouveau(e.target.value);
+                  setEchec(null);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && void ajouter()}
+              />
+              <button className={v.petitBouton} onClick={() => void ajouter()}>
+                Ajouter un enfant
+              </button>
+            </p>
+
             <button
               className={u.bouton}
               onClick={async () => {

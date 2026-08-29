@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { messageDEchec } from './erreurs-compte';
+import { messageDEchec, messageDEchecProfil } from './erreurs-compte';
+import { PRENOM_MAX, PROFILS_MAX } from './profils';
 
 /**
  * Régression (2026-08-29, production) : une inscription refusée affichait
@@ -55,4 +56,30 @@ describe('messageDEchec', () => {
       expect(m).not.toMatch(/déjà un compte/);
     },
   );
+});
+
+/**
+ * Gérer les enfants (#18) : le serveur refuse pour des raisons PRÉCISES —
+ * prénom déjà pris dans le foyer, plafond atteint, profil disparu. Le parent
+ * doit lire laquelle, sinon un bouton qui ne fait rien reste un bouton cassé.
+ */
+describe('messageDEchecProfil', () => {
+  const cas: [string, { statut?: number; code?: string }, RegExp][] = [
+    ['prénom déjà pris', { statut: 409, code: 'PRENOM_DEJA_PRIS' }, /porte déjà ce prénom/],
+    ['plafond atteint', { statut: 409, code: 'TROP_DE_PROFILS' }, new RegExp(`${PROFILS_MAX}`)],
+    ['prénom invalide', { statut: 400, code: 'PRENOM_INVALIDE' }, new RegExp(`${PRENOM_MAX}`)],
+    ['profil disparu', { statut: 404, code: 'PROFIL_INTROUVABLE' }, /n'existe plus/],
+    ['session expirée', { statut: 401 }, /reconnecter/],
+    ['hors ligne', {}, /connexion à Internet/],
+  ];
+
+  for (const [nom, echec, attendu] of cas) {
+    it(`dit ce qui s'est passé : ${nom}`, () => {
+      expect(messageDEchecProfil(echec)).toMatch(attendu);
+    });
+  }
+
+  it("ne reste jamais muet sur un statut qu'il ne connaît pas", () => {
+    expect(messageDEchecProfil({ statut: 418 })).toMatch(/418/);
+  });
 });

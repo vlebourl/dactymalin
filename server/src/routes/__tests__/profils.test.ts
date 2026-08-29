@@ -4,7 +4,7 @@ import { creerAuth } from '../../auth';
 import { creerBase } from '../../db/client';
 import { lireEnv } from '../../env';
 import { DEFAUTS } from '../../../../src/core/storage';
-import { PRENOM_MAX } from '../../../../src/core/profils';
+import { PROFILS_MAX, PRENOM_MAX } from '../../../../src/core/profils';
 
 /**
  * Ces tests parlent à un VRAI PostgreSQL : la règle qui compte ici — un compte
@@ -154,31 +154,118 @@ d('profils et progression', () => {
       (await app.request(`/api/profils/${id}`, { method: 'DELETE', headers: b })).status,
     ).toBe(404);
   });
-  /* #4 : l'identité d'un profil est son id, jamais son prénom. Deux enfants
-     homonymes sont deux profils, et renommer n'en perd pas la progression. */
-  it('deux enfants du même prénom sont deux profils distincts', async () => {
+  /* #4 : l'identité d'un profil est son id, jamais son prénom — c'est ce qui
+     garde deux progressions séparées. #18 ajoute par-dessus une règle
+     d'ERGONOMIE : dans un même foyer, un prénom déjà pris est refusé, sinon
+     l'écran « Qui joue ? » propose deux boutons identiques. Les deux règles
+     tiennent ensemble : le serveur ne fusionne toujours rien par prénom. */
+  it('refuse un prénom déjà pris dans le foyer, casse et espaces compris', async () => {
     const h = await inscrire(`f${Date.now()}@exemple.fr`);
-    const creer = () =>
+    const creer = (prenom: string) =>
       app.request('/api/profils', {
         method: 'POST',
         headers: h,
-        body: JSON.stringify({ prenom: 'Timo' }),
+        body: JSON.stringify({ prenom }),
       });
-    const un = (await (await creer()).json()) as { id: string };
-    const deux = (await (await creer()).json()) as { id: string };
-    expect(un.id).not.toBe(deux.id);
 
-    await app.request(`/api/profils/${un.id}/progression`, {
+    expect((await creer('Timo')).status).toBe(201);
+    const doublon = await creer('  timo ');
+    expect(doublon.status).toBe(409);
+    expect(((await doublon.json()) as { code: string }).code).toBe('PRENOM_DEJA_PRIS');
+
+    // le foyer d'à côté garde le droit d'avoir son propre Timo
+    const voisin = await inscrire(`f2${Date.now()}@exemple.fr`);
+    expect(
+      (
+        await app.request('/api/profils', {
+          method: 'POST',
+          headers: voisin,
+          body: JSON.stringify({ prenom: 'Timo' }),
+        })
+      ).status,
+    ).toBe(201);
+  });
+
+  it('refuse un renommage vers un prénom déjà pris, mais pas vers le sien', async () => {
+    const h = await inscrire(`k${Date.now()}@exemple.fr`);
+    const creer = async (prenom: string) =>
+      (
+        (await (
+          await app.request('/api/profils', {
+            method: 'POST',
+            headers: h,
+            body: JSON.stringify({ prenom }),
+          })
+        ).json()) as { id: string }
+      ).id;
+    const timo = await creer('Timo');
+    await creer('Zoé');
+
+    const vers = (id: string, prenom: string) =>
+      app.request(`/api/profils/${id}`, {
+        method: 'PATCH',
+        headers: h,
+        body: JSON.stringify({ prenom }),
+      });
+
+    expect((await vers(timo, 'Zoé')).status).toBe(409);
+    /* Se renommer en soi-même n'est pas un doublon : corriger la casse ou une
+       espace ne doit pas être refusé au nom du prénom qu'on porte déjà. */
+    expect((await vers(timo, 'TIMO')).status).toBe(200);
+  });
+
+  it('supprime un profil, sa progression part avec lui', async () => {
+    const h = await inscrire(`l${Date.now()}@exemple.fr`);
+    const { id } = (await (
+      await app.request('/api/profils', {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({ prenom: 'Lou' }),
+      })
+    ).json()) as { id: string };
+    await app.request(`/api/profils/${id}/progression`, {
       method: 'PUT',
       headers: h,
-      body: JSON.stringify({ etat: { ...DEFAUTS, palier: 6 }, majLe: new Date().toISOString() }),
+      body: JSON.stringify({ etat: { ...DEFAUTS, palier: 3 }, majLe: new Date().toISOString() }),
     });
+
+    expect((await app.request(`/api/profils/${id}`, { method: 'DELETE', headers: h })).status).toBe(
+      200,
+    );
     const liste = (await (await app.request('/api/profils', { headers: h })).json()) as {
-      profils: { id: string; etat: { palier: number } | null }[];
+      profils: unknown[];
     };
-    expect(liste.profils).toHaveLength(2);
-    expect(liste.profils.find((p) => p.id === un.id)?.etat?.palier).toBe(6);
-    expect(liste.profils.find((p) => p.id === deux.id)?.etat).toBeNull();
+    expect(liste.profils).toHaveLength(0);
+
+    // le prénom est libéré : le foyer peut le réutiliser
+    expect(
+      (
+        await app.request('/api/profils', {
+          method: 'POST',
+          headers: h,
+          body: JSON.stringify({ prenom: 'Lou' }),
+        })
+      ).status,
+    ).toBe(201);
+  });
+
+  it('le plafond de 12 profils est tenu, et il se nomme', async () => {
+    const h = await inscrire(`m${Date.now()}@exemple.fr`);
+    for (let i = 0; i < PROFILS_MAX; i++) {
+      const r = await app.request('/api/profils', {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({ prenom: `Enfant ${i}` }),
+      });
+      expect(r.status).toBe(201);
+    }
+    const treizieme = await app.request('/api/profils', {
+      method: 'POST',
+      headers: h,
+      body: JSON.stringify({ prenom: 'Un de trop' }),
+    });
+    expect(treizieme.status).toBe(409);
+    expect(((await treizieme.json()) as { code: string }).code).toBe('TROP_DE_PROFILS');
   });
 
   it('renommer un profil conserve sa progression', async () => {

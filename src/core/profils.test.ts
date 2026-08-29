@@ -12,6 +12,7 @@ import {
   prenomValide,
   PRENOM_MAX,
   profilInitial,
+  progressionEnCache,
   remplacerIndex,
 } from './profils';
 import { CLE, DEFAUTS, charger, sauver } from './storage';
@@ -96,6 +97,34 @@ describe('cache local des profils du compte', () => {
     expect(chargerIndex().liste.map((p) => p.id)).toEqual(['a', 'b']);
   });
 
+  it('la liste du serveur emporte la progression en cache des profils disparus', () => {
+    remplacerIndex([
+      { id: 'a', nom: 'Timo' },
+      { id: 'b', nom: 'Zoé' },
+    ]);
+    sauver({ ...DEFAUTS, palier: 5 }, cleDe('a'));
+    sauver({ ...DEFAUTS, palier: 6 }, cleDe('a')); // et sa sauvegarde de secours
+    sauver({ ...DEFAUTS, palier: 2 }, cleDe('b'));
+
+    // Zoé a été supprimée depuis un autre appareil
+    remplacerIndex([{ id: 'a', nom: 'Timo' }]);
+
+    expect(localStorage.getItem(cleDe('b'))).toBeNull();
+    expect(localStorage.getItem(`${cleDe('b')}.backup`)).toBeNull();
+    expect(charger(cleDe('a')).palier).toBe(6); // celle qui reste n'a pas bougé
+  });
+
+  it("ne prend jamais la clé d'avant les identifiants serveur pour un profil disparu", () => {
+    /* `tapeavecmoi.v1.backup` porte le préfixe des clés par identifiant sans
+       en être une : c'est la sauvegarde de secours d'AVANT #4, et la reprise
+       en a besoin. */
+    sauver({ ...DEFAUTS, palier: 4 }, CLE);
+    sauver({ ...DEFAUTS, palier: 7 }, CLE);
+    remplacerIndex([{ id: 'a', nom: 'Timo' }]);
+    expect(localStorage.getItem(CLE)).not.toBeNull();
+    expect(localStorage.getItem(`${CLE}.backup`)).not.toBeNull();
+  });
+
   it("un cache corrompu ou d'une version antérieure est ignoré, pas interprété", () => {
     localStorage.setItem(CLE_PROFILS, '{"version":1,"actif":"p1","liste":[{"id":"p1","nom":"X"}]}');
     expect(chargerIndex().liste).toEqual([]);
@@ -123,6 +152,18 @@ describe('cache local des profils du compte', () => {
     expect(prenomValide('')).toBe(false);
     expect(prenomValide('   ')).toBe(false);
     expect(prenomValide('a'.repeat(PRENOM_MAX + 1))).toBe(false);
+  });
+
+  it("la progression en cache dit « rien ici » plutôt que d'inventer un palier 1", () => {
+    remplacerIndex([
+      { id: 'a', nom: 'Timo' },
+      { id: 'b', nom: 'Zoé' },
+    ]);
+    sauver({ ...DEFAUTS, palier: 6 }, cleDe('a'));
+    expect(progressionEnCache('a')?.palier).toBe(6);
+    /* Zoé joue sur la tablette : ici on ne sait rien d'elle, et « leçon 1 »
+       serait un mensonge. */
+    expect(progressionEnCache('b')).toBeNull();
   });
 
   it("la clé de progression est suffixée par l'identifiant serveur", () => {

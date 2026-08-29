@@ -8,10 +8,7 @@ import { profil, progression } from '../db/schema';
 /* Le serveur valide avec le MÊME code que le client : une seule définition de
    la forme d'une progression, pas deux qui divergeraient. */
 import { estIntact } from '../../../src/core/storage';
-import { PRENOM_MAX } from '../../../src/core/profils';
-
-/** Un compte de famille, pas une classe : la borne protège la base. */
-const PROFILS_MAX = 12;
+import { memePrenom, PRENOM_MAX, PROFILS_MAX } from '../../../src/core/profils';
 
 const corpsProfil = z.object({ prenom: z.string().trim().min(1).max(PRENOM_MAX) });
 const corpsProgression = z.object({ etat: z.unknown(), majLe: z.string().datetime() });
@@ -51,10 +48,27 @@ export function routesProfils(base: Base, auth: Auth) {
 
   app.post('/', async (c) => {
     const corps = corpsProfil.safeParse(await c.req.json().catch(() => null));
-    if (!corps.success) return c.json({ erreur: 'prénom invalide' }, 400);
+    if (!corps.success) {
+      return c.json({ erreur: 'prénom invalide', code: 'PRENOM_INVALIDE' }, 400);
+    }
     const userId = c.get('userId');
-    const deja = await base.select({ id: profil.id }).from(profil).where(eq(profil.userId, userId));
-    if (deja.length >= PROFILS_MAX) return c.json({ erreur: 'trop de profils' }, 409);
+    const deja = await base
+      .select({ id: profil.id, prenom: profil.prenom })
+      .from(profil)
+      .where(eq(profil.userId, userId));
+    if (deja.length >= PROFILS_MAX) {
+      return c.json({ erreur: 'trop de profils', code: 'TROP_DE_PROFILS' }, 409);
+    }
+    /* Un prénom déjà pris DANS CE FOYER est refusé : deux boutons identiques
+       sur « Qui joue ? » ne se distinguent pas, et l'enfant ouvrirait la
+       progression de l'autre une fois sur deux. C'est une règle d'ergonomie —
+       l'identité d'un profil reste son id, et rien n'est jamais fusionné par
+       prénom (#4). La vérification est applicative et non un index unique :
+       des homonymes créés AVANT cette règle existent peut-être, et l'index
+       refuserait alors d'être créé. */
+    if (deja.some((p) => memePrenom(p.prenom, corps.data.prenom))) {
+      return c.json({ erreur: 'prénom déjà pris', code: 'PRENOM_DEJA_PRIS' }, 409);
+    }
     const id = randomUUID();
     await base.insert(profil).values({ id, userId, prenom: corps.data.prenom });
     return c.json({ id, prenom: corps.data.prenom }, 201);
@@ -67,13 +81,27 @@ export function routesProfils(base: Base, auth: Auth) {
    */
   app.patch('/:id', async (c) => {
     const corps = corpsProfil.safeParse(await c.req.json().catch(() => null));
-    if (!corps.success) return c.json({ erreur: 'prénom invalide' }, 400);
+    if (!corps.success) {
+      return c.json({ erreur: 'prénom invalide', code: 'PRENOM_INVALIDE' }, 400);
+    }
+    const id = c.req.param('id');
+    const fratrie = await base
+      .select({ id: profil.id, prenom: profil.prenom })
+      .from(profil)
+      .where(eq(profil.userId, c.get('userId')));
+    /* Se renommer en soi-même n'est pas un doublon : corriger une casse ou une
+       espace ne doit pas être refusé au nom du prénom qu'on porte déjà. */
+    if (fratrie.some((p) => p.id !== id && memePrenom(p.prenom, corps.data.prenom))) {
+      return c.json({ erreur: 'prénom déjà pris', code: 'PRENOM_DEJA_PRIS' }, 409);
+    }
     const renommes = await base
       .update(profil)
       .set({ prenom: corps.data.prenom })
-      .where(and(eq(profil.id, c.req.param('id')), eq(profil.userId, c.get('userId'))))
+      .where(and(eq(profil.id, id), eq(profil.userId, c.get('userId'))))
       .returning({ id: profil.id, prenom: profil.prenom });
-    if (renommes.length === 0) return c.json({ erreur: 'profil introuvable' }, 404);
+    if (renommes.length === 0) {
+      return c.json({ erreur: 'profil introuvable', code: 'PROFIL_INTROUVABLE' }, 404);
+    }
     return c.json(renommes[0]);
   });
 
@@ -83,7 +111,9 @@ export function routesProfils(base: Base, auth: Auth) {
       .delete(profil)
       .where(and(eq(profil.id, c.req.param('id')), eq(profil.userId, userId)))
       .returning({ id: profil.id });
-    if (supprimes.length === 0) return c.json({ erreur: 'profil introuvable' }, 404);
+    if (supprimes.length === 0) {
+      return c.json({ erreur: 'profil introuvable', code: 'PROFIL_INTROUVABLE' }, 404);
+    }
     return c.json({ supprime: true });
   });
 
