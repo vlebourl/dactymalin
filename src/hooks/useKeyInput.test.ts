@@ -54,6 +54,63 @@ describe('useKeyInput', () => {
     ]);
   });
 
+  it('convertit une lettre minuscule en capitale quand Maj est tenue', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f), undefined, 'fr-FR'));
+    frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true });
+    frapper({ code: 'KeyQ', key: 'a', shiftKey: true });
+    expect(vues.at(-1)?.key).toBe('A');
+  });
+
+  it('convertit un caractère spécial selon la table quand Maj est tenue', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f), undefined, 'fr-FR'));
+    frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true });
+    frapper({ code: 'Digit1', key: '&', shiftKey: true });
+    expect(vues.at(-1)?.key).toBe('1');
+  });
+
+  /* Le garde-fou de `appliquerMaj` : la table ne s'applique QUE si `key` vaut
+     encore le caractère sans Maj. Sans ces trois cas, on pouvait supprimer la
+     comparaison `base !== key` sans faire rougir un seul test. */
+  it('laisse brute une touche déjà modifiée par le navigateur', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f), undefined, 'fr-FR'));
+    frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true });
+    frapper({ code: 'KeyQ', key: 'A', shiftKey: true });
+    expect(vues.at(-1)?.key).toBe('A');
+    /* Clavier PHYSIQUE fr-CH alors que fr-FR est configuré : Maj+Digit1 produit
+       réellement `+`. Le réécrire en `1` d'après la table masquerait à la
+       surveillance F7 l'incohérence qui doit justement la déclencher. */
+    frapper({ code: 'Digit1', key: '+', shiftKey: true });
+    expect(vues.at(-1)?.key).toBe('+');
+  });
+
+  it('ne convertit RIEN tant qu\'aucune disposition n\'est fournie', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f)));
+    frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true });
+    frapper({ code: 'KeyQ', key: 'a', shiftKey: true });
+    expect(vues.at(-1)?.key).toBe('a');
+  });
+
+  it('laisse intacte une touche ordinaire frappée sans Maj', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f), undefined, 'fr-FR'));
+    frapper({ code: 'Digit1', key: '&' });
+    expect(vues.at(-1)?.key).toBe('&');
+  });
+
+  /* Verr.Maj + Maj = minuscule : la capitale fabriquée ici validait comme
+     réussite une frappe dont la sortie physique est bien un `a`. */
+  it('ne capitalise pas quand Verr.Maj est actif en même temps que Maj', () => {
+    const vues: Frappe[] = [];
+    renderHook(() => useKeyInput(true, (f) => vues.push(f), undefined, 'fr-FR'));
+    frapper({ code: 'ShiftRight', key: 'Shift', shiftKey: true, modifierCapsLock: true });
+    frapper({ code: 'KeyQ', key: 'a', shiftKey: true, modifierCapsLock: true });
+    expect(vues.at(-1)?.key).toBe('a');
+  });
+
   /* Gate Codex n°5 : seul un booléen `avecMaj` était transmis. L'app affichait
      la Maj contralatérale mais ne pouvait pas la vérifier — n'importe laquelle
      des deux validait. */
