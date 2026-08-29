@@ -4,23 +4,36 @@ import { App } from './App';
 import { profilInitial } from './core/profils';
 import { compteCourant, listesDistantes, synchroniserProfils, type Compte } from './core/sync';
 import { FournisseurApp } from './state';
+import { BandeauCompte } from './ui/BandeauCompte';
 import { Garde } from './ui/Garde';
 import { Connexion } from './views/Connexion';
 import { V0Profils } from './views/V0Profils';
+import u from './ui/ui.module.css';
 import './styles/tokens.css';
 
 /* Le choix du joueur précède tout : l'état de l'app se charge depuis la clé
    du profil choisi — son identifiant SERVEUR. `key` remonte l'arbre entier au
    changement de joueur. */
-function Joueur() {
+function Joueur({ compte }: { compte: Compte }) {
   const [idProfil, setIdProfil] = useState<string | null>(() => profilInitial());
-  if (!idProfil) return <V0Profils onChoix={setIdProfil} />;
+  /* Le bandeau est posé ICI, au-dessus du choix du joueur ET du commutateur de
+     vues : il couvre donc tous les écrans, n'est écrit qu'une fois, et ne se
+     démonte à aucun changement de vue ni de joueur. */
   return (
-    <FournisseurApp idProfil={idProfil} key={idProfil}>
-      <Garde>
-        <App />
-      </Garde>
-    </FournisseurApp>
+    <div className={u.cadreAppli}>
+      <BandeauCompte compte={compte} />
+      <div className={u.contenuAppli}>
+        {!idProfil ? (
+          <V0Profils onChoix={setIdProfil} />
+        ) : (
+          <FournisseurApp idProfil={idProfil} key={idProfil}>
+            <Garde>
+              <App />
+            </Garde>
+          </FournisseurApp>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -57,7 +70,7 @@ function Racine() {
 
   if (compte === undefined) return <Attente />;
   if (!compte) return <Connexion onConnecte={(c) => void entrer(c)} />;
-  return <Joueur />;
+  return <Joueur compte={compte} />;
 }
 
 function Attente() {
