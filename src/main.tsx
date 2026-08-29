@@ -62,6 +62,16 @@ function Attente() {
   return <div aria-busy="true" />;
 }
 
+/* La coquille de l'application est gardée pour le prochain démarrage sans
+   réseau (#3). L'enregistrement échoue silencieusement là où les service
+   workers n'existent pas (navigation privée sur certains navigateurs) : c'est
+   un confort, jamais une condition pour jouer. */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 createRoot(document.getElementById('racine')!).render(
   <StrictMode>
     <Racine />
