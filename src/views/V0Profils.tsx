@@ -4,6 +4,8 @@ import {
   ajouterProfil,
   chargerIndex,
   effacerDemandeDeChoix,
+  prenomValide,
+  PRENOM_MAX,
   type IndexProfils,
 } from '../core/profils';
 import { adopterProgressionHistorique, creerProfilDistant } from '../core/sync';
@@ -35,13 +37,30 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
     onChoix(id);
   };
 
+  /* Le motif du refus, ou `null` si le prénom passe. Calculé à CHAQUE frappe :
+     l'enfant voit le message disparaître dès qu'il corrige, sans avoir à
+     réessayer pour savoir si c'est bon. */
+  const refus =
+    nom.trim().length === 0
+      ? 'Écris ton prénom pour commencer.'
+      : nom.trim().length > PRENOM_MAX
+        ? `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`
+        : null;
+
   const creer = async () => {
     if (occupe) return;
+    /* Un prénom vide donnait « Joueur 2 », sans un mot : un nom que personne
+       ne garde et que personne ne pense à changer. On le REFUSE, en disant
+       pourquoi. */
+    if (!prenomValide(nom)) {
+      setErreur(refus);
+      return;
+    }
     setOccupe(true);
     setErreur(null);
     try {
       const premier = ix.liste.length === 0;
-      const cree = await creerProfilDistant(nom.trim() || `Joueur ${ix.liste.length + 1}`);
+      const cree = await creerProfilDistant(nom.trim());
       setIx(ajouterProfil({ id: cree.id, nom: cree.prenom }));
       /* Premier enfant du compte sur cet appareil : s'il y a une progression
          d'avant les identifiants serveur, elle est à lui. */
@@ -74,9 +93,11 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
           ))}
         </div>
 
-        {erreur && (
+        {/* Le motif du refus se montre dès la saisie ; l'échec réseau, lui,
+            n'existe qu'après un essai. */}
+        {(erreur ?? (nom.length > 0 ? refus : null)) && (
           <p className={v.erreurCompte} role="alert">
-            {erreur}
+            {erreur ?? refus}
           </p>
         )}
 
@@ -85,11 +106,16 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
             <input
               className={v.champNom}
               value={nom}
-              maxLength={20}
+              /* Pas de `maxLength` : couper à la trentième lettre sans un mot
+                 laisse l'enfant devant un prénom qui n'est pas le sien. On
+                 laisse écrire, et on DIT que c'est trop long. */
               placeholder="Ton prénom"
               aria-label="Ton prénom"
               autoFocus
-              onChange={(e) => setNom(e.target.value)}
+              onChange={(e) => {
+                setNom(e.target.value);
+                setErreur(null);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && void creer()}
             />
             <button className={v.petitBouton} disabled={occupe} onClick={() => void creer()}>
