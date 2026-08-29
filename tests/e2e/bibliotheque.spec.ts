@@ -78,8 +78,13 @@ test('le parent est averti du mot que le clavier ne sait pas écrire', async ({ 
   await expect(page.getByText(/ne sait pas écrire.*fête/)).toBeVisible();
 
   await page.getByRole('button', { name: 'Créer la liste' }).click();
+  /* Attendre que le SERVEUR ait répondu avant de recharger : la ligne
+     n'apparaît qu'une fois la bibliothèque relue. Recharger sur le seul clic
+     court après l'envoi, et la liste n'existe pas encore au retour. */
+  await expect(page.getByRole('button', { name: 'Modifier La fête' })).toBeVisible();
+
   await page.reload();
-  await expect(page.getByRole('button', { name: /La fête/ })).toBeVisible();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
   await page.getByRole('button', { name: /La fête/ }).click();
 
   // le bloc ne contient que ce que le clavier écrit
