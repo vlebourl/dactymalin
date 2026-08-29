@@ -222,6 +222,21 @@ export const renommerProfilDistant = (id: string, prenom: string) =>
 export const supprimerProfilDistant = (id: string) =>
   json(`/api/profils/${id}`, { method: 'DELETE' });
 
+/**
+ * Supprime le compte et tout ce qu'il contient (#6). Le stockage local part
+ * ensuite, en entier : garder la progression d'enfants qui n'existent plus
+ * ferait revenir leurs prénoms sur l'écran du prochain compte ouvert ici.
+ *
+ * La route ne prend pas d'identifiant — elle supprime celui de la session.
+ */
+export const supprimerLeCompte = async () => {
+  await json('/api/compte', { method: 'DELETE' });
+  oublierLeCompte();
+  effacer(CLE_FILE);
+  effacer(CLE_MAJ);
+  oublierProfils();
+};
+
 /* ------------------------------------------------------------- bibliothèque */
 
 /**

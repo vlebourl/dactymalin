@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
+import { messageDEchecCompte, messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
 import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
 import {
   chargerIndex,
@@ -17,6 +17,7 @@ import {
   supprimerListeDistante,
   deconnecter,
   enAttente,
+  supprimerLeCompte,
   profilsDistants,
   renommerProfilDistant,
   supprimerProfilDistant,
@@ -531,6 +532,22 @@ export function V9Compte() {
     }
   };
 
+  const [echecCompte, setEchecCompte] = useState<string | null>(null);
+
+  const supprimerCompte = async () => {
+    setEchecCompte(null);
+    try {
+      await supprimerLeCompte();
+      /* Le portail vit AU-DESSUS de cet arbre : seul un rechargement lui rend
+         la main, et il n'y a plus de compte à retrouver. */
+      location.reload();
+    } catch (erreur) {
+      /* Hors ligne surtout : supprimer exige le serveur, et un bouton muet
+         laisserait croire que le compte est parti alors qu'il est intact. */
+      setEchecCompte(messageDEchecCompte(erreur));
+    }
+  };
+
   const actif = chargerIndex().actif;
 
   return (
@@ -627,6 +644,24 @@ export function V9Compte() {
             >
               Se déconnecter
             </button>
+
+            {/* Le seul geste de l'application qui détruit TOUT, et le seul qui
+                donne au parent une porte de sortie : le compte est devenu
+                obligatoire, il doit pouvoir être rendu. */}
+            <p className={v.promessePalier}>
+              Supprimer le compte efface définitivement les profils des enfants,
+              leurs progressions et toutes les listes. Cela ne peut pas être annulé.
+            </p>
+            {echecCompte && (
+              <p className={v.erreurCompte} role="alert">
+                {echecCompte}
+              </p>
+            )}
+            <ConfirmationSuppression
+              quoi="le compte"
+              question={`Supprimer le compte ${compte.email} et tout ce qu'il contient ? C'est définitif.`}
+              surOui={() => void supprimerCompte()}
+            />
           </div>
         ) : (
           /* La session a expiré pendant qu'on était ici : le portail reprend

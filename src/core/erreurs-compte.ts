@@ -120,3 +120,18 @@ export function messageDEchecListe(erreur: unknown): string {
 
   return parDefaut(statut, 'La session a expiré. Il faut se reconnecter.');
 }
+
+/**
+ * Et pour la suppression du compte (#6). Elle exige le serveur : un bouton
+ * resté muet laisserait le parent croire qu'il est parti sans laisser de
+ * trace, alors que son compte est intact. C'est la pire issue possible pour un
+ * geste qu'on ne fait qu'une fois, en partant.
+ */
+export function messageDEchecCompte(erreur: unknown): string {
+  const { statut } = (erreur ?? {}) as Echec;
+
+  if (statut === undefined) {
+    return 'Rien n’a été supprimé : le serveur n’a pas répondu. Vérifiez la connexion à Internet, puis réessayez.';
+  }
+  return parDefaut(statut, 'La session a expiré : reconnectez-vous, puis recommencez.');
+}
