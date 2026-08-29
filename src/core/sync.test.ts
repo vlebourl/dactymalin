@@ -449,6 +449,34 @@ describe('cache des listes, en lecture seule', () => {
     expect(await listesDistantes()).toEqual([DICTEE]);
   });
 
+  /* Une PANNE n'est pas une absence de réseau. Servir le cache sur un 500
+     ferait passer un serveur cassé pour un fonctionnement normal, et le parent
+     modifierait une bibliothèque qu'il croit à jour. */
+  it('une erreur du serveur remonte à l’écran, elle ne sert pas le cache', async () => {
+    bibliotheque([DICTEE]);
+    await listesDistantes();
+
+    vi.stubGlobal('fetch', vi.fn(async () => rep({ erreur: 'boum' }, 500)));
+    await expect(listesDistantes()).rejects.toThrow();
+  });
+
+  /* Une session finie n'emporte pas la progression — elle peut contenir du
+     travail jamais envoyé — mais elle emporte la bibliothèque : un autre
+     parent peut se connecter ici, et les mots d'une famille ne le regardent
+     pas. Le serveur en garde la seule copie qui compte. */
+  it('la session expirée emporte la bibliothèque, pas la progression', async () => {
+    bibliotheque([DICTEE]);
+    await listesDistantes();
+    sauver({ ...DEFAUTS, palier: 4 }, cleDe('a'));
+
+    vi.stubGlobal('fetch', vi.fn(async () => rep(null)));
+    expect(await compteCourant()).toBeNull();
+
+    bibliotheque([], { coupe: true });
+    expect(await listesDistantes()).toEqual([]);
+    expect(charger(cleDe('a')).palier).toBe(4);
+  });
+
   it('la bibliothèque du compte s’en va avec la déconnexion', async () => {
     bibliotheque([DICTEE]);
     await listesDistantes();

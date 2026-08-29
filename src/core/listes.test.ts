@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  listesValides,
   LISTES_MAX,
   NOM_LISTE_MAX,
   estJouable,
@@ -115,5 +116,31 @@ describe('motsDeLaSaisie', () => {
 
   it('ne retient rien d’un texte vide', () => {
     expect(motsDeLaSaisie('   \n\n', 'fr-FR')).toEqual({ mots: [], refuses: [] });
+  });
+});
+
+/* Ce qui revient du réseau ou d'un stockage local n'est pas forcément ce qu'on
+   croit : une réponse tronquée, un cache écrit par une version d'avant, une
+   clé bricolée à la main. Sans garde, la carte de l'accueil explosait sur
+   `mots.length` — et l'accueil hors ligne est justement l'écran que le cache
+   existe pour sauver (#11). */
+describe('listesValides', () => {
+  const DICTEE = { id: 'l1', nom: 'Dictée', mots: ['papa'], creeLe: '2026-08-29T10:00:00.000Z' };
+
+  it('laisse passer une bibliothèque saine', () => {
+    expect(listesValides([DICTEE])).toEqual([DICTEE]);
+  });
+
+  it('rend une bibliothèque vide plutôt que d’exploser', () => {
+    expect(listesValides(null)).toEqual([]);
+    expect(listesValides('pas un tableau')).toEqual([]);
+    expect(listesValides({ listes: [DICTEE] })).toEqual([]);
+    expect(listesValides(undefined)).toEqual([]);
+  });
+
+  it('écarte les entrées mal formées et garde les bonnes', () => {
+    expect(
+      listesValides([DICTEE, null, { id: 'x' }, { ...DICTEE, mots: 'papa' }, { ...DICTEE, mots: [42] }]),
+    ).toEqual([DICTEE]);
   });
 });

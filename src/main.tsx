@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { profilInitial } from './core/profils';
-import { compteCourant, synchroniserProfils, type Compte } from './core/sync';
+import { compteCourant, listesDistantes, synchroniserProfils, type Compte } from './core/sync';
 import { FournisseurApp } from './state';
 import { Garde } from './ui/Garde';
 import { Connexion } from './views/Connexion';
@@ -47,6 +47,11 @@ function Racine() {
      « Qui joue ? » avec un cache vide, alors que son compte a des enfants. */
   const entrer = async (c: Compte) => {
     await synchroniserProfils().catch(() => {});
+    /* La bibliothèque est rafraîchie À LA CONNEXION (#11), et pas seulement au
+       montage du joueur : un parent qui se connecte puis reste sur « Qui
+       joue ? » repartirait sinon avec la bibliothèque de sa session d'avant.
+       On ne fait qu'emplir le cache — l'écran la lira au montage. */
+    await listesDistantes().catch(() => {});
     setCompte(c);
   };
 
