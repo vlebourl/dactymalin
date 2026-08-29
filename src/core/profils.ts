@@ -137,7 +137,10 @@ export function nomProfilActif(): string | null {
 export function oublierProfils(): void {
   try {
     const prefixe = `${CLE}.`;
-    const aEffacer: string[] = [CLE_PROFILS];
+    /* `CLE` nue est la clé d'AVANT les identifiants serveur : plus personne ne
+       l'écrit, mais une installation d'avant #4 en garde une, et la laisser
+       serait laisser la progression d'un enfant au compte suivant. */
+    const aEffacer: string[] = [CLE_PROFILS, CLE];
     for (let i = 0; i < localStorage.length; i++) {
       const cle = localStorage.key(i);
       if (cle?.startsWith(prefixe)) aEffacer.push(cle);

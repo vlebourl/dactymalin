@@ -60,6 +60,15 @@ function effacer(cle: string): void {
   }
 }
 
+/** `true` si ce profil a une progression en cache sur cet appareil. */
+function copieLocale(cle: string): boolean {
+  try {
+    return localStorage.getItem(cle) !== null || localStorage.getItem(`${cle}.backup`) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Horodatage de la dernière écriture locale d'un profil, ou `null`. */
 function majLocale(id: string): number | null {
   const iso = lire<Record<string, string>>(CLE_MAJ, {})[id];
@@ -189,8 +198,13 @@ async function vidange(): Promise<void> {
     const [premier, ...reste] = file;
     try {
       await envoyer(premier);
-    } catch {
-      return; // hors ligne ou serveur fâché : on réessaiera
+    } catch (erreur) {
+      const statut = (erreur as { statut?: number }).statut;
+      /* 400 et 404 : le serveur n'en voudra JAMAIS (profil supprimé sur un
+         autre appareil, état illisible). Le garder en tête de file bloquerait
+         toutes les progressions suivantes, pour toujours — un seul envoi
+         mort-né condamnait la synchronisation de la famille entière. */
+      if (statut !== 400 && statut !== 404) return; // hors ligne : on réessaiera
     }
     file = reste;
     ecrire(CLE_FILE, file);
@@ -266,9 +280,9 @@ async function reconcilier(): Promise<void> {
     const cle = cleDe(d.id);
     const majIci = majLocale(d.id);
 
-    /* Jamais écrit ici : le serveur fait foi, sans fusion — fusionner avec des
+    /* Aucune copie ici : le serveur fait foi, sans fusion — fusionner avec des
        valeurs par défaut effacerait ses préférences. */
-    if (majIci === null) {
+    if (!copieLocale(cle)) {
       if (d.etat) sauver(d.etat, cle);
       continue;
     }
@@ -279,8 +293,11 @@ async function reconcilier(): Promise<void> {
       continue;
     }
 
+    /* Une copie locale SANS horodatage (clé perdue, stockage plein au mauvais
+       moment) est datée « très vieille » plutôt qu'écrasée : ses acquis sont
+       gardés, et ce sont les préférences du serveur qui gagnent. */
     const fusionne = fusionner(
-      { etat: ici, majLe: majIci },
+      { etat: ici, majLe: majIci ?? 0 },
       { etat: d.etat, majLe: Date.parse(d.majLe) },
     );
     sauver(fusionne, cle);
