@@ -18,5 +18,8 @@ fi
 echo "pre-push : types, tests, e2e — un push sur main part en production."
 npx tsc --noEmit
 npx vitest run
+# La connexion est obligatoire : plus aucun parcours n'atteint la leçon sans
+# compte, donc les tests serveur ET la suite e2e exigent un Postgres.
+npm run test:db
 npx playwright test
 echo "pre-push : tout est vert, envoi."
