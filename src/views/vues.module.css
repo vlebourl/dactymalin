@@ -785,11 +785,6 @@
 
 /* ------------------------------------------------------------------- V3 */
 
-.mainSchematique {
-  width: clamp(90px, 11vw, 130px);
-  height: auto;
-}
-
 .etiquetteCote {
   font-size: 13px;
   letter-spacing: 0.16em;
