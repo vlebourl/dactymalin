@@ -1,9 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  associerEtFusionner,
   compteCourant,
-  connecter,
-  creerCompte,
   deconnecter,
   enAttente,
   profilsDistants,
@@ -23,11 +20,6 @@ export function V9Compte() {
   const envoi = useEnvoi();
   const [compte, setCompte] = useState<Compte | null>(null);
   const [profils, setProfils] = useState<ProfilDistant[]>([]);
-  const [mode, setMode] = useState<'connexion' | 'creation'>('connexion');
-  const [email, setEmail] = useState('');
-  const [motDePasse, setMotDePasse] = useState('');
-  const [erreur, setErreur] = useState<string | null>(null);
-  const [occupe, setOccupe] = useState(false);
   const [file, setFile] = useState(0);
 
   const rafraichir = async () => {
@@ -46,29 +38,6 @@ export function V9Compte() {
     void rafraichir();
   }, []);
 
-  const soumettre = async (e: FormEvent) => {
-    e.preventDefault();
-    setErreur(null);
-    setOccupe(true);
-    try {
-      if (mode === 'creation') await creerCompte(email, motDePasse, email.split('@')[0]);
-      else await connecter(email, motDePasse);
-      setMotDePasse('');
-      /* On apparie et on fusionne AVANT d'afficher : le parent doit voir tout
-         de suite ce que le compte contient réellement. */
-      await associerEtFusionner();
-      await rafraichir();
-    } catch {
-      setErreur(
-        mode === 'creation'
-          ? "Impossible de créer le compte. L'adresse est peut-être déjà prise, ou le mot de passe trop court (10 caractères au moins)."
-          : 'Adresse ou mot de passe incorrect.',
-      );
-    } finally {
-      setOccupe(false);
-    }
-  };
-
   return (
     <div className={v.ecran}>
       <header className={v.entete}>
@@ -85,9 +54,8 @@ export function V9Compte() {
 
       <div className={v.centre}>
         <p className={v.sousTitre}>
-          Un compte sert à retrouver la progression des enfants depuis un autre ordinateur.
-          <br />
-          L'app fonctionne très bien sans : tout reste alors sur cet appareil.
+          Ce compte garde la progression de chaque enfant et la retrouve d'un ordinateur à
+          l'autre.
         </p>
 
         {compte ? (
@@ -117,66 +85,24 @@ export function V9Compte() {
               className={u.bouton}
               onClick={async () => {
                 await deconnecter();
-                /* On revient au formulaire de CONNEXION : après une
-                   déconnexion, on se reconnecte, on ne recrée pas un compte. */
-                setMode('connexion');
-                await rafraichir();
+                /* Le portail vit AU-DESSUS de cet arbre : seul un rechargement
+                   le lui rend la main. */
+                location.reload();
               }}
             >
               Se déconnecter
             </button>
           </div>
         ) : (
-          <form className={v.panneauListe} onSubmit={soumettre}>
-            <label className={v.promessePalier} htmlFor="courriel">
-              Adresse électronique
-            </label>
-            <input
-              id="courriel"
-              className={v.champMots}
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <label className={v.promessePalier} htmlFor="mdp">
-              Mot de passe {mode === 'creation' && '(10 caractères au moins)'}
-            </label>
-            <input
-              id="mdp"
-              className={v.champMots}
-              type="password"
-              autoComplete={mode === 'creation' ? 'new-password' : 'current-password'}
-              required
-              minLength={mode === 'creation' ? 10 : 1}
-              value={motDePasse}
-              onChange={(e) => setMotDePasse(e.target.value)}
-            />
-            {erreur && (
-              <p className={v.erreurCompte} role="alert">
-                {erreur}
-              </p>
-            )}
-            <button className={[u.bouton, u.primaire].join(' ')} disabled={occupe} type="submit">
-              {mode === 'creation' ? 'Créer notre compte' : 'Se connecter'}
+          /* La session a expiré pendant qu'on était ici : le portail reprend
+             la main au rechargement. Il n'y a plus de formulaire de connexion
+             dans l'application — un seul chemin d'authentification, le portail. */
+          <p className={v.panneauListe}>
+            La session a expiré.{' '}
+            <button className={u.lien} type="button" onClick={() => location.reload()}>
+              Se reconnecter
             </button>
-            <button
-              className={u.lien}
-              type="button"
-              onClick={() => {
-                setErreur(null);
-                setMode(mode === 'creation' ? 'connexion' : 'creation');
-              }}
-            >
-              {mode === 'creation' ? "J'ai déjà un compte" : 'Créer un compte'}
-            </button>
-            {/* Sans service d'envoi d'email, aucun lien de réinitialisation ne
-                peut partir : mieux vaut le dire que le laisser espérer. */}
-            <p className={v.promessePalier}>
-              Il n'y a pas de récupération par courriel : notez le mot de passe quelque part.
-            </p>
-          </form>
+          </p>
         )}
       </div>
     </div>
