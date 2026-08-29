@@ -51,7 +51,7 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
     await expect(page.locator(`[data-code="${majAttendue}"]`)).toBeVisible();
 
     // la main annoncée est celle de la touche porteuse, pas un défaut « gauche »
-    const consigne = await page.locator('[data-doigt]').innerText();
+    const consigne = await page.locator('[data-cote-main]').innerText();
     expect(consigne.toLowerCase()).toContain(porteuse.main === 'gauche' ? 'gauche' : 'droite');
     expect(await page.locator('[data-doigt]').getAttribute('data-doigt')).toBe(
       porteuse.main === 'gauche' ? 'index_gauche' : 'index_droit',
