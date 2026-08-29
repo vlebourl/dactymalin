@@ -39,23 +39,29 @@ export type EtatApp = Sauvegarde & {
   touchesNouvelles: string[];
   verrMaj: boolean;
   premierLancement: boolean;
-  /** Le bloc courant joue « Notre leçon » (mots de la famille, mode libre). */
-  blocPerso: boolean;
   /**
    * La bibliothèque du COMPTE, telle que le serveur la donne. Elle ne descend
    * pas dans la sauvegarde du profil : les deux enfants du foyer voient les
    * mêmes listes, et c'est le compte qui les possède (#9).
    */
   listes: Liste[];
-  /** La liste que ce bloc fait taper, si l'enfant a appuyé sur une carte. */
+  /**
+   * La liste que ce bloc fait taper, ou `null` pour le parcours. Depuis que
+   * l'ancienne liste unique a disparu (#12), c'est le SEUL état du mode : un
+   * drapeau « bloc perso » à côté pouvait se désynchroniser d'elle, et l'a
+   * fait — « Notre leçon » rejouait alors la carte d'avant.
+   */
   listeJouee: Liste | null;
 };
 
 export type Action =
   | { type: 'vue'; vue: Vue; raison?: RaisonVue }
-  | { type: 'commencer'; perso?: boolean; liste?: Liste }
+  /**
+   * `liste` absent = on continue ce qu'on jouait (« On continue ! » de V5) ;
+   * une liste = on joue celle-là ; `null` = on revient au parcours.
+   */
+  | { type: 'commencer'; liste?: Liste | null }
   | { type: 'listes'; listes: Liste[] }
-  | { type: 'motsPerso'; mots: string[] }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
   | { type: 'guideDoigtVu' }
@@ -72,29 +78,20 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         blocsConsecutifs: action.vue === 'V1' ? 0 : etat.blocsConsecutifs,
       };
 
-    case 'commencer': {
-      /* `perso` absent = on garde le mode courant : depuis V5, « On continue ! »
-         reste dans la leçon (perso ou non) que l'enfant était en train de jouer. */
+    case 'commencer':
       return {
         ...etat,
         vue: 'V4',
         premierLancement: false,
         palierOuvert: null,
-        blocPerso: action.liste ? true : (action.perso ?? etat.blocPerso),
-        /* Appuyer sur une carte impose SA liste. Un `perso` EXPLICITE annonce
-           un nouveau départ — le parcours, ou « Notre leçon » et ses mots à
-           elle — donc la carte d'avant est oubliée. Seule son ABSENCE veut
-           dire « on continue » : c'est « On continue ! » de V5, qui rejoue la
-           même liste. */
-        listeJouee: action.liste ?? (action.perso === undefined ? etat.listeJouee : null),
+        /* Appuyer sur une carte impose SA liste ; « On commence ! » passe
+           `null` et revient au parcours ; « On continue ! » n'envoie rien et
+           rejoue ce qui était en cours. */
+        listeJouee: action.liste !== undefined ? action.liste : etat.listeJouee,
       };
-    }
 
     case 'listes':
       return { ...etat, listes: action.listes };
-
-    case 'motsPerso':
-      return { ...etat, motsPerso: action.mots };
 
     case 'disposition': {
       const change = action.id !== etat.disposition;
@@ -122,10 +119,11 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
       return etat.verrMaj === action.actif ? etat : { ...etat, verrMaj: action.actif };
 
     case 'blocTermine': {
-      /* « Notre leçon » est HORS parcours : on tape nos mots pour le plaisir,
-         sans avancer ni compter dans le palier (mode libre, lettres non
-         enseignées comprises — rien n'y prouve la maîtrise du palier). */
-      if (etat.blocPerso) {
+      /* Une LISTE est hors parcours : on tape les mots de la maison pour le
+         plaisir, sans avancer ni compter dans le palier. Elle peut contenir
+         des lettres que l'enfant n'a pas apprises — rien de ce qu'il tape là
+         ne prouve la maîtrise de son palier. */
+      if (etat.listeJouee) {
         return {
           ...etat,
           vue: 'V5',
@@ -185,7 +183,6 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
     maitrise: etat.maitrise,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,
-    motsPerso: etat.motsPerso,
   };
 }
 
@@ -204,7 +201,6 @@ export function etatDeDepart(cle?: string): EtatApp {
     touchesNouvelles: [],
     verrMaj: false,
     premierLancement: !sauve.dispositionChoisieALaMain,
-    blocPerso: false,
     listes: [],
     listeJouee: null,
   };

@@ -463,7 +463,7 @@
   border-color: var(--teal-vif);
 }
 
-/* Zone « Nos mots à nous », un mot par ligne. Rayon MODESTE : le rayon des
+/* Zone des mots d'une liste, un par ligne. Rayon MODESTE : le rayon des
    boutons (une gélule) rognait le début et la fin de chaque ligne de texte. */
 .champMots {
   padding: 10px 14px;
@@ -887,15 +887,6 @@
 
 .coteMain[data-main-active='oui'] {
   opacity: 1;
-}
-
-/* Accueil : les deux départs possibles, côte à côte. */
-.choixDepart {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(10px, 2vw, 22px);
 }
 
 .panneauListe {

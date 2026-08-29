@@ -23,10 +23,9 @@ const base = (): EtatApp => ({
 });
 
 describe('lancer une liste depuis une carte', () => {
-  it('entre en leçon, en mode libre, sur les mots de CETTE liste', () => {
+  it('entre en leçon sur les mots de CETTE liste', () => {
     const apres = reducer(base(), { type: 'commencer', liste: DICTEE });
     expect(apres.vue).toBe('V4');
-    expect(apres.blocPerso).toBe(true);
     expect(apres.listeJouee).toEqual(DICTEE);
   });
 
@@ -40,24 +39,12 @@ describe('lancer une liste depuis une carte', () => {
     expect(reducer(enCours, { type: 'commencer', liste: AUTRE }).listeJouee).toEqual(AUTRE);
   });
 
-  /* Régression (revue de #9) : « Notre leçon » — la liste unique d'avant la
-     bibliothèque — rejouait la DERNIÈRE carte jouée. Elle demande le mode
-     libre sans charge utile (`perso: true`), et la liste précédente survivait
-     à la demande : l'enfant appuyait sur « Notre liste à nous » et retrouvait
-     la dictée de l'école. Un `perso` EXPLICITE annonce un nouveau départ ;
-     seul son absence veut dire « on continue ». */
-  it('« Notre leçon » ne rejoue pas la carte d’avant', () => {
-    const apresCarte = reducer(base(), { type: 'commencer', liste: DICTEE });
-    const notreLecon = reducer(apresCarte, { type: 'commencer', perso: true });
-    expect(notreLecon.blocPerso).toBe(true);
-    expect(notreLecon.listeJouee).toBeNull();
-  });
-
+  /* Depuis #12, la liste jouée est le SEUL état du mode : il n'y a plus de
+     drapeau à côté d'elle pour s'en désynchroniser. C'est ce couple-là qui
+     avait produit le défaut où « Notre leçon » rejouait la carte d'avant. */
   it('revenir au parcours oublie la liste', () => {
     const enCours = reducer(base(), { type: 'commencer', liste: DICTEE });
-    const parcours = reducer(enCours, { type: 'commencer', perso: false });
-    expect(parcours.blocPerso).toBe(false);
-    expect(parcours.listeJouee).toBeNull();
+    expect(reducer(enCours, { type: 'commencer', liste: null }).listeJouee).toBeNull();
   });
 });
 

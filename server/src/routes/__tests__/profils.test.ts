@@ -85,6 +85,42 @@ d('profils et progression', () => {
     expect((await creer('a'.repeat(PRENOM_MAX))).status).toBe(201);
   });
 
+  /* #12 — l'ancienne liste unique a quitté la sauvegarde, sans code de
+     migration. Un appareil qui n'a pas encore rechargé pousse donc encore une
+     progression qui la porte : le serveur l'ACCEPTE, plutôt que de répondre
+     400 et de faire échouer un envoi par ailleurs sain.
+     
+     Ce test ne couvre que ce sens-là. Dans l'autre — un vieux code qui LIT un
+     état écrit par un appareil à jour — la fusion d'alors attend encore le
+     champ et se brise sur son absence. C'est une conséquence assumée du
+     « aucun code de migration » de la spec : le produit est en bêta, et un
+     rechargement suffit à donner le code d'aujourd'hui. */
+  it("accepte une progression d'un appareil pas encore mis à jour", async () => {
+    const h = await inscrire(`n${Date.now()}@exemple.fr`);
+    const { id } = (await (
+      await app.request('/api/profils', {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({ prenom: 'Nino' }),
+      })
+    ).json()) as { id: string };
+
+    const r = await app.request(`/api/profils/${id}/progression`, {
+      method: 'PUT',
+      headers: h,
+      body: JSON.stringify({
+        etat: { ...DEFAUTS, palier: 4, motsPerso: ['licorne'] },
+        majLe: new Date().toISOString(),
+      }),
+    });
+    expect(r.status).toBe(200);
+
+    const liste = (await (await app.request('/api/profils', { headers: h })).json()) as {
+      profils: { etat: { palier: number } | null }[];
+    };
+    expect(liste.profils[0].etat?.palier).toBe(4);
+  });
+
   it('refuse un état qui ne ressemble pas à une progression', async () => {
     const h = await inscrire(`b${Date.now()}@exemple.fr`);
     const { id } = (await (
