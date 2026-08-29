@@ -4,24 +4,26 @@ Tout est en place. Ce document sert le jour où quelque chose cloche.
 
 ## En une phrase
 
-`npm run deploy` demande à Coolify de reconstruire l'image depuis le
-`Dockerfile` et de remplacer le conteneur ; celui-ci sauvegarde la base, migre,
-puis démarre.
+Un push sur `main` déclenche le déploiement. GitHub appelle le webhook de
+Coolify, qui reconstruit l'image depuis le `Dockerfile` et remplace le
+conteneur ; celui-ci sauvegarde la base, migre, puis démarre.
 
-Le webhook Gitea est configuré mais **ne délivre pas** : Gitea refuse par défaut
-d'appeler une adresse privée (`ALLOWED_HOST_LIST`), et l'hôte Coolify est en
-`192.168.1.48`. D'où le déclenchement explicite. Pour le faire marcher un jour,
-il faudrait ajouter `192.168.1.48` à `ALLOWED_HOST_LIST` dans la configuration
-de Gitea.
+Ce qui a rendu l'automatisme possible : le dépôt est passé sur **GitHub**, et
+GitHub appelle Coolify par son **domaine public**. Le montage précédent visait
+`192.168.1.48` depuis Gitea, qui refuse par défaut d'appeler une adresse privée
+(`ALLOWED_HOST_LIST`) — le webhook existait, actif, et n'a jamais rien livré.
+La leçon n'est pas « ouvrir Gitea » mais « ne pas viser une adresse privée
+depuis l'extérieur ».
 
 ## Les coordonnées
 
 | Quoi | Où |
 |---|---|
-| Dépôt | `https://git.tiarkaerell.com/vlb/typing-app` (privé) |
-| Clone par Coolify | `git@192.168.1.225:30143/vlb/typing-app.git`, clé de déploiement en lecture seule |
+| Dépôt | `https://github.com/vlebourl/dactymalin` (public) |
+| Clone par Coolify | `https://github.com/vlebourl/dactymalin.git`, dépôt public, aucune clé |
 | Hôte Coolify | `192.168.1.48`, `ssh lyra@coolify`, API sur `localhost:8000/api/v1` |
-| Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` |
+| Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` (noms Coolify, pas renommés) |
+| Webhook | GitHub → `https://coolify.tiarkaerell.com/webhooks/source/github/events/manual`, secret partagé stocké dans Coolify |
 | Base | `typing-app-db`, UUID `hrfpcwechi8tb7imlir13b1a`, PostgreSQL 17 |
 | Sauvegarde planifiée | UUID `i101zg9ef5sh78fy1yheqtkw`, tous les jours à 03:00 |
 | Port hôte | **3003** → 3000 dans le conteneur |
@@ -39,6 +41,9 @@ curl -s http://192.168.1.48:3003/api/health
 `DATABASE_URL` : les comptes sont indisponibles, mais l'app reste jouable.
 
 ## Déployer
+
+Pousser sur `main` suffit. `npm run deploy` reste utile pour redéployer sans
+pousser, ou quand on veut le verdict et les logs sous les yeux :
 
 ```sh
 npm run deploy      # scripts/deployer.sh : déclenche, attend, montre les logs si ça casse
