@@ -98,3 +98,15 @@ export function activerProfil(id: string): void {
   const ix = chargerIndex();
   if (ix.liste.some((p) => p.id === id)) sauverIndex({ ...ix, actif: id });
 }
+
+/**
+ * Prénom du profil actif, pour l'afficher pendant la leçon.
+ * Lu à la demande et non porté par l'état : il ne change jamais en cours de
+ * leçon, le faire transiter par le reducer n'ajouterait qu'un champ à tenir
+ * à jour. `null` quand aucun profil n'est actif — l'en-tête n'affiche alors
+ * rien plutôt qu'un nom inventé.
+ */
+export function nomProfilActif(): string | null {
+  const ix = chargerIndex();
+  return ix.liste.find((p) => p.id === ix.actif)?.nom ?? null;
+}

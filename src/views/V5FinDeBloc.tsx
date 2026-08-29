@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motsNouveaux } from '../core/corpus';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
-import { ensembleTouches } from '../core/paliers';
+import { ensembleTouches, nouvellesTouches, PALIER_MAX } from '../core/paliers';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
@@ -32,12 +32,33 @@ export function V5FinDeBloc() {
   );
   const proposePause = app.blocsConsecutifs >= 4;
 
+  /* Franchir un palier était MUET : le même titre d'encouragement que pour un
+     bloc ordinaire, le même bouton « Encore ». L'état portait pourtant déjà
+     l'information — `palierOuvert` vaut le nouveau palier à cet instant précis
+     et ne servait qu'à choisir les touches à illuminer. On la dit. */
+  const nouvelleLecon = app.palierOuvert;
+  /* Ce que la leçon APPORTE, pas tout ce qu'elle contient : `libellesEnsemble`
+     rend le cumul depuis le palier 1 et aurait annoncé des touches déjà
+     acquises comme des nouveautés. L'espace n'est pas une nouveauté à fêter. */
+  const touchesDeLaLecon = nouvelleLecon
+    ? nouvellesTouches(id, nouvelleLecon).filter((c) => c !== ' ')
+    : [];
+
   return (
     <div className={v.ecran}>
       <div className={v.centre}>
-        <h1 className={v.titre}>{app.titreEncouragement}</h1>
+        <h1 className={v.titre}>
+          {nouvelleLecon ? `Leçon ${nouvelleLecon} débloquée !` : app.titreEncouragement}
+        </h1>
 
         <Stars nombre={app.etoilesDuBloc} />
+
+        {nouvelleLecon && (
+          <p className={v.gainLexical}>
+            Tu passes à la leçon <b>{nouvelleLecon}</b> sur {PALIER_MAX}. Elle t'apporte :{' '}
+            <b>{touchesDeLaLecon.join(' ')}</b>
+          </p>
+        )}
 
         {gains.length > 0 && (
           <p className={v.gainLexical}>
@@ -59,7 +80,7 @@ export function V5FinDeBloc() {
             className={[u.bouton, proposePause ? '' : u.primaire].join(' ')}
             onClick={() => envoi({ type: 'commencer' })}
           >
-            Encore
+            {nouvelleLecon ? `Commencer la leçon ${nouvelleLecon}` : 'Encore'}
           </button>
           <button
             className={[u.bouton, proposePause ? u.primaire : ''].join(' ')}
