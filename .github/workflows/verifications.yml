@@ -13,9 +13,15 @@ on:
 
 # Une PR poussée trois fois de suite n'a pas besoin de trois exécutions : seule
 # la dernière décide.
+#
+# Sur `main`, en revanche, on n'annule JAMAIS. Le déploiement attend le verdict
+# de ces vérifications : une exécution annulée le fait se sauter, donc deux
+# fusions rapprochées suffisaient à escamoter un déploiement en silence — c'est
+# arrivé dès le premier jour, deux PR mergées à 27 secondes d'intervalle.
+# Chaque commit de `main` a droit à son verdict.
 concurrency:
   group: verifications-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   verifier:
