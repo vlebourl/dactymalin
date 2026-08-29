@@ -48,7 +48,7 @@ export function V1Accueil() {
       </header>
 
       <div className={v.centre}>
-        <h1 className={v.titre}>Tape avec moi</h1>
+        <h1 className={v.titre}>DactyMalin</h1>
         <p className={v.sousTitre}>Apprends où poser tes doigts sur ton vrai clavier.</p>
 
         {/* Illustration à plat, sans mains ni personnage. */}

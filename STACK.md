@@ -1,4 +1,4 @@
-# Stack technique — « Tape avec moi »
+# Stack technique — « DactyMalin »
 
 > Proposée par l'agent architecte (2026-08-24), revue adversarialement par Codex, arbitrée. Statut : DÉCIDÉ (voir arbitrage en fin de document).
 

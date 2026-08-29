@@ -22,5 +22,5 @@ const app = creerApp({
 });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  console.log(`Tape avec moi ${VERSION} — http://localhost:${info.port} (${env.NODE_ENV})`);
+  console.log(`DactyMalin ${VERSION} — http://localhost:${info.port} (${env.NODE_ENV})`);
 });
