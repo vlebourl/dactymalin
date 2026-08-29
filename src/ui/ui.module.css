@@ -351,3 +351,43 @@
 .lien:hover {
   color: var(--encre);
 }
+
+/* Le compte connecté, sur tous les écrans (#19). Discret par construction :
+   une seule ligne, en petit et en encre douce, au-dessus de l'en-tête de la
+   vue. Il ne prend pas la place du contenu — c'est la raison d'être de la
+   colonne flex qui l'entoure — et il ne cherche pas l'œil de l'enfant. */
+.bandeauCompte {
+  width: 100%;
+  padding: 3px clamp(12px, 3vw, 34px);
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--encre-doux);
+  background: var(--fond-creux);
+  border-bottom: 1px solid var(--liseré);
+  text-align: right;
+  /* Une adresse longue ne pousse jamais la mise en page : elle se coupe. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bandeauEtiquette {
+  opacity: 0.8;
+}
+
+.bandeauAdresse {
+  font-weight: 600;
+}
+
+/* La colonne qui tient le bandeau puis l'écran : sans elle, la vue occupe
+   toute la hauteur et le bandeau la déborderait. */
+.cadreAppli {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.contenuAppli {
+  flex: 1;
+  min-height: 0;
+}
