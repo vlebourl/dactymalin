@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   adopterProgressionHistorique,
+  compteCourant,
+  compteEnCache,
   CLE_FILE,
   CLE_MAJ,
   deconnecter,
@@ -306,6 +308,75 @@ describe('reprise de la progression d’avant les identifiants serveur', () => {
 
     expect(charger(cleDe('d1')).palier).toBe(DEFAUTS.palier);
     expect(s.puts).toHaveLength(0);
+  });
+});
+
+/**
+ * #3 — l'app ne s'ouvre sur un écran de connexion qu'AU PREMIER LANCEMENT.
+ * Ensuite elle démarre hors ligne tant que la session dure : l'enfant doit
+ * pouvoir s'entraîner dans le train.
+ *
+ * Le portail se décide sur `compteCourant`, qui jusqu'ici rendait `null` dès
+ * que le réseau manquait — donc « pas de réseau » et « pas de compte »
+ * disaient la même chose, et le train renvoyait au formulaire de connexion.
+ */
+describe('démarrage hors ligne', () => {
+  const COMPTE = { id: 'u1', email: 'parent@exemple.fr', name: 'Parent' };
+
+  /** Faux serveur de SESSION : il répond, ou la coupure le rend injoignable. */
+  function session(user: unknown, { coupe = false } = {}) {
+    const appels = vi.fn(async (url: string) => {
+      if (coupe) throw new TypeError('Failed to fetch');
+      if (url === '/api/auth/get-session') return rep(user ? { user } : null);
+      return rep({ ok: true });
+    });
+    vi.stubGlobal('fetch', appels);
+    return appels;
+  }
+
+  it('retient le compte quand le serveur répond', async () => {
+    session(COMPTE);
+    expect(await compteCourant()).toEqual(COMPTE);
+    expect(compteEnCache()).toEqual(COMPTE);
+  });
+
+  it('démarre sur le compte connu quand le réseau manque', async () => {
+    session(COMPTE);
+    await compteCourant();
+
+    session(null, { coupe: true });
+    expect(await compteCourant()).toEqual(COMPTE);
+  });
+
+  /* Un appareil qui n'a JAMAIS vu de session ne s'invente pas de compte :
+     hors ligne au premier lancement, le portail reprend la main et dit qu'il
+     ne joint pas le serveur. */
+  it('n’invente pas de compte sur un appareil neuf', async () => {
+    session(null, { coupe: true });
+    expect(await compteCourant()).toBeNull();
+  });
+
+  /* La session a réellement expiré : le SERVEUR a répondu, et il dit non. Le
+     souvenir doit partir, sinon l'appareil resterait bloqué sur un compte que
+     le serveur ne reconnaît plus. */
+  it('oublie le compte quand le serveur dit que la session a expiré', async () => {
+    session(COMPTE);
+    await compteCourant();
+
+    session(null);
+    expect(await compteCourant()).toBeNull();
+    expect(compteEnCache()).toBeNull();
+
+    // et le souvenir ne revient pas au premier trou de réseau suivant
+    session(null, { coupe: true });
+    expect(await compteCourant()).toBeNull();
+  });
+
+  it('oublie le compte à la déconnexion', async () => {
+    session(COMPTE);
+    await compteCourant();
+    await deconnecter();
+    expect(compteEnCache()).toBeNull();
   });
 });
 
