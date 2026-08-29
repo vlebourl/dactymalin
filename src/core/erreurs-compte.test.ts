@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { messageDEchec, messageDEchecProfil } from './erreurs-compte';
+import { messageDEchec, messageDEchecListe, messageDEchecProfil } from './erreurs-compte';
+import { LISTES_MAX } from './listes';
 import { PRENOM_MAX, PROFILS_MAX } from './profils';
 
 /**
@@ -81,5 +82,22 @@ describe('messageDEchecProfil', () => {
 
   it("ne reste jamais muet sur un statut qu'il ne connaît pas", () => {
     expect(messageDEchecProfil({ statut: 418 })).toMatch(/418/);
+  });
+});
+
+/* #9 — la bibliothèque. Un « Créer la liste » qui ne fait rien, sans un mot,
+   laisse le parent croire que le bouton est cassé alors que le compte est
+   simplement plein. */
+describe('messageDEchecListe', () => {
+  const cas: [string, { statut?: number; code?: string }, RegExp][] = [
+    ['plafond atteint', { statut: 409, code: 'TROP_DE_LISTES' }, new RegExp(`${LISTES_MAX} listes`)],
+    ['liste invalide', { statut: 400, code: 'LISTE_INVALIDE' }, /nom.*au moins un mot|au moins un mot/],
+    ['session expirée', { statut: 401 }, /session a expiré/],
+    ['serveur en panne', { statut: 503 }, /problème/],
+    ['hors ligne', {}, /Internet/],
+  ];
+
+  it.each(cas)('%s', (_titre, erreur, attendu) => {
+    expect(messageDEchecListe(erreur)).toMatch(attendu);
   });
 });

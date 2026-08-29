@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { messageDEchecProfil } from '../core/erreurs-compte';
+import { messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
+import { motsIntapables, NOM_LISTE_MAX, type Liste } from '../core/listes';
+import { motsPersoValides } from '../core/storage';
 import { chargerIndex, prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
 import {
   compteCourant,
+  creerListeDistante,
   creerProfilDistant,
+  listesDistantes,
   deconnecter,
   enAttente,
   profilsDistants,
@@ -12,7 +16,7 @@ import {
   type Compte,
   type ProfilDistant,
 } from '../core/sync';
-import { useEnvoi } from '../state';
+import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
@@ -177,6 +181,115 @@ function LigneEnfant({
   );
 }
 
+/**
+ * La bibliothèque du foyer (#9). Le parent SEUL écrit ici : un enfant qui
+ * apprend à taper ne saisit pas vingt mots, et l'accueil est l'écran qui dit
+ * « appuie ici pour jouer », pas un formulaire.
+ *
+ * Les listes appartiennent au compte, donc les deux enfants voient les mêmes.
+ */
+function Bibliotheque() {
+  const app = useApp();
+  const envoi = useEnvoi();
+  const [nom, setNom] = useState('');
+  const [mots, setMots] = useState('');
+  const [occupe, setOccupe] = useState(false);
+  const [echec, setEchec] = useState<string | null>(null);
+
+  /* Le même découpage qu'à la saisie : une ligne, une virgule ou un
+     point-virgule séparent deux mots. */
+  const proposes = motsPersoValides(mots.split(/[\n,;]+/));
+  /* Averti À LA SAISIE, pas au moment de jouer : « la fête » demande une
+     touche morte, deux frappes pour un caractère attendu. Le bloc l'écarterait
+     en silence et le parent chercherait longtemps pourquoi. */
+  const refuses = motsIntapables(proposes, app.disposition);
+  const retenus = proposes.filter((m) => !refuses.includes(m));
+
+  const creer = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await creerListeDistante(nom.trim(), retenus);
+      setNom('');
+      setMots('');
+      envoi({ type: 'listes', listes: await listesDistantes() });
+    } catch (erreur) {
+      setEchec(messageDEchecListe(erreur));
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <>
+      <h2 className={v.titrePetit}>Nos listes</h2>
+      <p className={v.promessePalier}>
+        Une liste apparaît sur l'accueil de chaque enfant. La jouer rapporte des étoiles, mais ne
+        fait pas avancer la leçon : elle peut contenir des lettres pas encore apprises.
+      </p>
+
+      <ul className={v.listeProfils}>
+        {app.listes.map((liste: Liste) => (
+          <li key={liste.id}>
+            <b>{liste.nom}</b>{' '}
+            <span className={v.promessePalier}>
+              — {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
+            </span>
+          </li>
+        ))}
+        {app.listes.length === 0 && (
+          <li className={v.promessePalier}>Aucune liste pour l'instant.</li>
+        )}
+      </ul>
+
+      <input
+        className={v.champNom}
+        value={nom}
+        maxLength={NOM_LISTE_MAX}
+        placeholder="Nom de la liste"
+        aria-label="Nom de la liste"
+        onChange={(e) => {
+          setNom(e.target.value);
+          setEchec(null);
+        }}
+      />
+      <textarea
+        className={v.champMots}
+        aria-label="Les mots de la liste"
+        rows={5}
+        value={mots}
+        placeholder="Un mot par ligne"
+        onChange={(e) => {
+          setMots(e.target.value);
+          setEchec(null);
+        }}
+      />
+
+      {refuses.length > 0 && (
+        <p className={v.erreurCompte} role="status">
+          Le clavier ne sait pas écrire {refuses.map((m) => `« ${m} »`).join(', ')} d'une seule
+          frappe : ce mot est écarté de la liste.
+        </p>
+      )}
+
+      {echec && (
+        <p className={v.erreurCompte} role="alert">
+          {echec}
+        </p>
+      )}
+
+      <button
+        className={[u.bouton, u.primaire].join(' ')}
+        disabled={occupe || nom.trim().length === 0 || retenus.length === 0}
+        onClick={() => void creer()}
+      >
+        Créer la liste
+      </button>
+    </>
+  );
+}
+
 export function V9Compte() {
   const envoi = useEnvoi();
   const [compte, setCompte] = useState<Compte | null>(null);
@@ -203,6 +316,13 @@ export function V9Compte() {
       adopterListe(await profilsDistants());
     } catch {
       setProfils([]);
+    }
+    /* La bibliothèque est relue À CHAQUE ouverture de l'espace parent : c'est
+       ici que le parent l'édite, donc ici qu'elle doit être à jour. */
+    try {
+      envoi({ type: 'listes', listes: await listesDistantes() });
+    } catch {
+      /* Silencieux : les listes déjà connues restent affichées. */
     }
   };
 
@@ -304,6 +424,8 @@ export function V9Compte() {
                 Ajouter un enfant
               </button>
             </p>
+
+            <Bibliotheque />
 
             <button
               className={u.bouton}
