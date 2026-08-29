@@ -33,6 +33,8 @@ export type Compte = { id: string; email: string; name: string };
 export const CLE_FILE = 'tapeavecmoi.file';
 /** Date de la dernière écriture LOCALE, par profil : l'arbitre de la fusion. */
 export const CLE_MAJ = 'tapeavecmoi.maj';
+/** Le compte de la dernière session CONNUE : ce qui permet de démarrer hors ligne. */
+export const CLE_COMPTE = 'tapeavecmoi.compte';
 
 type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
 
@@ -97,29 +99,69 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 /* ------------------------------------------------------------------ compte */
 
+/** Le compte de la dernière session connue sur cet appareil, ou `null`. */
+export const compteEnCache = (): Compte | null => lire<Compte | null>(CLE_COMPTE, null);
+
+/**
+ * Qui est connecté ? Le serveur fait foi DÈS QU'IL RÉPOND — c'est lui qui sait
+ * si la session a expiré, et sa réponse efface alors le souvenir.
+ *
+ * Mais « le serveur n'a pas répondu » et « il n'y a pas de session » sont deux
+ * faits différents, et les confondre renvoyait au formulaire de connexion un
+ * parent parfaitement connecté dès que le train entrait dans un tunnel (#3).
+ * Sans réseau, on repart donc du dernier compte CONNU. Un appareil qui n'en a
+ * jamais vu n'en invente pas : le portail reprend la main et dit qu'il ne
+ * joint pas le serveur.
+ */
 export async function compteCourant(): Promise<Compte | null> {
   try {
     const s = await json<{ user?: Compte } | null>('/api/auth/get-session');
-    return s?.user ?? null;
-  } catch {
-    /* Hors ligne ou serveur absent : pas de session CONNUE, donc le portail
-       reprend la main. Le démarrage hors ligne sur session en cache est un
-       ticket à part (#3) ; ici, pas de session = pas d'entrée. */
-    return null;
+    const brut = s?.user ?? null;
+    if (!brut) {
+      effacer(CLE_COMPTE);
+      return null;
+    }
+    /* On garde les TROIS champs dont l'écran a besoin, choisis un par un. Le
+       serveur en renvoie davantage (adresse vérifiée, image, dates) : les
+       recopier tels quels laisserait au repos, sur la machine familiale, tout
+       ce que Better Auth décidera d'ajouter un jour. */
+    const compte: Compte = { id: brut.id, email: brut.email, name: brut.name };
+    ecrire(CLE_COMPTE, compte);
+    return compte;
+  } catch (erreur) {
+    /* Une réponse d'ERREUR du serveur est une réponse : lui aussi sait. Seule
+       l'absence de réponse (pas de `statut`) vaut « hors ligne ». */
+    if ((erreur as { statut?: number }).statut !== undefined) {
+      effacer(CLE_COMPTE);
+      return null;
+    }
+    return compteEnCache();
   }
 }
 
+/* Une session qui vient d'être ouverte est CONNUE : on la retient tout de
+   suite, pour que le prochain démarrage sans réseau la retrouve. */
+const retenir = async (p: Promise<{ user: Compte }>) => {
+  const r = await p;
+  ecrire(CLE_COMPTE, r.user);
+  return r;
+};
+
 export const creerCompte = (email: string, motDePasse: string, nom: string) =>
-  json<{ user: Compte }>('/api/auth/sign-up/email', {
-    method: 'POST',
-    body: JSON.stringify({ email, password: motDePasse, name: nom }),
-  });
+  retenir(
+    json<{ user: Compte }>('/api/auth/sign-up/email', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: motDePasse, name: nom }),
+    }),
+  );
 
 export const connecter = (email: string, motDePasse: string) =>
-  json<{ user: Compte }>('/api/auth/sign-in/email', {
-    method: 'POST',
-    body: JSON.stringify({ email, password: motDePasse }),
-  });
+  retenir(
+    json<{ user: Compte }>('/api/auth/sign-in/email', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: motDePasse }),
+    }),
+  );
 
 /**
  * Déconnexion. Le cache appartient au compte qui part : profils ET
@@ -128,6 +170,7 @@ export const connecter = (email: string, motDePasse: string) =>
  */
 export const deconnecter = async () => {
   await json('/api/auth/sign-out', { method: 'POST', body: '{}' });
+  effacer(CLE_COMPTE);
   effacer(CLE_FILE);
   effacer(CLE_MAJ);
   oublierProfils();

@@ -66,6 +66,23 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
 | Un push ne déclenche rien | le runner `homelab-runner` est hors ligne | `sudo systemctl status actions.runner.vlebourl-dactymalin.homelab-runner` sur l'hôte Coolify |
 | Webhook GitHub renvoyant 403 | Cloudflare défie les POST de GitHub (« Just a moment… ») | ne pas utiliser de webhook : le runner appelle Coolify en localhost |
+| Un appareil de la famille sert une VIEILLE version | le service worker (`public/sw.js`) garde la coquille de l'application sur la machine | il est en RÉSEAU D'ABORD : un rechargement en ligne suffit. S'il faut forcer, changer le nom `CACHE` dans `sw.js` — l'activation efface alors tous les caches d'avant |
+
+## Le service worker
+
+Depuis #3, l'application démarre sans réseau : `public/sw.js` garde sa coquille
+(document, scripts, styles, polices) sur la machine de la famille.
+
+- Il est en **réseau d'abord** : en ligne, on a toujours la dernière version
+  déployée ; hors ligne, la dernière connue. Un déploiement n'exige donc aucune
+  manœuvre côté famille.
+- Il ne garde **jamais `/api`**. Une session, une progression ou une liste
+  resservie depuis un cache serait une réponse périmée présentée comme fraîche.
+  Toute route de données doit donc rester sous le préfixe `/api/`, sinon elle
+  deviendrait cachable sans que personne le remarque.
+- Le cache **enfle lentement** : chaque déploiement ajoute ses fichiers au nom
+  haché sans retirer les précédents. Le ménage se fait en changeant le nom
+  `CACHE` dans `sw.js`, ce qui efface tous les caches antérieurs à l'activation.
 
 ## Ce qui protège les données
 

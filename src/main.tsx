@@ -62,6 +62,41 @@ function Attente() {
   return <div aria-busy="true" />;
 }
 
+/* La coquille de l'application est gardée pour le prochain démarrage sans
+   réseau (#3). L'enregistrement échoue silencieusement là où les service
+   workers n'existent pas (navigation privée sur certains navigateurs) : c'est
+   un confort, jamais une condition pour jouer. */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void (async () => {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+        const pret = await navigator.serviceWorker.ready;
+        /* Les requêtes de cette première visite sont parties AVANT que le
+           worker ne prenne les commandes : il n'a donc rien vu du document ni
+           du script de l'application. On lui dit ce qu'on a chargé, sans quoi
+           il faudrait un SECOND passage en ligne avant de pouvoir démarrer
+           sans réseau — et le parent qui ouvre l'app une fois puis part en
+           voyage n'en ferait pas un. */
+        const aGarder = [
+          location.href,
+          ...performance
+            .getEntriesByType('resource')
+            .map((r) => r.name)
+            .filter((url) => url.startsWith(location.origin) && !url.includes('/api/')),
+        ];
+        (pret.active ?? navigator.serviceWorker.controller)?.postMessage({
+          type: 'garder',
+          urls: [...new Set(aGarder)],
+        });
+      } catch {
+        /* Pas de service worker (navigation privée, contexte non sécurisé) :
+           c'est un confort de démarrage, jamais une condition pour jouer. */
+      }
+    })();
+  });
+}
+
 createRoot(document.getElementById('racine')!).render(
   <StrictMode>
     <Racine />
