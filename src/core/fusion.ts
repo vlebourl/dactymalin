@@ -1,4 +1,4 @@
-import { motsPersoValides, type Sauvegarde } from './storage';
+import type { Sauvegarde } from './storage';
 import type { Maitrise } from './progression';
 
 /**
@@ -34,10 +34,6 @@ export function fusionner(
     bloc: Math.max(a.etat.bloc, b.etat.bloc),
     maitrise: fusionnerMaitrise(a.etat.maitrise, b.etat.maitrise),
     guideDoigtVu: a.etat.guideDoigtVu || b.etat.guideDoigtVu,
-    /* Ordre pris sur l'ANCIEN puis complété par le RÉCENT — pas sur l'ordre
-       des arguments : la fusion doit donner le même résultat quel que soit
-       l'appareil qui la fait. */
-    motsPerso: motsPersoValides([...ancien.etat.motsPerso, ...recent.etat.motsPerso]),
   };
 }
 

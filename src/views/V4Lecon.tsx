@@ -42,27 +42,24 @@ export function V4Lecon() {
 
   const items = useMemo(
     () =>
-      app.blocPerso
-        ? /* Une carte de l'accueil impose SA liste ; sans carte, c'est encore
-             « Notre leçon », la liste unique d'avant la bibliothèque (#12 la
-             retirera). */
-          composerBlocPerso(app.listeJouee?.mots ?? app.motsPerso, id)
+      app.listeJouee
+        ? composerBlocPerso(app.listeJouee.mots, id)
         : composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
     // un nouveau bloc à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.palier, app.bloc, app.blocPerso, app.listeJouee],
+    [id, app.palier, app.bloc, app.listeJouee],
   );
 
   // Latence de départ 0 : en débutant elle y reste plafonnée (P6).
   const [e, envoyer] = useReducer(reducer, undefined, () => creerEtat(items, performance.now(), 0));
 
-  /* « Notre leçon » (mode libre) : les mots de la famille peuvent employer des
-     lettres pas encore enseignées — le clavier les allume quand même. */
+  /* Une liste peut employer des lettres pas encore enseignées — le clavier les
+     allume quand même : savoir où poser ses doigts n'attend pas le programme. */
   const ensemble = useMemo(() => {
     const base = ensembleTouches(id, app.palier);
-    if (app.blocPerso) for (const it of items) for (const c of it.texte) base.add(c);
+    if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
-  }, [id, app.palier, app.blocPerso, items]);
+  }, [id, app.palier, app.listeJouee, items]);
   const item = e.items[e.i];
   const attendu = item?.texte[e.curseur] ?? '';
   const enCelebration = e.celebration !== null;

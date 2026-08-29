@@ -85,6 +85,37 @@ d('profils et progression', () => {
     expect((await creer('a'.repeat(PRENOM_MAX))).status).toBe(201);
   });
 
+  /* #12 — l'ancienne liste unique a quitté la sauvegarde, sans code de
+     migration. Un appareil de la famille qui n'a pas encore rechargé pousse
+     donc encore une progression qui la porte : le serveur l'accepte, sinon
+     cette tablette-là cesserait de synchroniser jusqu'à ce que quelqu'un
+     pense à la rafraîchir. */
+  it("accepte une progression d'un appareil pas encore mis à jour", async () => {
+    const h = await inscrire(`n${Date.now()}@exemple.fr`);
+    const { id } = (await (
+      await app.request('/api/profils', {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({ prenom: 'Nino' }),
+      })
+    ).json()) as { id: string };
+
+    const r = await app.request(`/api/profils/${id}/progression`, {
+      method: 'PUT',
+      headers: h,
+      body: JSON.stringify({
+        etat: { ...DEFAUTS, palier: 4, motsPerso: ['licorne'] },
+        majLe: new Date().toISOString(),
+      }),
+    });
+    expect(r.status).toBe(200);
+
+    const liste = (await (await app.request('/api/profils', { headers: h })).json()) as {
+      profils: { etat: { palier: number } | null }[];
+    };
+    expect(liste.profils[0].etat?.palier).toBe(4);
+  });
+
   it('refuse un état qui ne ressemble pas à une progression', async () => {
     const h = await inscrire(`b${Date.now()}@exemple.fr`);
     const { id } = (await (

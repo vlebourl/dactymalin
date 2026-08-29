@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ouvrir, motCourant, sauvegarde } from './helpers/app';
+import { ouvrir } from './helpers/app';
 
 /* Trois corrections demandées le 2026-08-28 :
    1. GAUCHE/DROITE en GROS, dans le coin haut du côté concerné ;
@@ -116,10 +116,13 @@ test('2. le clavier est d’un seul tenant, les mains se lisent à la couleur', 
   expect(couleurs.q).not.toBe('');
 });
 
+/* Le champ a déménagé dans l'espace parent (#12) — c'est le parent qui saisit
+   les mots, plus l'enfant. La régression qu'il porte, elle, n'a pas bougé. */
 test('3 bis. le champ de la liste ne rogne pas les mots', async ({ page }) => {
   await ouvrir(page, 'fr-FR', 1);
-  await page.getByRole('button', { name: 'Notre liste à nous' }).click();
-  const champ = page.getByLabel('Notre liste à nous');
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  const champ = page.getByLabel('Les mots de la liste');
   await champ.fill('dinosaure');
   const m = await champ.evaluate((el) => {
     const s = getComputedStyle(el);
@@ -141,18 +144,3 @@ test('3 bis. le champ de la liste ne rogne pas les mots', async ({ page }) => {
   expect(m.debordeEnHauteur).toBeLessThanOrEqual(1);
 });
 
-test('3. depuis l’accueil : notre liste s’écrit et se joue en trois gestes', async ({ page }) => {
-  await ouvrir(page, 'fr-FR', 1);
-  const NOS_MOTS = ['dinosaure', 'papillon'];
-
-  await page.getByRole('button', { name: 'Notre liste à nous' }).click();
-  await page.getByLabel('Notre liste à nous').fill(NOS_MOTS.join('\n'));
-  await page.getByRole('button', { name: 'On tape notre liste !' }).click();
-
-  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
-  expect(NOS_MOTS).toContain((await motCourant(page))!);
-  // la liste est mémorisée, et le parcours n'a pas bougé
-  const s = await sauvegarde(page);
-  expect(s.motsPerso).toEqual(NOS_MOTS);
-  expect(s.palier).toBe(1);
-});

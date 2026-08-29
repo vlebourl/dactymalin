@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
 import { chargerIndex, CLE_CHOISIR, progressionEnCache } from '../core/profils';
-import { motsPersoValides, type Reglages } from '../core/storage';
+import type { Reglages } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
 import { MiniClavier } from '../ui/MiniClavier';
 import v from './vues.module.css';
@@ -109,30 +109,6 @@ export function V7Reglages() {
             </div>
           </div>
 
-          {/* « Notre leçon » : les mots de la famille, un par ligne (ou séparés
-              par des virgules). Mode libre — même des lettres pas encore
-              apprises. Le bouton apparaît sur la carte du clavier (V6). */}
-          <div className={v.ligneReglage}>
-            <span>
-              <b>Nos mots à nous</b>
-              <br />
-              <span className={v.promessePalier}>
-                Un mot par ligne. Ils deviennent « Notre leçon » sur la carte du clavier.
-              </span>
-            </span>
-            <textarea
-              className={v.champMots}
-              aria-label="Nos mots à nous"
-              rows={4}
-              defaultValue={app.motsPerso.join('\n')}
-              onBlur={(e) =>
-                envoi({
-                  type: 'motsPerso',
-                  mots: motsPersoValides(e.target.value.split(/[\n,;]+/)),
-                })
-              }
-            />
-          </div>
 
           {INTERRUPTEURS.map((r) => (
             <div key={r.cle} className={v.ligneReglage}>
