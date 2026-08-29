@@ -180,3 +180,49 @@ test('le parent modifie, renomme, puis supprime une liste', async ({ page }) => 
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
   await expect(page.getByRole('button', { name: /Dictée/ })).toHaveCount(0);
 });
+
+/**
+ * Régression (revue de #10) : une liste appartient au COMPTE, une disposition
+ * appartient à l'APPAREIL. Ouvrir la liste sur un clavier qui ne sait pas
+ * écrire l'un de ses mots, puis enregistrer, effaçait ce mot POUR TOUT LE
+ * FOYER. « où » s'écrit d'une frappe sur l'AZERTY, pas sur le clavier suisse.
+ */
+test('changer de clavier n’efface pas les mots de la liste', async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 1);
+
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  await page.getByLabel('Nom de la liste').fill('Les questions');
+  await page.getByLabel('Les mots de la liste').fill('où\nquand');
+  await page.getByRole('button', { name: 'Créer la liste' }).click();
+  await expect(page.getByRole('button', { name: 'Modifier Les questions' })).toBeVisible();
+
+  // cet appareil passe au clavier suisse
+  await page.getByLabel('Revenir').click();
+  await page.getByLabel('Revenir').click();
+  await page.getByRole('button', { name: 'Changer' }).click();
+  await page
+    .locator('[data-disposition="fr-CH"]')
+    .getByRole('button', { name: "C'est celui-là" })
+    .click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+
+  // le parent rouvre la liste : on l'avertit, mais rien n'est retranché
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+  await page.getByRole('button', { name: 'Modifier Les questions' }).click();
+  await expect(page.getByLabel('Les mots de Les questions')).toHaveValue('où\nquand');
+  await expect(page.getByText(/ne sait pas écrire.*où/)).toBeVisible();
+
+  // il renomme, enregistre — et « où » est toujours là
+  await page.getByLabel('Nom de Les questions').fill('Les questions du jour');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByRole('button', { name: 'Modifier Les questions du jour' })).toBeVisible();
+
+  const { listes } = (await (await page.request.get('/api/listes')).json()) as {
+    listes: { nom: string; mots: string[] }[];
+  };
+  expect(listes).toHaveLength(1);
+  expect(listes[0].nom).toBe('Les questions du jour');
+  expect(listes[0].mots).toEqual(['où', 'quand']);
+});

@@ -83,14 +83,27 @@ describe('estJouable', () => {
    point-virgule séparent deux mots. Le formulaire de création et celui de
    modification en font la même lecture — une seule définition (#10). */
 describe('motsDeLaSaisie', () => {
-  it('sépare, assainit, et met à part ce que le clavier ne sait pas écrire', () => {
+  /* Régression (revue de #10) : la liste appartient au COMPTE, la disposition
+     appartient à l'APPAREIL. Rendre seulement les mots tapables ici faisait
+     disparaître, pour tout le foyer, ceux que CE clavier ne sait pas écrire —
+     il suffisait d'ouvrir la liste sur la tablette et d'enregistrer. La saisie
+     est donc rendue ENTIÈRE ; `refuses` ne sert qu'à avertir. */
+  it('rend tous les mots, et nomme à part ceux que ce clavier ne sait pas écrire', () => {
     expect(motsDeLaSaisie('papa\nla fête ; maman, papa', 'fr-FR')).toEqual({
-      retenus: ['papa', 'maman'],
+      mots: ['papa', 'la fête', 'maman'],
       refuses: ['la fête'],
     });
   });
 
+  it('un même texte donne les mêmes mots sur les deux dispositions', () => {
+    const texte = 'où est papa';
+    expect(motsDeLaSaisie(texte, 'fr-FR').mots).toEqual(motsDeLaSaisie(texte, 'fr-CH').mots);
+    // seul l'avertissement change : « où » ne s'écrit pas sur le clavier suisse
+    expect(motsDeLaSaisie(texte, 'fr-FR').refuses).toEqual([]);
+    expect(motsDeLaSaisie(texte, 'fr-CH').refuses).toEqual(['où est papa']);
+  });
+
   it('ne retient rien d’un texte vide', () => {
-    expect(motsDeLaSaisie('   \n\n', 'fr-FR')).toEqual({ retenus: [], refuses: [] });
+    expect(motsDeLaSaisie('   \n\n', 'fr-FR')).toEqual({ mots: [], refuses: [] });
   });
 });

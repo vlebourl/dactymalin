@@ -53,18 +53,23 @@ export function motsIntapables(mots: string[], id: IdDisposition): string[] {
 }
 
 /**
- * Ce que le parent vient de taper, relu : les mots retenus, et ceux que la
- * disposition ne sait pas écrire d'une seule frappe. Créer et modifier une
- * liste lisent la saisie de la MÊME façon — sinon le même texte donnerait deux
- * listes différentes selon le formulaire qui l'a reçu.
+ * Ce que le parent vient de taper, relu : TOUS les mots retenus, et à part
+ * ceux que cette disposition ne sait pas écrire d'une seule frappe. Créer et
+ * modifier une liste lisent la saisie de la MÊME façon — sinon le même texte
+ * donnerait deux listes différentes selon le formulaire qui l'a reçu.
+ *
+ * `refuses` AVERTIT, il ne retranche pas. La liste appartient au compte, la
+ * disposition appartient à l'appareil : retrancher ici ferait disparaître pour
+ * tout le foyer les mots que CE clavier ne sait pas écrire, à la première
+ * ouverture de la liste sur la tablette. Le tri se fait au moment de jouer,
+ * appareil par appareil, où il est réversible (`composerBlocPerso`).
  */
 export function motsDeLaSaisie(
   texte: string,
   id: IdDisposition,
-): { retenus: string[]; refuses: string[] } {
-  const proposes = motsPersoValides(texte.split(/[\n,;]+/));
-  const refuses = motsIntapables(proposes, id);
-  return { retenus: proposes.filter((m) => !refuses.includes(m)), refuses };
+): { mots: string[]; refuses: string[] } {
+  const mots = motsPersoValides(texte.split(/[\n,;]+/));
+  return { mots, refuses: motsIntapables(mots, id) };
 }
 
 /**
