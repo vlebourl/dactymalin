@@ -307,6 +307,24 @@
   letter-spacing: 0.01em;
 }
 
+/* Le h1 de l'accueil ne porte QUE le logo. Sa hauteur de ligne est annulée
+   ici et NULLE PART AILLEURS : mise sur `.titre`, elle écrasait à zéro pixel
+   tous les titres de l'app — celui de V2 devenait invisible. */
+.titreLogo {
+  line-height: 0;
+  margin: 0;
+}
+
+/* Le logo remplace le titre. Borné en largeur ET en hauteur : sur un écran
+   large et court, une largeur seule le faisait pousser le clavier hors vue. */
+.logo {
+  display: block;
+  width: min(560px, 78vw);
+  max-height: 22vh;
+  height: auto;
+  object-fit: contain;
+}
+
 .sousTitre {
   font-size: clamp(15px, 1.6vw, 19px);
   color: var(--encre-doux);
