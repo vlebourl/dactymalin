@@ -98,6 +98,15 @@ export function messageDEchecProfil(erreur: unknown): string {
 export function messageDEchecListe(erreur: unknown): string {
   const { statut, code } = (erreur ?? {}) as Echec;
 
+  /* Pas de statut = le serveur n'a pas répondu. La bibliothèque se lit hors
+     ligne mais ne s'y modifie pas (#11) : c'est un choix, pas une panne, et le
+     parent doit l'entendre comme tel — sans quoi il croirait avoir cassé
+     quelque chose au moment de préparer la dictée du lundi. Rien n'est mis en
+     file d'attente, donc rien ne partira tout seul : il faut revenir. */
+  if (statut === undefined) {
+    return 'Hors ligne : une liste se prépare avec le réseau. Rien n’est perdu — reprenez une fois reconnecté.';
+  }
+
   switch (code) {
     case 'TROP_DE_LISTES':
       /* La suppression existe (#10) : le message peut de nouveau indiquer la

@@ -53,6 +53,29 @@ export function motsIntapables(mots: string[], id: IdDisposition): string[] {
 }
 
 /**
+ * Une bibliothèque dont on peut se servir sans crainte. Ce qui arrive du
+ * réseau ou d'un stockage local n'est pas forcément ce qu'on croit : réponse
+ * tronquée, cache écrit par une version d'avant, clé bricolée à la main. Sans
+ * cette garde, la grille de l'accueil tombait sur `mots.length` — et l'accueil
+ * hors ligne est justement l'écran que le cache existe pour sauver (#11).
+ *
+ * Même parti pris que `valider` pour la progression : on écarte ce qui est
+ * illisible, on ne rejette pas le tout.
+ */
+export function listesValides(v: unknown): Liste[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter(
+    (l): l is Liste =>
+      !!l &&
+      typeof l === 'object' &&
+      typeof (l as Liste).id === 'string' &&
+      typeof (l as Liste).nom === 'string' &&
+      Array.isArray((l as Liste).mots) &&
+      (l as Liste).mots.every((m) => typeof m === 'string'),
+  );
+}
+
+/**
  * Ce que le parent vient de taper, relu : TOUS les mots retenus, et à part
  * ceux que cette disposition ne sait pas écrire d'une seule frappe. Créer et
  * modifier une liste lisent la saisie de la MÊME façon — sinon le même texte
