@@ -4,9 +4,11 @@ import {
   deconnecter,
   enAttente,
   profilsDistants,
+  renommerProfilDistant,
   type Compte,
   type ProfilDistant,
 } from '../core/sync';
+import { remplacerIndex } from '../core/profils';
 import { useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -21,6 +23,17 @@ export function V9Compte() {
   const [compte, setCompte] = useState<Compte | null>(null);
   const [profils, setProfils] = useState<ProfilDistant[]>([]);
   const [file, setFile] = useState(0);
+  /** Prénoms en cours de saisie, par profil : le champ suit le parent. */
+  const [saisie, setSaisie] = useState<Record<string, string>>({});
+  const [echec, setEchec] = useState<string | null>(null);
+
+  const adopterListe = (liste: ProfilDistant[]) => {
+    setProfils(liste);
+    /* Le cache local suit le compte : un prénom corrigé ici doit s'afficher
+       tout de suite sur l'écran « Qui joue ? » et dans la leçon. */
+    remplacerIndex(liste.map((p) => ({ id: p.id, nom: p.prenom })));
+    setSaisie(Object.fromEntries(liste.map((p) => [p.id, p.prenom])));
+  };
 
   const rafraichir = async () => {
     const c = await compteCourant();
@@ -28,9 +41,29 @@ export function V9Compte() {
     setFile(enAttente());
     if (!c) return setProfils([]);
     try {
-      setProfils(await profilsDistants());
+      adopterListe(await profilsDistants());
     } catch {
       setProfils([]);
+    }
+  };
+
+  /**
+   * Renommer. L'identité d'un enfant est son identifiant serveur : corriger
+   * « Timo » en « Timothée » ne touche PAS à sa progression.
+   */
+  const renommer = async (id: string) => {
+    const prenom = (saisie[id] ?? '').trim();
+    if (!prenom) return;
+    setEchec(null);
+    try {
+      await renommerProfilDistant(id, prenom);
+      adopterListe(await profilsDistants());
+    } catch {
+      /* On remet ce que le serveur sait, et on DIT pourquoi : un champ qui
+         revient tout seul à l'ancien prénom, sans un mot, laisse le parent
+         croire qu'il a mal tapé. */
+      adopterListe(profils);
+      setEchec("Le renommage n'a pas pu être enregistré : vérifiez la connexion.");
     }
   };
 
@@ -68,10 +101,29 @@ export function V9Compte() {
                 ? 'Toutes les progressions sont synchronisées.'
                 : `${file} progression(s) en attente d'envoi.`}
             </p>
+            {echec && (
+              <p className={v.erreurCompte} role="alert">
+                {echec}
+              </p>
+            )}
             <ul className={v.listeProfils}>
               {profils.map((p) => (
                 <li key={p.id}>
-                  <b>{p.prenom}</b>{' '}
+                  <input
+                    className={v.champNom}
+                    value={saisie[p.id] ?? p.prenom}
+                    maxLength={20}
+                    aria-label={`Prénom de ${p.prenom}`}
+                    onChange={(e) => setSaisie({ ...saisie, [p.id]: e.target.value })}
+                    onKeyDown={(e) => e.key === 'Enter' && void renommer(p.id)}
+                  />
+                  <button
+                    className={v.petitBouton}
+                    disabled={(saisie[p.id] ?? p.prenom).trim() === p.prenom}
+                    onClick={() => void renommer(p.id)}
+                  >
+                    Renommer
+                  </button>{' '}
                   <span className={v.promessePalier}>
                     {p.etat ? `palier ${p.etat.palier}` : 'aucune progression enregistrée'}
                   </span>

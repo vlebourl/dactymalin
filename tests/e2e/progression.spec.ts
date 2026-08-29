@@ -9,13 +9,7 @@ test.describe('progression explicite', () => {
   test("l'en-tête annonce la leçon, le bloc et à qui appartient la progression", async ({
     page,
   }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'tapeavecmoi.profils',
-        JSON.stringify({ version: 1, actif: 'p1', liste: [{ id: 'p1', nom: 'Lila' }] }),
-      );
-    });
-    await ouvrir(page, 'fr-FR', 3);
+    await ouvrir(page, 'fr-FR', 3, false, 'Lila');
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 

@@ -40,40 +40,98 @@ export async function assureConnexion(page: Page): Promise<void> {
   if (!session?.user) await inscrit(page);
 }
 
+/** Identifiant SERVEUR du profil que ce test joue. */
+const profilDe = new WeakMap<Page, string>();
+
+/**
+ * Le profil enfant du parcours. Depuis #4, il appartient au COMPTE : c'est le
+ * serveur qui lui donne son identifiant, et la progression locale n'est plus
+ * qu'un cache indexé par cet identifiant. Un compte qui en a déjà un le garde
+ * — c'est ce qui fait du second navigateur le second APPAREIL d'une famille,
+ * et non une seconde famille.
+ */
+export async function assureProfil(page: Page, prenom = 'Joueur 1'): Promise<string> {
+  const liste = await page.request.get('/api/profils');
+  if (liste.ok()) {
+    const { profils } = (await liste.json()) as { profils: { id: string }[] };
+    if (profils.length > 0) {
+      profilDe.set(page, profils[0].id);
+      return profils[0].id;
+    }
+  }
+  const r = await page.request.post('/api/profils', { data: { prenom } });
+  if (!r.ok()) throw new Error(`création du profil impossible (${r.status()}) — API absente ?`);
+  const { id } = (await r.json()) as { id: string };
+  profilDe.set(page, id);
+  return id;
+}
+
+/** Clé de progression du profil joué par ce test. */
+export function cleProfil(page: Page): string {
+  const id = profilDe.get(page);
+  if (!id) throw new Error('aucun profil : passer par ouvrir() ou assureProfil()');
+  return `tapeavecmoi.v1.${id}`;
+}
+
+/** Le cache local d'un appareil qui connaît déjà ce profil du compte. */
+function graineProfil(page: Page, id: string, nom: string) {
+  return page.addInitScript(
+    ([idProfil, prenom]) => {
+      localStorage.setItem(
+        'tapeavecmoi.profils',
+        JSON.stringify({ version: 2, actif: idProfil, liste: [{ id: idProfil, nom: prenom }] }),
+      );
+    },
+    [id, nom] as [string, string],
+  );
+}
+
 /** Progression déjà en place : on démarre sur V1, pas sur l'onboarding. */
 export async function ouvrir(
   page: Page,
   id: IdDisposition = 'fr-FR',
   palier = 1,
   sons = false,
+  prenom = 'Joueur 1',
 ): Promise<void> {
-  await page.addInitScript(
-    ([disposition, niveau, avecSons]) => {
-    localStorage.setItem(
-      'tapeavecmoi.v1',
-      JSON.stringify({
-        version: 1,
-        disposition,
-        dispositionChoisieALaMain: true,
-        palier: niveau,
-        blocsSurPalier: 0,
-        bloc: 1,
-        maitrise: {},
-        guideDoigtVu: true,
-        reglages: { sons: avecSons, texteEspace: false, animationsDouces: false },
-      }),
-    );
-    },
-    [id, palier, sons] as [IdDisposition, number, boolean],
-  );
   await assureConnexion(page);
+  const idProfil = await assureProfil(page, prenom);
+  await graineProfil(page, idProfil, prenom);
+  await page.addInitScript(
+    ([cle, disposition, niveau, avecSons]) => {
+      localStorage.setItem(
+        cle as string,
+        JSON.stringify({
+          version: 1,
+          disposition,
+          dispositionChoisieALaMain: true,
+          palier: niveau,
+          blocsSurPalier: 0,
+          bloc: 1,
+          maitrise: {},
+          guideDoigtVu: true,
+          reglages: { sons: avecSons, texteEspace: false, animationsDouces: false },
+        }),
+      );
+      /* Cet appareil a VRAIMENT écrit cette progression, à l'instant : c'est
+         cette date que la réconciliation compare à celle du serveur. Sans
+         elle, le serveur ferait foi sans fusion. */
+      localStorage.setItem(
+        'tapeavecmoi.maj',
+        JSON.stringify({ [String(cle).replace('tapeavecmoi.v1.', '')]: new Date().toISOString() }),
+      );
+    },
+    [cleProfil(page), id, palier, sons] as [string, IdDisposition, number, boolean],
+  );
   await page.goto('/');
   await page.waitForSelector('body[data-vue="V1"]');
 }
 
-/** Onboarding complet : localStorage vierge, l'app ouvre sur V2. */
+/** Onboarding complet : aucune progression, l'app ouvre sur V2. */
 export async function ouvrirNeuf(page: Page): Promise<void> {
   await assureConnexion(page);
+  const idProfil = await assureProfil(page);
+  await graineProfil(page, idProfil, 'Joueur 1');
   await page.goto('/');
   await page.waitForSelector('body[data-vue="V2"]');
 }
@@ -103,9 +161,9 @@ export async function jouerBlocParfait(page: Page, id: IdDisposition): Promise<v
   await page.waitForSelector('body[data-vue="V5"]', { timeout: 6000 });
 }
 
-/** Sauvegarde telle qu'elle est réellement persistée. */
+/** Sauvegarde telle qu'elle est réellement persistée, pour le profil joué. */
 export const sauvegarde = (page: Page) =>
-  page.evaluate(() => JSON.parse(localStorage.getItem('tapeavecmoi.v1') ?? '{}'));
+  page.evaluate((cle) => JSON.parse(localStorage.getItem(cle) ?? '{}'), cleProfil(page));
 
 export const motCourant = (page: Page) =>
   page.locator('[data-mot]').first().getAttribute('data-mot');

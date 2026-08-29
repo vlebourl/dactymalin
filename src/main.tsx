@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { profilInitial } from './core/profils';
-import { associerEtFusionner, compteCourant, type Compte } from './core/sync';
+import { compteCourant, synchroniserProfils, type Compte } from './core/sync';
 import { FournisseurApp } from './state';
 import { Garde } from './ui/Garde';
 import { Connexion } from './views/Connexion';
@@ -10,7 +10,8 @@ import { V0Profils } from './views/V0Profils';
 import './styles/tokens.css';
 
 /* Le choix du joueur précède tout : l'état de l'app se charge depuis la clé
-   du profil choisi. `key` remonte l'arbre entier au changement de joueur. */
+   du profil choisi — son identifiant SERVEUR. `key` remonte l'arbre entier au
+   changement de joueur. */
 function Joueur() {
   const [idProfil, setIdProfil] = useState<string | null>(() => profilInitial());
   if (!idProfil) return <V0Profils onChoix={setIdProfil} />;
@@ -32,18 +33,25 @@ function Racine() {
   useEffect(() => {
     void (async () => {
       const c = await compteCourant();
-      /* L'appariement au compte se faisait à la connexion, dans l'écran
-         parent. Le portail l'a remplacée : il se fait donc ici, une fois la
+      /* Les profils sont ceux du COMPTE : on va les chercher ici, une fois la
          session connue et AVANT que le joueur ne monte — sinon la leçon lirait
          un stockage qu'on est en train de réécrire. Un échec (hors ligne) ne
-         doit jamais empêcher de jouer. */
-      if (c) await associerEtFusionner().catch(() => {});
+         doit jamais empêcher de jouer : le cache local prend alors le relais. */
+      if (c) await synchroniserProfils().catch(() => {});
       setCompte(c);
     })();
   }, []);
 
+  /* On entre par le portail comme on entre au démarrage : les profils du
+     compte D'ABORD. Sans cela, le parent qui vient de se connecter tombait sur
+     « Qui joue ? » avec un cache vide, alors que son compte a des enfants. */
+  const entrer = async (c: Compte) => {
+    await synchroniserProfils().catch(() => {});
+    setCompte(c);
+  };
+
   if (compte === undefined) return <Attente />;
-  if (!compte) return <Connexion onConnecte={setCompte} />;
+  if (!compte) return <Connexion onConnecte={(c) => void entrer(c)} />;
   return <Joueur />;
 }
 
