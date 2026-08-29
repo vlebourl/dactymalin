@@ -39,3 +39,46 @@ export function palierFranchi(
   if (blocsSurPalier >= PLAFOND_BLOCS) return true;
   return touchesAValider(id, palier).every((c) => estMaitrisee(m, c));
 }
+
+/** Ce qui commande la barre d'avancement du palier. */
+export type Avancement = {
+  /** 0 → 1, plein exactement quand `palierFranchi` bascule */
+  part: number;
+  maitrisees: number;
+  total: number;
+  /** le chemin le plus avancé, celui qu'on nomme à l'écran */
+  chemin: 'touches' | 'blocs' | 'dernier';
+};
+
+/**
+ * Où en est-on DANS le palier ?
+ *
+ * Deux chemins mènent au palier suivant — toutes les touches maîtrisées, ou le
+ * plafond de blocs — et on ne sait pas d'avance lequel arrivera le premier.
+ * La barre suit donc le PLUS AVANCÉ des deux : elle atteint 1 exactement quand
+ * `palierFranchi` bascule, jamais avant, jamais après. N'écouter que la
+ * maîtrise la laisserait basse puis la ferait sauter sans prévenir chez
+ * l'enfant que le plafond fait monter.
+ */
+export function avancementPalier(
+  id: IdDisposition,
+  palier: number,
+  m: Maitrise,
+  blocsSurPalier: number,
+): Avancement {
+  const cles = touchesAValider(id, palier);
+  const maitrisees = cles.filter((c) => estMaitrisee(m, c)).length;
+  // Le dernier palier n'ouvre sur rien : promettre une progression vers un
+  // palier 8 inexistant serait une promesse en l'air.
+  if (palier >= PALIER_MAX) {
+    return { part: 1, maitrisees, total: cles.length, chemin: 'dernier' };
+  }
+  const parTouches = cles.length === 0 ? 1 : maitrisees / cles.length;
+  const parBlocs = Math.min(1, blocsSurPalier / PLAFOND_BLOCS);
+  return {
+    part: Math.max(parTouches, parBlocs),
+    maitrisees,
+    total: cles.length,
+    chemin: parTouches >= parBlocs ? 'touches' : 'blocs',
+  };
+}

@@ -146,3 +146,32 @@ test.describe('V3 : les mains encadrent le clavier', () => {
     });
   }
 });
+
+/* Régression signalée le 2026-08-29 : les réglages ne tenaient pas dans un
+   écran (1023 px de contenu pour 900 px de fenêtre) et `body{overflow:hidden}`
+   — la règle « un item = un écran » du cahier (P7) — interdisait de défiler.
+   Le bas du formulaire était donc INATTEIGNABLE. P7 vaut pour la leçon, pas
+   pour un formulaire : c'est le contenu qui défile, à l'intérieur de l'écran. */
+test.describe('les écrans de formulaire restent atteignables', () => {
+  for (const [largeur, hauteur] of [
+    [1280, 720],
+    [1024, 640],
+  ] as const) {
+    test(`réglages : on atteint le bas en ${largeur}×${hauteur}`, async ({ page }) => {
+      await page.setViewportSize({ width: largeur, height: hauteur });
+      await ouvrir(page, 'fr-FR', 1);
+      await page.getByLabel('Réglages').click();
+      await expect(page.locator('body')).toHaveAttribute('data-vue', 'V7');
+
+      const dernier = page.getByRole('button', { name: 'Changer de joueur' });
+      await dernier.scrollIntoViewIfNeeded();
+      await expect(dernier).toBeInViewport();
+
+      // La page elle-même ne défile jamais : c'est le contenu qui bouge.
+      const pageDefile = await page.evaluate(
+        () => document.documentElement.scrollHeight > document.documentElement.clientHeight,
+      );
+      expect(pageDefile).toBe(false);
+    });
+  }
+});

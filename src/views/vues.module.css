@@ -18,6 +18,18 @@
   text-align: center;
 }
 
+/* Un FORMULAIRE n'est pas une leçon. « Un item = un écran » (P7) interdit à la
+   page de défiler, ce qui rendait le bas des réglages inatteignable dès que
+   l'écran était court. C'est donc le contenu qui défile, dans l'écran : la
+   page reste fixe, la règle tient, et le formulaire redevient accessible.
+   `justify-content: flex-start` est indispensable — centré, un contenu plus
+   haut que son conteneur voit son sommet coupé et irrécupérable. */
+.centreDefilant {
+  justify-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Zone 1 puis zone 2 : axe vertical unique, réparti sans trou (P7). */
 .centreLecon {
   justify-content: space-evenly;
@@ -74,6 +86,85 @@
   color: var(--encre);
   font-weight: 600;
   letter-spacing: 0.14em;
+}
+
+/* Où en est-on : la leçon (le palier) au-dessus, le bloc en dessous. Tout y
+   est volontairement discret — trait fin, teintes douces, aucune couleur vive.
+   La couleur vive reste réservée aux touches allumées : sur cet écran, le mot
+   à taper doit rester la chose la plus visible. */
+/* Sur un écran étroit la ligne passe à deux étages plutôt que de pousser la
+   page hors cadre : `nowrap` sur chaque morceau empêche de couper « Leçon 3
+   sur 7 » en son milieu, mais c'est le CONTENEUR qui doit pouvoir replier. */
+.bandeauLecon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: clamp(13px, 1.1vw, 15px);
+  color: var(--encre-doux);
+  margin-bottom: 2px;
+}
+
+.bandeauLecon strong {
+  color: var(--encre);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.jaugeLecon {
+  width: clamp(60px, 9vw, 120px);
+  height: 5px;
+  border-radius: 3px;
+  background: var(--liseré);
+  overflow: hidden;
+  flex: none;
+}
+
+.jaugeLeconPleine {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--teal-moyen);
+  transition: width 320ms ease;
+}
+
+.detailLecon {
+  font-size: clamp(12px, 1vw, 14px);
+  color: var(--encre-doux);
+  white-space: nowrap;
+}
+
+.ligneBloc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 5px;
+}
+
+.ligneBloc .avancement {
+  margin-top: 0;
+}
+
+/* Le prénom dit à qui appartient cette progression. La grille de l'en-tête
+   réserve 44px à droite ; le nom doit pouvoir déborder sans pousser le reste. */
+.nomProfil {
+  font-size: clamp(12px, 1vw, 14px);
+  color: var(--encre-doux);
+  justify-self: end;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12ch;
+}
+
+@media (max-width: 600px) {
+  /* L'en-tête est déjà à l'étroit : le prénom cède la place aux indices. */
+  .nomProfil {
+    display: none;
+  }
 }
 
 .avancement {
@@ -693,11 +784,6 @@
 }
 
 /* ------------------------------------------------------------------- V3 */
-
-.mainSchematique {
-  width: clamp(90px, 11vw, 130px);
-  height: auto;
-}
 
 .etiquetteCote {
   font-size: 13px;

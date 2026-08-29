@@ -37,10 +37,19 @@ test.describe('frappe fausse (P3)', () => {
     await expect(page.locator('[data-etat="cible"]')).toHaveCount(1);
   });
 
-  test('une seule pastille de doigt est active', async ({ page }) => {
+  /* La bande de photographies a été retirée le 2026-08-29 : les deux mains
+     encadrent le clavier et disent la même chose. Ce qui doit rester vrai est
+     l'UNICITÉ du guide — un seul doigt visé, une seule main désignée. Sans ce
+     test, une main allumée des deux côtés passerait inaperçue. */
+  test('un seul doigt visé, une seule main désignée', async ({ page }) => {
     await ouvrir(page);
     await page.getByRole('button', { name: 'On commence !' }).click();
-    await expect(page.locator('[data-active="oui"]')).toHaveCount(1);
-    await expect(page.locator('[data-pastille]')).toHaveCount(4);
+
+    await expect(page.locator('[data-doigt]')).toHaveCount(1);
+    expect(await page.locator('[data-doigt]').getAttribute('data-doigt')).toMatch(
+      /^(index|pouce)_(gauche|droit)$/,
+    );
+    await expect(page.locator('[data-main-active="oui"]')).toHaveCount(1);
+    await expect(page.locator('[data-cote-main]')).toHaveCount(1);
   });
 });
