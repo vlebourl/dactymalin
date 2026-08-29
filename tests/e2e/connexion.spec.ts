@@ -65,6 +65,23 @@ test.describe('connexion obligatoire', () => {
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'connexion');
   });
 
+  /* Régression (2026-08-29, production) : quel que soit l'échec, l'écran
+     affichait « l'adresse est peut-être déjà prise, ou le mot de passe trop
+     court ». Il faut désormais qu'il dise CE QUI s'est passé. */
+  test('une adresse déjà prise le dit, et ne parle pas du mot de passe', async ({ page }) => {
+    const email = await inscrit(page);
+    await page.context().clearCookies();
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Créer un compte' }).click();
+    await page.getByLabel('Adresse électronique').fill(email);
+    await page.getByLabel(/Mot de passe/).fill(MDP_TEST);
+    await page.getByRole('button', { name: 'Créer notre compte' }).click();
+
+    const alerte = page.getByRole('alert');
+    await expect(alerte).toHaveText(/déjà un compte/);
+    await expect(alerte).not.toHaveText(/trop court/);
+  });
+
   test('se déconnecter ramène à la connexion', async ({ page }) => {
     await ouvrir(page);
     await page.getByLabel('Réglages').click();
