@@ -26,7 +26,7 @@ export function V7Reglages() {
         <span />
       </header>
 
-      <div className={v.centre}>
+      <div className={`${v.centre} ${v.centreDefilant}`}>
         <h1 className={v.titre} style={{ fontSize: 'clamp(28px, 3.4vw, 42px)' }}>
           Réglages
         </h1>

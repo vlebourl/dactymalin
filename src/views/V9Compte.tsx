@@ -83,7 +83,7 @@ export function V9Compte() {
         <span />
       </header>
 
-      <div className={v.centre}>
+      <div className={`${v.centre} ${v.centreDefilant}`}>
         <p className={v.sousTitre}>
           Un compte sert à retrouver la progression des enfants depuis un autre ordinateur.
           <br />

@@ -12,12 +12,14 @@ import {
 } from '../core/layouts';
 import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj } from '../core/maj';
-import { ensembleTouches, libellesEnsemble, PALIER_MAX_DEBUTANT } from '../core/paliers';
-import { CONSIGNES, FingerBar, type Doigt } from '../ui/FingerBar';
+import { ensembleTouches, libellesEnsemble, PALIER_MAX, PALIER_MAX_DEBUTANT } from '../core/paliers';
+import { CONSIGNES, type Doigt } from '../core/doigts';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
 import { useKeyInput } from '../hooks/useKeyInput';
+import { avancementPalier, PLAFOND_BLOCS } from '../core/progression';
+import { nomProfilActif } from '../core/profils';
 import { useApp, useEnvoi, type BilanBloc } from '../state';
 import { MainSchematique } from '../ui/MainSchematique';
 import v from './vues.module.css';
@@ -146,8 +148,11 @@ export function V4Lecon() {
          `l` de « belle » sans relâcher, et faisait grimper l'aide aux barreaux
          2-3 en quelques dizaines de millisecondes sur une touche fausse tenue. */
       if (f.repeat) return;
-      // P2 : aucun modificateur n'est accepté dans le sas débutant
-      if (debutant && f.avecMaj) return;
+      /* P2 : aucun modificateur dans le sas débutant — SAUF quand la cible
+         l'exige. Une liste perso peut contenir un chiffre AZERTY dès le
+         palier 1 : la consigne réclamait alors une Maj que ce garde jetait
+         juste après, et le caractère restait injouable à jamais. */
+      if (debutant && f.avecMaj && !besoinMaj) return;
       if (f.key.length !== 1 && f.code !== 'Space') return;
       const action: FrappeLecon = {
         type: 'frappe',
@@ -220,6 +225,19 @@ export function V4Lecon() {
      c'est lui la référence de ce qui peut être proposé (P5). Les capitales
      accentuées sont exclues à la source (`libellesEnsemble`). */
   const touchesLecon = libellesEnsemble(id, app.palier);
+
+  /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
+  const prenom = useMemo(() => nomProfilActif(), []);
+  const avance = avancementPalier(id, app.palier, app.maitrise, app.blocsSurPalier);
+  /* On nomme le chemin qui commande RÉELLEMENT la barre, sinon le texte et la
+     jauge racontent deux histoires différentes. */
+  const detailLecon =
+    avance.chemin === 'dernier'
+      ? 'dernière leçon'
+      : avance.chemin === 'touches'
+        ? `${avance.maitrisees} touches sur ${avance.total}`
+        : `${app.blocsSurPalier} blocs finis sur ${PLAFOND_BLOCS}`;
+  const etiquetteLecon = `Leçon ${app.palier} sur ${PALIER_MAX} — ${detailLecon}`;
   const clavierMasque = e.masque && !e.fini;
 
   return (
@@ -229,22 +247,47 @@ export function V4Lecon() {
           ←
         </button>
         <div>
+          {/* Où en est-on ? Deux échelles, chacune avec son indice : la leçon
+              (le palier, 7 en tout) et le bloc en cours. Sans elles, monter
+              d'une leçon était un événement muet — l'enfant ne savait ni où il
+              en était, ni qu'il venait d'avancer. */}
+          <p className={v.bandeauLecon}>
+            <strong>
+              Leçon {app.palier} sur {PALIER_MAX}
+            </strong>
+            <span
+              className={v.jaugeLecon}
+              role="img"
+              aria-label={etiquetteLecon}
+              title={etiquetteLecon}
+            >
+              <span className={v.jaugeLeconPleine} style={{ width: `${avance.part * 100}%` }} />
+            </span>
+            <span className={v.detailLecon}>{detailLecon}</span>
+          </p>
           <p className={v.bandeauTouches}>
             Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>
           </p>
-          <div className={v.avancement} role="img" aria-label="Avancement du bloc">
-            {e.items.map((it, k) => (
-              <span
-                key={it.texte}
-                className={[
-                  v.pastilleAvancement,
-                  k < e.i || (k === e.i && enCelebration) ? v.pastilleAvancementPleine : '',
-                ].join(' ')}
-              />
-            ))}
+          <div className={v.ligneBloc}>
+            <span className={v.detailLecon}>Bloc {app.blocsSurPalier + 1} de cette leçon</span>
+            <div
+              className={v.avancement}
+              role="img"
+              aria-label={`Bloc ${app.blocsSurPalier + 1} de cette leçon : ${e.i} sur ${e.items.length}`}
+            >
+              {e.items.map((it, k) => (
+                <span
+                  key={it.texte}
+                  className={[
+                    v.pastilleAvancement,
+                    k < e.i || (k === e.i && enCelebration) ? v.pastilleAvancementPleine : '',
+                  ].join(' ')}
+                />
+              ))}
+            </div>
           </div>
         </div>
-        <span />
+        <span className={v.nomProfil}>{prenom}</span>
       </header>
 
       {app.verrMaj && (
@@ -267,6 +310,10 @@ export function V4Lecon() {
         className={[v.centre, v.centreLecon, clavierMasque ? v.centreSansClavier : '']
           .filter(Boolean)
           .join(' ')}
+        /* Le doigt visé, porté par la zone de leçon. Il vivait sur la bande de
+           photographies ; celle-ci retirée, l'information reste — c'est elle
+           que lisent l'annonce vocale et les tests, pas les images. */
+        data-doigt={enCelebration ? 'aucun' : doigt}
       >
         <div className={v.zoneMot}>
           <span
@@ -350,7 +397,10 @@ export function V4Lecon() {
               ensemble={ensemble}
               cible={enCelebration ? undefined : cible}
               cibleMaj={cibleMaj}
-              avecMaj={app.palier >= PALIER_MAX_DEBUTANT + 1}
+              /* Les Maj sont dessinées au palier qui les enseigne, mais aussi
+                 dès que la cible en réclame une — sans quoi la consigne
+                 désignait une touche absente du clavier. */
+              avecMaj={app.palier >= PALIER_MAX_DEBUTANT + 1 || besoinMaj}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
               espace={{
@@ -385,7 +435,6 @@ export function V4Lecon() {
         </div>
       </div>
 
-      <FingerBar actif={enCelebration ? null : doigt} />
     </div>
   );
 }
