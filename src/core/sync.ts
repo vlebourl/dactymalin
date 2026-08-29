@@ -1,5 +1,5 @@
 import { charger, estIntact, sauver, type Sauvegarde } from './storage';
-import { chargerIndex, cleDe } from './profils';
+import { cleDe, oublierProfils, remplacerIndex } from './profils';
 import { fusionner } from './fusion';
 
 /**
@@ -11,6 +11,12 @@ import { fusionner } from './fusion';
  *
  * Depuis que la connexion est obligatoire, « sans compte connecté » n'est plus
  * un état de l'application : il n'y a qu'un seul compte, celui du portail.
+ *
+ * Depuis #4, les profils sont ceux du COMPTE : leur identifiant serveur est le
+ * seul identifiant, le stockage local n'en est que le cache. Il n'y a donc
+ * plus de table de liens, plus d'appariement par prénom, et plus d'horodatage
+ * local pris à l'instant de la comparaison — c'est celui de la dernière
+ * écriture réelle qui décide.
  */
 
 export type ProfilDistant = {
@@ -24,8 +30,8 @@ export type Compte = { id: string; email: string; name: string };
 
 /** File des envois en attente, gardée entre deux sessions. */
 export const CLE_FILE = 'tapeavecmoi.file';
-/** Lien profil local → profil serveur. */
-export const CLE_LIENS = 'tapeavecmoi.liens';
+/** Date de la dernière écriture LOCALE, par profil : l'arbitre de la fusion. */
+export const CLE_MAJ = 'tapeavecmoi.maj';
 
 type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
 
@@ -46,13 +52,20 @@ function ecrire(cle: string, valeur: unknown): void {
   }
 }
 
-export const liens = {
-  lire: () => lire<Record<string, string>>(CLE_LIENS, {}),
-  poser(idLocal: string, idDistant: string) {
-    ecrire(CLE_LIENS, { ...liens.lire(), [idLocal]: idDistant });
-  },
-  oublierTout: () => ecrire(CLE_LIENS, {}),
-};
+function effacer(cle: string): void {
+  try {
+    localStorage.removeItem(cle);
+  } catch {
+    /* rien à effacer */
+  }
+}
+
+/** Horodatage de la dernière écriture locale d'un profil, ou `null`. */
+function majLocale(id: string): number | null {
+  const iso = lire<Record<string, string>>(CLE_MAJ, {})[id];
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : null;
+}
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, {
@@ -98,9 +111,16 @@ export const connecter = (email: string, motDePasse: string) =>
     body: JSON.stringify({ email, password: motDePasse }),
   });
 
+/**
+ * Déconnexion. Le cache appartient au compte qui part : profils ET
+ * progressions s'en vont avec lui, ainsi que ce qui restait à envoyer — le
+ * pousser sous la prochaine session le donnerait au mauvais compte.
+ */
 export const deconnecter = async () => {
   await json('/api/auth/sign-out', { method: 'POST', body: '{}' });
-  liens.oublierTout();
+  effacer(CLE_FILE);
+  effacer(CLE_MAJ);
+  oublierProfils();
 };
 
 /* ----------------------------------------------------------------- profils */
@@ -111,6 +131,12 @@ export const profilsDistants = () =>
 export const creerProfilDistant = (prenom: string) =>
   json<{ id: string; prenom: string }>('/api/profils', {
     method: 'POST',
+    body: JSON.stringify({ prenom }),
+  });
+
+export const renommerProfilDistant = (id: string, prenom: string) =>
+  json<{ id: string; prenom: string }>(`/api/profils/${id}`, {
+    method: 'PATCH',
     body: JSON.stringify({ prenom }),
   });
 
@@ -135,7 +161,11 @@ async function envoyer(e: EnAttente): Promise<void> {
       { etat: e.etat, majLe: Date.parse(e.majLe) },
       { etat: distant.etat, majLe: Date.parse(distant.majLe) },
     );
-    const majLe = new Date().toISOString();
+    /* STRICTEMENT plus récent que ce qu'on vient de fusionner : daté à
+       `Date.now()`, le rejeu se faisait refuser à son tour dès que l'horloge
+       du serveur avançait sur celle de l'appareil — la fusion était faite,
+       puis jetée. */
+    const majLe = new Date(Math.max(Date.now(), Date.parse(distant.majLe) + 1)).toISOString();
     await json(`/api/profils/${e.profilDistant}/progression`, {
       method: 'PUT',
       body: JSON.stringify({ etat: fusionne, majLe }),
@@ -170,14 +200,21 @@ async function vidange(): Promise<void> {
 /**
  * Met une progression en file et tente de l'envoyer. Ne lève JAMAIS : appelée
  * depuis la boucle de jeu, elle doit être invisible quand le réseau manque.
+ *
+ * `idProfil` est l'identifiant SERVEUR du profil : c'est le seul qu'il y ait.
  */
-export function pousser(idProfilLocal: string, etat: Sauvegarde): Promise<void> {
-  const distant = liens.lire()[idProfilLocal];
-  if (!distant || !estIntact(etat)) return Promise.resolve();
+export function pousser(idProfil: string, etat: Sauvegarde): Promise<void> {
+  if (!estIntact(etat)) return Promise.resolve();
+  const majLe = new Date().toISOString();
+  /* L'écriture locale est datée ICI, à l'instant où elle a lieu. La fusion la
+     comparera à celle du serveur — et non plus à `Date.now()`, qui faisait
+     gagner cet appareil à tous les coups, y compris sur des préférences
+     changées ailleurs il y a une minute. */
+  ecrire(CLE_MAJ, { ...lire<Record<string, string>>(CLE_MAJ, {}), [idProfil]: majLe });
   /* Une seule entrée par profil : la plus récente remplace la précédente,
      inutile de rejouer dix états intermédiaires. */
-  const file = lire<EnAttente[]>(CLE_FILE, []).filter((e) => e.profilDistant !== distant);
-  file.push({ profilDistant: distant, etat, majLe: new Date().toISOString() });
+  const file = lire<EnAttente[]>(CLE_FILE, []).filter((e) => e.profilDistant !== idProfil);
+  file.push({ profilDistant: idProfil, etat, majLe });
   ecrire(CLE_FILE, file);
   return viderLaFile();
 }
@@ -186,56 +223,69 @@ export function pousser(idProfilLocal: string, etat: Sauvegarde): Promise<void> 
 export const enAttente = (): number => lire<EnAttente[]>(CLE_FILE, []).length;
 
 /**
- * À la connexion : on apparie les profils locaux et distants (par prénom), on
- * crée côté serveur ceux qui manquent, puis on RÉCONCILIE chaque progression —
- « le plus avancé gagne » — avant de renvoyer le résultat au serveur.
+ * Au démarrage : on prend la liste des profils DU COMPTE, on l'écrit dans le
+ * cache, et on réconcilie chaque progression — « le plus avancé gagne » pour
+ * les acquis, « le plus récent gagne » pour les préférences.
  *
  * C'est le seul moment où l'app écrit dans le stockage d'un autre profil que
  * celui en cours de jeu ; il n'y a alors aucune leçon en train de tourner.
+ *
+ * UNE SEULE exécution à la fois, et les appels concurrents rejoignent celle
+ * qui court : le montage double de `StrictMode` en lançait deux en parallèle.
  */
-let association: Promise<void> | null = null;
+let synchro: Promise<void> | null = null;
 
-/**
- * UN SEUL appariement à la fois, et les appels concurrents rejoignent celui
- * qui court. Deux exécutions en parallèle lisent toutes deux une liste
- * distante vide et créent chacune le même profil : le montage double de
- * `StrictMode` suffisait à dédoubler « Joueur 1 » sur le serveur.
- */
-export function associerEtFusionner(): Promise<void> {
-  if (!association) {
-    association = appariement().finally(() => {
-      association = null;
+export function synchroniserProfils(): Promise<void> {
+  if (!synchro) {
+    synchro = reconcilier().finally(() => {
+      synchro = null;
     });
   }
-  return association;
+  return synchro;
 }
 
-async function appariement(): Promise<void> {
-  const locaux = chargerIndex().liste;
+/**
+ * Empreinte stable d'un état : deux objets aux mêmes champs se comparent
+ * égaux quel que soit l'ordre dans lequel ils ont été construits (`fusionner`
+ * et `valider` ne les écrivent pas dans le même ordre).
+ */
+function empreinte(v: unknown): string {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return JSON.stringify(v) ?? 'null';
+  const o = v as Record<string, unknown>;
+  return `{${Object.keys(o)
+    .sort()
+    .map((c) => `${JSON.stringify(c)}:${empreinte(o[c])}`)
+    .join(',')}}`;
+}
+
+async function reconcilier(): Promise<void> {
   const distants = await profilsDistants();
+  remplacerIndex(distants.map((d) => ({ id: d.id, nom: d.prenom })));
 
-  for (const local of locaux) {
-    const meme = distants.find((d) => d.prenom.toLowerCase() === local.nom.toLowerCase());
-    const distant: ProfilDistant =
-      meme ??
-      (await creerProfilDistant(local.nom).then((c) => ({
-        id: c.id,
-        prenom: c.prenom,
-        etat: null,
-        majLe: null,
-      })));
-    liens.poser(local.id, distant.id);
+  for (const d of distants) {
+    const cle = cleDe(d.id);
+    const majIci = majLocale(d.id);
 
-    const cle = cleDe(local.id);
+    /* Jamais écrit ici : le serveur fait foi, sans fusion — fusionner avec des
+       valeurs par défaut effacerait ses préférences. */
+    if (majIci === null) {
+      if (d.etat) sauver(d.etat, cle);
+      continue;
+    }
+
     const ici = charger(cle);
-    const fusionne =
-      distant.etat && distant.majLe
-        ? fusionner(
-            { etat: ici, majLe: Date.now() },
-            { etat: distant.etat, majLe: Date.parse(distant.majLe) },
-          )
-        : ici;
+    if (!d.etat || !d.majLe) {
+      await pousser(d.id, ici);
+      continue;
+    }
+
+    const fusionne = fusionner(
+      { etat: ici, majLe: majIci },
+      { etat: d.etat, majLe: Date.parse(d.majLe) },
+    );
     sauver(fusionne, cle);
-    await pousser(local.id, fusionne);
+    /* On ne renvoie que ce que le serveur ne sait pas déjà : au démarrage,
+       trois appareils identiques n'ont rien à se dire. */
+    if (empreinte(fusionne) !== empreinte(d.etat)) await pousser(d.id, fusionne);
   }
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
 import { pousser, viderLaFile } from './core/sync';
@@ -196,11 +196,14 @@ export function FournisseurApp({
   idProfil,
 }: {
   children: ReactNode;
-  /** Profil dont on charge et sauve la progression ; défaut : clé historique. */
-  idProfil?: string;
+  /** Profil dont on charge et sauve la progression : son identifiant SERVEUR. */
+  idProfil: string;
 }) {
-  const cle = idProfil === undefined ? undefined : cleDe(idProfil);
+  const cle = cleDe(idProfil);
   const [etat, dispatch] = useReducer(reducer, cle, etatDeDepart);
+  /* L'état tel qu'il sortait du stockage au montage : tant que le reducer
+     renvoie le même objet, rien n'a changé et il n'y a rien à envoyer. */
+  const auMontage = useRef(etat);
 
   /* Checkpoint : fin d'item ou de bloc, jamais à chaque frappe. La dépendance
      porte sur l'état ENTIER — le reducer renvoie l'objet inchangé quand rien ne
@@ -209,9 +212,14 @@ export function FournisseurApp({
   useEffect(() => {
     const sauvegarde = aSauvegarder(etat);
     sauver(sauvegarde, cle);
-    /* Envoi en ARRIÈRE-PLAN, et seulement si un compte est lié à ce profil.
-       `pousser` ne lève jamais : une leçon ne doit pas dépendre du réseau. */
-    pousser(idProfil ?? 'p1', sauvegarde);
+    /* Rien joué encore : l'état vient d'être LU, le renvoyer avec un
+       horodatage neuf ferait gagner cet appareil sur des préférences changées
+       ailleurs il y a une minute. Ce qui restait à envoyer est dans la file,
+       et l'effet ci-dessous la vide. */
+    if (etat === auMontage.current) return;
+    /* Envoi en ARRIÈRE-PLAN. `pousser` ne lève jamais : une leçon ne doit
+       pas dépendre du réseau. */
+    pousser(idProfil, sauvegarde);
   }, [etat, cle, idProfil]);
 
   /* Retour du réseau : on rejoue ce qui attendait. */
