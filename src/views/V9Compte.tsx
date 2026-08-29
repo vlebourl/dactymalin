@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
+import { messageDEchecCompte, messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
 import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
 import {
   chargerIndex,
@@ -17,6 +17,7 @@ import {
   supprimerListeDistante,
   deconnecter,
   enAttente,
+  supprimerLeCompte,
   profilsDistants,
   renommerProfilDistant,
   supprimerProfilDistant,
@@ -62,12 +63,20 @@ function ConfirmationSuppression({
   quoi,
   question,
   surOui,
+  focusSurAnnuler = false,
 }: {
   /** Ce qu'on supprime, nommé : il apparaît sur les deux boutons. */
   quoi: string;
   /** La phrase qui dit ce que ça coûte. */
   question: string;
   surOui: () => void;
+  /**
+   * Poser le focus sur « Annuler » plutôt que sur « Oui ». Le focus doit
+   * entrer dans la confirmation — sinon qui navigue au clavier ne la trouve
+   * pas — mais pour le geste le plus destructeur de l'application, une touche
+   * Entrée restée enfoncée ne doit pas suffire à l'accomplir.
+   */
+  focusSurAnnuler?: boolean;
 }) {
   const [confirme, setConfirme] = useState(false);
   const bouton = useRef<HTMLButtonElement>(null);
@@ -98,7 +107,7 @@ function ConfirmationSuppression({
       {question}{' '}
       <button
         className={v.petitBouton}
-        autoFocus
+        autoFocus={!focusSurAnnuler}
         onClick={() => {
           setConfirme(false);
           surOui();
@@ -108,6 +117,7 @@ function ConfirmationSuppression({
       </button>{' '}
       <button
         className={u.lien}
+        autoFocus={focusSurAnnuler}
         onClick={() => {
           rendreLeFocus.current = true;
           setConfirme(false);
@@ -469,6 +479,7 @@ export function V9Compte() {
   const [nouveau, setNouveau] = useState('');
   const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
+  const [echecCompte, setEchecCompte] = useState<string | null>(null);
 
   const adopterListe = (liste: ProfilDistant[]) => {
     setProfils(liste);
@@ -528,6 +539,20 @@ export function V9Compte() {
       setEchec(messageDEchecProfil(erreur));
     } finally {
       setOccupe(false);
+    }
+  };
+
+  const supprimerCompte = async () => {
+    setEchecCompte(null);
+    try {
+      await supprimerLeCompte();
+      /* Le portail vit AU-DESSUS de cet arbre : seul un rechargement lui rend
+         la main, et il n'y a plus de compte à retrouver. */
+      location.reload();
+    } catch (erreur) {
+      /* Hors ligne surtout : supprimer exige le serveur, et un bouton muet
+         laisserait croire que le compte est parti alors qu'il est intact. */
+      setEchecCompte(messageDEchecCompte(erreur));
     }
   };
 
@@ -627,6 +652,25 @@ export function V9Compte() {
             >
               Se déconnecter
             </button>
+
+            {/* Le seul geste de l'application qui détruit TOUT, et le seul qui
+                donne au parent une porte de sortie : le compte est devenu
+                obligatoire, il doit pouvoir être rendu. */}
+            <p className={v.promessePalier}>
+              Supprimer le compte efface définitivement les profils des enfants,
+              leurs progressions et toutes les listes. Cela ne peut pas être annulé.
+            </p>
+            {echecCompte && (
+              <p className={v.erreurCompte} role="alert">
+                {echecCompte}
+              </p>
+            )}
+            <ConfirmationSuppression
+              quoi="le compte"
+              question={`Supprimer le compte ${compte.email} et tout ce qu'il contient ? C'est définitif.`}
+              surOui={() => void supprimerCompte()}
+              focusSurAnnuler
+            />
           </div>
         ) : (
           /* La session a expiré pendant qu'on était ici : le portail reprend
