@@ -4,9 +4,13 @@ import { ouvrir } from './helpers/app';
 /**
  * Le garde-fou le plus important de l'app.
  *
- * Depuis l'arrivée des comptes, l'app peut parler à SON serveur — et à lui
- * seul. Aucun tiers : ni police distante, ni CDN, ni mesure d'audience, ni
- * pixel. Et tant qu'aucun compte n'est connecté, il ne part rien du tout.
+ * L'app peut parler à SON serveur — et à lui seul. Aucun tiers : ni police
+ * distante, ni CDN, ni mesure d'audience, ni pixel.
+ *
+ * La promesse est désormais « AUCUN TIERS PENDANT LA LEÇON » : la connexion
+ * est obligatoire, donc « l'enfant joue sans compte » n'est plus un état
+ * possible. Ce qui reste vérifiable, et qui compte autant, c'est que la leçon
+ * n'échange rien d'autre que la progression de l'enfant.
  */
 test.describe('aucun hôte étranger', () => {
   const nôtre = (url: string) => {
@@ -27,22 +31,33 @@ test.describe('aucun hôte étranger', () => {
     expect(etrangers).toEqual([]);
   });
 
-  /* Un enfant qui joue sans compte ne doit produire AUCUN trafic : pas d'appel
-     d'API, donc rien à intercepter, rien à corréler, rien à conserver. */
-  test('sans compte connecté, aucun appel à /api ne part pendant la leçon', async ({ page }) => {
+  /* Pendant la leçon, la SEULE chose qui part est la progression de l'enfant.
+     Ni mesure d'audience, ni interrogation répétée de la session, ni rien qui
+     puisse être corrélé à ce qu'il tape. */
+  test('pendant la leçon, seule la progression circule', async ({ page }) => {
+    /* Écoute posée AVANT l'ouverture : sinon tout le trafic de démarrage
+       (session, appariement) sortirait du champ et le test ne mesurerait
+       qu'une fenêtre choisie pour être vide. */
     const api: string[] = [];
     page.on('request', (r) => {
-      const chemin = new URL(r.url()).pathname;
-      /* `get-session` est la seule question posée, et seulement depuis l'écran
-         des parents : elle ne part pas d'une leçon. */
-      if (chemin.startsWith('/api/')) api.push(chemin);
+      const { pathname } = new URL(r.url());
+      if (pathname.startsWith('/api/')) api.push(`${r.method()} ${pathname}`);
     });
 
     await ouvrir(page, 'fr-FR');
+    const avantLaLecon = api.length;
+
     await page.getByRole('button', { name: 'On commence !' }).click();
     await page.waitForTimeout(1500);
 
-    expect(api).toEqual([]);
+    /* Une seule chose a le droit de partir pendant que l'enfant tape :
+       l'enregistrement de SA progression. Pas une lecture, pas une création,
+       pas une interrogation de session — rien d'autre. */
+    const pendantLaLecon = api.slice(avantLaLecon);
+    const intrus = pendantLaLecon.filter(
+      (appel) => !/^PUT \/api\/profils\/[^/]+\/progression$/.test(appel),
+    );
+    expect(intrus).toEqual([]);
   });
 
   test('la police Lexend est servie localement', async ({ page }) => {

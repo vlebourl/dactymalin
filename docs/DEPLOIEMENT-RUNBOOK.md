@@ -74,6 +74,9 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
    le démarrage est refusé et l'ancienne révision reste en ligne.
 2. Les migrations sont appliquées par `drizzle-kit migrate`, jamais par un
    `push --force`.
-3. Le hook `.githooks/pre-push` refuse de pousser sur `main` si les types, les
+3. Le workflow `Vérifications` (types, tests unitaires, tests serveur, e2e,
+   build) tourne sur chaque PR et sur `main`. **Le déploiement n'est déclenché
+   qu'après son verdict vert** : une fusion rouge n'atteint pas la production.
+4. Le hook `.githooks/pre-push` refuse de pousser sur `main` si les types, les
    tests unitaires ou les e2e échouent. À activer sur chaque clone :
    `git config core.hooksPath .githooks`.
