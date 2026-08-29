@@ -1,4 +1,4 @@
-import type { Liste } from './listes';
+import { listesValides, type Liste } from './listes';
 import { CLE, charger, estIntact, sauver, type Sauvegarde } from './storage';
 import { cleDe, oublierProfils, remplacerIndex } from './profils';
 import { fusionner } from './fusion';
@@ -35,6 +35,8 @@ export const CLE_FILE = 'tapeavecmoi.file';
 export const CLE_MAJ = 'tapeavecmoi.maj';
 /** Le compte de la dernière session CONNUE : ce qui permet de démarrer hors ligne. */
 export const CLE_COMPTE = 'tapeavecmoi.compte';
+/** La bibliothèque telle que le serveur l'a dite, pour la jouer sans réseau. */
+export const CLE_LISTES = 'tapeavecmoi.listes';
 
 type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
 
@@ -79,6 +81,15 @@ function majLocale(id: string): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
+/**
+ * Le serveur n'a pas répondu du tout — par opposition à « il a répondu, et sa
+ * réponse est une erreur ». Sans `statut`, personne n'a parlé : c'est la
+ * définition de « hors ligne » dans ce module, et la seule situation où l'on
+ * se rabat sur ce qui est gardé ici.
+ */
+const estHorsLigne = (erreur: unknown): boolean =>
+  (erreur as { statut?: number } | null)?.statut === undefined;
+
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, {
     credentials: 'same-origin',
@@ -103,6 +114,21 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 export const compteEnCache = (): Compte | null => lire<Compte | null>(CLE_COMPTE, null);
 
 /**
+ * La session n'a plus cours : on oublie le compte ET sa bibliothèque. Un autre
+ * parent peut se connecter sur cet appareil, et il n'a rien à savoir des mots
+ * que la famille d'avant avait préparés.
+ *
+ * Les PROGRESSIONS et la file, elles, restent : elles peuvent contenir du
+ * travail que le serveur n'a pas encore reçu, et une session expirée n'est pas
+ * une raison de le détruire. Une liste, au contraire, ne se perd jamais — le
+ * serveur en a la seule copie qui compte.
+ */
+function oublierLeCompte(): void {
+  effacer(CLE_COMPTE);
+  effacer(CLE_LISTES);
+}
+
+/**
  * Qui est connecté ? Le serveur fait foi DÈS QU'IL RÉPOND — c'est lui qui sait
  * si la session a expiré, et sa réponse efface alors le souvenir.
  *
@@ -118,7 +144,7 @@ export async function compteCourant(): Promise<Compte | null> {
     const s = await json<{ user?: Compte } | null>('/api/auth/get-session');
     const brut = s?.user ?? null;
     if (!brut) {
-      effacer(CLE_COMPTE);
+      oublierLeCompte();
       return null;
     }
     /* On garde les TROIS champs dont l'écran a besoin, choisis un par un. Le
@@ -131,8 +157,8 @@ export async function compteCourant(): Promise<Compte | null> {
   } catch (erreur) {
     /* Une réponse d'ERREUR du serveur est une réponse : lui aussi sait. Seule
        l'absence de réponse (pas de `statut`) vaut « hors ligne ». */
-    if ((erreur as { statut?: number }).statut !== undefined) {
-      effacer(CLE_COMPTE);
+    if (!estHorsLigne(erreur)) {
+      oublierLeCompte();
       return null;
     }
     return compteEnCache();
@@ -170,7 +196,7 @@ export const connecter = (email: string, motDePasse: string) =>
  */
 export const deconnecter = async () => {
   await json('/api/auth/sign-out', { method: 'POST', body: '{}' });
-  effacer(CLE_COMPTE);
+  oublierLeCompte();
   effacer(CLE_FILE);
   effacer(CLE_MAJ);
   oublierProfils();
@@ -199,12 +225,38 @@ export const supprimerProfilDistant = (id: string) =>
 /* ------------------------------------------------------------- bibliothèque */
 
 /**
- * Les listes du COMPTE. Elles ne passent pas par la file d'envoi : le parent
- * les prépare posément, en ligne, à la maison. Jouer une liste déjà chargée
- * hors ligne est un ticket à part (#11).
+ * Les listes du COMPTE, avec un cache en LECTURE SEULE (#11).
+ *
+ * Le serveur fait foi dès qu'il répond : sa réponse remplace le cache, donc une
+ * liste supprimée sur la tablette disparaît aussi d'ici. Quand il ne répond
+ * pas, on rend la dernière bibliothèque connue — l'enfant retrouve ses cartes
+ * dans le train.
+ *
+ * Le cache ne se remplit QUE de ce que le serveur a dit. Aucune intention
+ * locale n'y entre, et aucune modification n'est mise en file : ce serait la
+ * porte ouverte aux conflits d'édition (deux appareils qui renomment la même
+ * liste) pour un cas qui n'arrivera pas — préparer une liste est un geste
+ * posé, à la maison.
  */
-export const listesDistantes = () =>
-  json<{ listes: Liste[] }>('/api/listes').then((r) => r.listes);
+export async function listesDistantes(): Promise<Liste[]> {
+  try {
+    const { listes } = await json<{ listes: unknown }>('/api/listes');
+    /* On garde ce qu'on a VÉRIFIÉ, jamais le corps brut : une réponse tronquée
+       écrirait « undefined » et détruirait en silence la bibliothèque gardée. */
+    const saines = listesValides(listes);
+    ecrire(CLE_LISTES, saines);
+    return saines;
+  } catch (erreur) {
+    /* Une réponse d'ERREUR est une réponse, et on la laisse remonter à
+       l'écran : servir le cache sur un 500 ferait passer une panne pour un
+       fonctionnement normal. Seule l'absence de réponse vaut « hors ligne ». */
+    if (!estHorsLigne(erreur)) throw erreur;
+    return listesEnCache();
+  }
+}
+
+/** La dernière bibliothèque connue de cet appareil, relue avec méfiance. */
+const listesEnCache = (): Liste[] => listesValides(lire<unknown>(CLE_LISTES, []));
 
 export const creerListeDistante = (nom: string, mots: string[]) =>
   json<Liste>('/api/listes', { method: 'POST', body: JSON.stringify({ nom, mots }) });

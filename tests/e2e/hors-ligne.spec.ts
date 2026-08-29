@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { creeListe, jouerItem, ouvrir, sauvegarde } from './helpers/app';
+import { creeListe, jouerItem, motCourant, ouvrir, sauvegarde } from './helpers/app';
 
 /**
  * La coquille n'est gardée qu'une fois le service worker AUX COMMANDES : les
@@ -174,4 +174,80 @@ test('la session expirée ramène à l’écran de connexion', async ({ page, co
   await expect(page.getByRole('button', { name: /Se connecter|Créer/ }).first()).toBeVisible();
   await expect(page.locator('body')).not.toHaveAttribute('data-vue', 'V1');
   expect(await page.evaluate(() => localStorage.getItem('tapeavecmoi.compte'))).toBeNull();
+});
+
+/**
+ * #11 — dans le train, l'enfant retrouve ses cartes. La bibliothèque appartient
+ * au compte et vient du réseau ; sans cache, l'accueil hors ligne n'aurait
+ * offert que le parcours, et la dictée préparée la veille aurait disparu.
+ */
+test('sans réseau, les listes connues sont sur l’accueil et se jouent', async ({
+  page,
+  context,
+}) => {
+  await ouvrir(page, 'fr-FR', 1);
+  await creeListe(page, 'Dictée du mardi', ['papa', 'maman']);
+  /* Un passage en ligne où l'application VOIT la liste : c'est ce passage-là
+     qui remplit le cache, comme la veille du départ. */
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Dictée du mardi/ })).toBeVisible();
+  await coquilleGardee(page);
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+
+  const carte = page.getByRole('button', { name: /Dictée du mardi/ });
+  await expect(carte).toBeVisible();
+  await carte.click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+  expect(['papa', 'maman']).toContain((await motCourant(page))!);
+});
+
+/**
+ * Le cache est en LECTURE SEULE. Hors ligne, le parent ne peut pas préparer sa
+ * dictée — et l'application le DIT, au lieu d'échouer en silence ou de faire
+ * croire à un enregistrement qui partirait plus tard. Rien n'est mis en file :
+ * ce serait la porte ouverte aux conflits d'édition entre deux appareils.
+ */
+test('hors ligne, créer une liste est refusé et dit pourquoi', async ({ page, context }) => {
+  await ouvrir(page, 'fr-FR', 1);
+  await creeListe(page, 'Déjà là', ['papa']);
+  await page.reload();
+  await coquilleGardee(page);
+
+  await context.setOffline(true);
+  await page.reload();
+
+  /* On joue d'abord un mot : la file porte alors une progression, et la
+     vérification d'en bas cesse d'être vraie par vacuité — une file vide
+     satisfait n'importe quelle assertion sur son contenu. */
+  await page.getByRole('button', { name: 'On commence !' }).click();
+  await jouerItem(page, 'fr-FR');
+  await page.waitForFunction(
+    () => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]').length === 1,
+  );
+
+  await page.goto('/');
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+
+  // la liste connue est bien LÀ, elle
+  await expect(page.getByRole('button', { name: 'Modifier Déjà là' })).toBeVisible();
+
+  await page.getByLabel('Nom de la liste').fill('Impossible');
+  await page.getByLabel('Les mots de la liste').fill('chat');
+  await page.getByRole('button', { name: 'Créer la liste' }).click();
+
+  await expect(page.getByRole('alert')).toContainText(/Hors ligne/);
+  await expect(page.getByRole('alert')).toContainText(/rien n’est perdu/i);
+
+  /* La file porte TOUJOURS la seule progression jouée plus haut, et rien de
+     plus : la création refusée ne s'y est pas glissée pour partir toute seule
+     plus tard. */
+  const file = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]') as { profilDistant?: string }[],
+  );
+  expect(file).toHaveLength(1);
+  expect(file[0].profilDistant).toEqual(expect.any(String));
 });
