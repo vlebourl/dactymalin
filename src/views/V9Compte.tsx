@@ -25,8 +25,9 @@ export function V9Compte() {
   const [file, setFile] = useState(0);
   /** Prénoms en cours de saisie, par profil : le champ suit le parent. */
   const [saisie, setSaisie] = useState<Record<string, string>>({});
+  const [echec, setEchec] = useState<string | null>(null);
 
-  const noter = (liste: ProfilDistant[]) => {
+  const adopterListe = (liste: ProfilDistant[]) => {
     setProfils(liste);
     /* Le cache local suit le compte : un prénom corrigé ici doit s'afficher
        tout de suite sur l'écran « Qui joue ? » et dans la leçon. */
@@ -40,7 +41,7 @@ export function V9Compte() {
     setFile(enAttente());
     if (!c) return setProfils([]);
     try {
-      noter(await profilsDistants());
+      adopterListe(await profilsDistants());
     } catch {
       setProfils([]);
     }
@@ -53,13 +54,16 @@ export function V9Compte() {
   const renommer = async (id: string) => {
     const prenom = (saisie[id] ?? '').trim();
     if (!prenom) return;
+    setEchec(null);
     try {
       await renommerProfilDistant(id, prenom);
-      noter(await profilsDistants());
+      adopterListe(await profilsDistants());
     } catch {
-      /* Réseau absent : on remet ce que le serveur sait, pour ne pas laisser
-         croire à un renommage qui n'a pas eu lieu. */
-      noter(profils);
+      /* On remet ce que le serveur sait, et on DIT pourquoi : un champ qui
+         revient tout seul à l'ancien prénom, sans un mot, laisse le parent
+         croire qu'il a mal tapé. */
+      adopterListe(profils);
+      setEchec("Le renommage n'a pas pu être enregistré : vérifiez la connexion.");
     }
   };
 
@@ -97,6 +101,11 @@ export function V9Compte() {
                 ? 'Toutes les progressions sont synchronisées.'
                 : `${file} progression(s) en attente d'envoi.`}
             </p>
+            {echec && (
+              <p className={v.erreurCompte} role="alert">
+                {echec}
+              </p>
+            )}
             <ul className={v.listeProfils}>
               {profils.map((p) => (
                 <li key={p.id}>

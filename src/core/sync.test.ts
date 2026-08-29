@@ -109,6 +109,18 @@ describe('file d’attente des progressions', () => {
     expect(s.puts.map((p) => p.etat.palier)).toEqual([4]);
   });
 
+  it('un envoi que le serveur refusera TOUJOURS est jeté, il ne bloque pas la suite', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    /* Profil supprimé sur un autre appareil : 404 à chaque tentative. Gardé en
+       tête de file, il condamnait toutes les progressions suivantes. */
+    s.fetchFaux.mockImplementationOnce(async () => rep({ erreur: 'profil introuvable' }, 404));
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(enAttente()).toBe(0);
+
+    await pousser('a', { ...DEFAUTS, palier: 4 });
+    expect(s.puts.map((p) => p.etat.palier)).toEqual([4]);
+  });
+
   it('un état corrompu n’entre jamais dans la file', async () => {
     const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
     await pousser('a', { ...DEFAUTS, palier: 99 } as unknown as Sauvegarde);
@@ -237,6 +249,18 @@ describe('réconciliation : l’appareil local ne gagne plus par principe', () =
 
     await synchroniserProfils();
     expect(s.puts).toHaveLength(0);
+  });
+
+  it('une copie locale sans horodatage garde ses acquis et rend les préférences', async () => {
+    /* L'horodatage local peut manquer (clé perdue, stockage refusé une fois) :
+       la progression ne doit pas être écrasée pour autant. */
+    sauver({ ...local, palier: 6 }, cleDe('d1'));
+    serveur([{ id: 'd1', prenom: 'Timo', etat: distant, majLe: '2026-08-02T10:00:00.000Z' }]);
+
+    await synchroniserProfils();
+    const apres = charger(cleDe('d1'));
+    expect(apres.palier).toBe(6); // l'acquis local survit
+    expect(apres.reglages).toEqual(distant.reglages); // les préférences reviennent au serveur
   });
 
   it('une progression locale que le serveur ignore encore lui est envoyée', async () => {

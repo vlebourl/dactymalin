@@ -105,7 +105,9 @@ describe('cache local des profils du compte', () => {
     remplacerIndex([{ id: 'a', nom: 'Timo' }]);
     sauver({ ...DEFAUTS, palier: 6 }, cleDe('a'));
     sauver({ ...DEFAUTS, palier: 7 }, cleDe('a')); // crée aussi la sauvegarde de secours
+    sauver({ ...DEFAUTS, palier: 8 }); // clé d'avant les identifiants serveur
     oublierProfils();
+    expect(localStorage.getItem(CLE)).toBeNull();
     expect(chargerIndex().liste).toEqual([]);
     expect(localStorage.getItem(cleDe('a'))).toBeNull();
     expect(localStorage.getItem(`${cleDe('a')}.backup`)).toBeNull();
