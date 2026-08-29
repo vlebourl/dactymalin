@@ -20,6 +20,10 @@ test('le compte est lisible sur chaque écran, sans se recharger', async ({ page
   const passer = async (versLaVue: () => Promise<void>, vue: string) => {
     await versLaVue();
     await expect(page.locator('body')).toHaveAttribute('data-vue', vue);
+    /* `toBeVisible` et pas `toContainText` : ce dernier passe sur un élément
+       caché, et il aurait donc continué à « prouver » la présence du bandeau
+       là où il est justement effacé. */
+    await expect(bandeau(page)).toBeVisible();
     await expect(bandeau(page)).toContainText(email);
   };
 
@@ -31,11 +35,13 @@ test('le compte est lisible sur chaque écran, sans se recharger', async ({ page
   await passer(() => page.getByRole('button', { name: 'Ouvrir' }).click(), 'V9');
   await passer(() => page.getByLabel('Revenir').click(), 'V7');
   await passer(() => page.getByLabel('Revenir').click(), 'V1');
-  await passer(() => page.getByRole('button', { name: 'On commence !' }).click(), 'V4');
+  /* La leçon est le seul écran qui l'efface — c'est vérifié à part. On la
+     traverse donc, et on retrouve le bandeau au bilan de fin de bloc. */
+  await page.getByRole('button', { name: 'On commence !' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+  await expect(bandeau(page)).toBeHidden();
 
-  // …jusque dans la leçon, et jusqu'au bilan de fin de bloc
   await jouerItem(page, 'fr-FR');
-  await expect(bandeau(page)).toContainText(email);
 });
 
 /**
@@ -87,6 +93,48 @@ test('hors ligne, le bandeau affiche encore le compte connu', async ({ page, con
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
   await expect(bandeau(page)).toContainText(email);
+});
+
+/**
+ * Le critère d'accessibilité, vérifié sur l'ARBRE d'accessibilité et non sur le
+ * balisage : `getByRole` passe par lui, donc si le nom n'est pas calculé, le
+ * test ne trouve rien. C'est exactement ce qui manquait — un `aria-label` posé
+ * sur un `div` nu est ignoré (rôle `generic`, nom interdit), et rien ne le
+ * disait.
+ */
+test('le bandeau est un repère nommé, pas un texte anonyme', async ({ page }) => {
+  const email = await inscrit(page);
+  await ouvrir(page, 'fr-FR', 1);
+
+  const repere = page.getByRole('complementary', { name: 'Compte connecté' });
+  await expect(repere).toBeVisible();
+  await expect(repere).toContainText(email);
+});
+
+/**
+ * …et il s'efface PENDANT la leçon. Le cahier des charges est catégorique sur
+ * cet écran : « un enfant de 7 ans ne doit décoder qu'UNE SEULE chose à
+ * l'écran ». Une adresse d'adulte n'y a rien à faire, et le parent qui se
+ * demande sur quel compte il est ne se le demande pas pendant que l'enfant
+ * tape. Il revient dès la fin du bloc.
+ */
+test('le bandeau s’efface pendant la leçon, et revient après', async ({ page }) => {
+  await inscrit(page);
+  await ouvrir(page, 'fr-FR', 1);
+  await expect(bandeau(page)).toBeVisible();
+
+  await page.getByRole('button', { name: 'On commence !' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+  await expect(bandeau(page)).toBeHidden();
+
+  /* Et l'écran de la leçon retrouve TOUTE sa hauteur : le clavier n'est pas
+     rogné par un bandeau qui lui prendrait quelques pixels. */
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const deborde = await page.evaluate(() => {
+    const e = document.scrollingElement!;
+    return e.scrollHeight - e.clientHeight;
+  });
+  expect(deborde).toBeLessThanOrEqual(1);
 });
 
 /* Y compris sur « Qui joue ? », qui précède l'application elle-même : c'est
