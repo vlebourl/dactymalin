@@ -11,9 +11,20 @@
  * serveur, pas de sa documentation.
  */
 
+import { PRENOM_MAX, PROFILS_MAX } from './profils';
+
 export type Mode = 'connexion' | 'creation';
 
 type Echec = { statut?: number; code?: string };
+
+/** Sans code, ou avec un code inconnu : le statut décide, et il est toujours dit. */
+const parDefaut = (statut: number | undefined, sur401: string) => {
+  if (statut === 401) return sur401;
+  if (statut !== undefined && statut >= 500) {
+    return 'Le serveur a un problème. Réessayez dans un instant.';
+  }
+  return inattendu(statut);
+};
 
 /** Dernier recours : jamais muet sur le statut, pour rester diagnosticable. */
 const inattendu = (statut?: number) =>
@@ -53,4 +64,27 @@ export function messageDEchec(erreur: unknown, mode: Mode): string {
       : 'Adresse ou mot de passe incorrect.';
   }
   return inattendu(statut);
+}
+
+/**
+ * Même principe, pour la gestion des enfants (#18) : le serveur nomme la cause
+ * dans `code`, l'écran la traduit. Un « Ajouter » qui ne fait rien, sans un
+ * mot, laisse le parent croire que le bouton est cassé — alors que le foyer a
+ * simplement déjà un Timo.
+ */
+export function messageDEchecProfil(erreur: unknown): string {
+  const { statut, code } = (erreur ?? {}) as Echec;
+
+  switch (code) {
+    case 'PRENOM_DEJA_PRIS':
+      return 'Un enfant du foyer porte déjà ce prénom. Choisissez-en un autre.';
+    case 'TROP_DE_PROFILS':
+      return `Ce compte a atteint ses ${PROFILS_MAX} enfants. Supprimez-en un pour en ajouter un autre.`;
+    case 'PRENOM_INVALIDE':
+      return `Ce prénom ne convient pas : au moins une lettre, ${PRENOM_MAX} au maximum.`;
+    case 'PROFIL_INTROUVABLE':
+      return "Cet enfant n'existe plus sur le compte. Rechargez la page.";
+  }
+
+  return parDefaut(statut, 'La session a expiré. Il faut se reconnecter.');
 }
