@@ -1,5 +1,6 @@
 #!/bin/sh
-# Un push sur `main` DÉCLENCHE le déploiement : Coolify écoute le webhook Gitea.
+# Un push sur `main` ne déploie PAS : il n'y a pas de webhook (Coolify est sur
+# le LAN). Le déploiement se déclenche à la main par `npm run deploy`.
 # Il n'y a donc pas de CI pour rattraper une erreur après coup — le filet est
 # ici, avant l'envoi. Activation (une fois par clone) :
 #

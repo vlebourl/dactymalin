@@ -1,7 +1,7 @@
 #!/bin/bash
 # Déclenche un déploiement Coolify et attend le verdict.
 #
-# Pourquoi pas le webhook Gitea : Gitea refuse par défaut d'appeler une adresse
+# Pourquoi pas de webhook : Coolify est sur le LAN, GitHub ne peut pas appeler une adresse
 # privée (ALLOWED_HOST_LIST), et l'hôte Coolify est en 192.168.1.48. Le webhook
 # reste configuré — s'il se met à passer un jour, tant mieux — mais le chemin
 # sûr est celui-ci, explicite et vérifiable.

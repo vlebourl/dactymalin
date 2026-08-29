@@ -77,8 +77,9 @@ Copie du modèle ecoride, vérifié le 2026-08-28 :
 - **Build pack** : Dockerfile multi-stage (build Vite + serveur), port 3000,
   healthcheck `GET /api/health`.
 - **Domaine** : `typing.tiarkaerell.com`, TLS par le proxy Coolify.
-- **Déclencheur** : webhook Coolify sur la source **Gitea**. Un push sur
-  `main` de `vlb/typing-app` déclenche build et déploiement. Pas de GitHub
+- **Déclencheur** : `npm run deploy`, qui appelle l'API Coolify. Le webhook
+  est inutilisable : Coolify n'est joignable que sur le LAN (`192.168.1.48`),
+  que GitHub ne peut pas atteindre. Pas de GitHub
   Actions ni de runner : le montage d'ecoride n'existe que parce qu'un bump de
   version doit précéder son deploy, ce que cette app n'a pas.
 - **Migrations** : `drizzle-kit migrate` au démarrage du conteneur, précédé du
@@ -112,22 +113,22 @@ s'arrêter après n'importe laquelle.
 
 ## Étape 0 — Prérequis hors dépôt (à faire par Vincent)
 
-Le dépôt est hébergé sur **Gitea** (`https://git.tiarkaerell.com/vlb/typing-app`,
-privé), pas sur GitHub : c'est la règle en vigueur ici, tea plutôt que gh.
+Le dépôt est hébergé sur **GitHub** (`https://github.com/vlebourl/dactymalin`,
+**public**), et l'outil est `gh`. Il a d'abord vécu sur Gitea
+(`git.tiarkaerell.com/vlb/typing-app`) ; migré le 2026-08-29. Le remote `gitea`
+qui traîne encore dans certains clones est périmé.
 
 | # | Action | Où | Qui |
 |---|---|---|---|
-| 0.1 | Dépôt privé `vlb/typing-app` créé | Gitea | **fait** (`tea repo create`) |
+| 0.1 | Dépôt public `vlebourl/dactymalin` créé | GitHub | **fait** |
 | 0.2 | Remote `origin` en HTTPS ajouté | local | **fait** |
 | 0.3 | Premier `git push -u origin main` | local | Vincent |
 | 0.4 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com | Vincent |
-| 0.5 | Créer l'application Coolify — source Gitea `vlb/typing-app`, branche `main`, build pack Dockerfile, auto-deploy activé | UI Coolify, `192.168.1.48` | Vincent |
+| 0.5 | Créer l'application Coolify — dépôt public `github.com/vlebourl/dactymalin`, branche `main`, build pack Dockerfile, auto-deploy activé | UI Coolify, `192.168.1.48` | Vincent |
 | 0.6 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify | Vincent |
 | 0.7 | Renseigner les variables d'environnement de l'app | UI Coolify | Vincent |
 
-Le push initial me reste fermé : la SSH Gitea (`:30143`) est injoignable depuis
-ce Mac, et le hook `deny-secrets.sh` m'interdit de lire le token dans la config
-tea. Le reste (0.4 à 0.7) crée des ressources publiques et manipule des
+Le reste (0.4 à 0.7) crée des ressources publiques et manipule des
 secrets — c'est à toi.
 
 ## Étape 1 — Squelette serveur (≈ 30 min)
@@ -265,8 +266,8 @@ l'autre, et couper le serveur en pleine leçon ne se voit pas.
 
 **Ajouts** — `docs/DEPLOIEMENT-RUNBOOK.md`, `.githooks/pre-push`.
 
-- Le déploiement est déclenché par **Coolify lui-même**, sur push `main` de la
-  source Gitea. Rien à écrire dans le dépôt pour ça.
+- Le déploiement est déclenché **explicitement** par `npm run deploy`, qui
+  appelle l'API Coolify. Aucun webhook : Coolify est sur le LAN.
 - Le filet de sécurité passe donc **avant** le push, pas après : un hook
   `pre-push` versionné (`git config core.hooksPath .githooks`) refuse de
   pousser si `npm run build`, `npm test` ou `npm run e2e` échouent. Sans runner
@@ -311,12 +312,14 @@ sur l'app avec compte.
 
 Les sept étapes sont faites. Ce qui a changé par rapport au plan :
 
-- **Gitea, pas GitHub** (règle en vigueur : tea, pas gh). Le dépôt est
-  `vlb/typing-app`. Coolify clone par clé de déploiement en lecture seule, sur
-  l'adresse LAN `192.168.1.225:30143` — le domaine passe par Cloudflare, qui ne
-  laisse passer que le 443.
-- **Pas de CI**, donc pas de workflow : le webhook Gitea suffit, et le filet est
-  un hook `pre-push` versionné (`.githooks/pre-push`).
+- **Gitea d'abord, GitHub ensuite.** Le dépôt a vécu sur `vlb/typing-app`
+  (Gitea, privé, clone par clé de déploiement sur `192.168.1.225:30143`). Il a
+  été **migré vers `github.com/vlebourl/dactymalin` (public) le 2026-08-29** ;
+  Coolify le clone désormais en HTTPS anonyme, sans clé.
+- **Pas de CI**, donc pas de workflow. Et pas de webhook non plus : Coolify
+  n'est joignable que sur le LAN. Le déploiement est déclenché à la main
+  (`npm run deploy`) et le filet est un hook `pre-push` versionné
+  (`.githooks/pre-push`).
 - **Nginx Proxy Manager** publie `typing.tiarkaerell.com` vers le port hôte
   **3003**. Coolify ne gère pas le TLS ici.
 - **`estIntact`** sert de validateur côté serveur : le plan disait « le même
