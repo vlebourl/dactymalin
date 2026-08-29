@@ -24,11 +24,6 @@ export function V1Accueil() {
   const app = useApp();
   const envoi = useEnvoi();
   const d = disposition(app.disposition);
-  /* L'accueil ne demande plus rien à l'enfant : il dit « appuie ici pour
-     jouer ». Le champ de saisie est parti dans l'espace parent (#12) — un
-     enfant qui apprend à taper ne saisit pas vingt mots, et ce textarea était
-     l'élément le plus lourd de l'écran. */
-
   /* Une carte qui lance un bloc vide n'est pas une carte : la liste vient du
      COMPTE, la disposition vient de CET appareil, et les deux peuvent ne pas
      s'accorder. Mieux vaut pas de carte qu'une carte sans rien à taper. */
@@ -66,14 +61,12 @@ export function V1Accueil() {
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
-        <div className={v.choixDepart}>
-          <button
-            className={[u.bouton, u.primaire, u.geant].join(' ')}
-            onClick={() => envoi({ type: 'commencer', liste: null })}
-          >
-            On commence !
-          </button>
-        </div>
+        <button
+          className={[u.bouton, u.primaire, u.geant].join(' ')}
+          onClick={() => envoi({ type: 'commencer', liste: null })}
+        >
+          On commence !
+        </button>
 
         {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
             saisit rien : il reconnaît la carte de sa dictée et appuie. */}

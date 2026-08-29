@@ -44,7 +44,7 @@ export function listeValidee(nom: unknown, mots: unknown): { nom: string; mots: 
 /**
  * Les mots que la disposition ne sait pas écrire directement — « la fête »
  * demande une touche morte, deux frappes pour un seul caractère attendu.
- * `composerBlocPerso` les écarte déjà au moment de jouer ; cette fonction
+ * `composerBlocDeListe` les écarte déjà au moment de jouer ; cette fonction
  * existe pour que le parent l'apprenne à la saisie plutôt que de chercher
  * pourquoi son mot n'apparaît jamais.
  */
@@ -62,7 +62,7 @@ export function motsIntapables(mots: string[], id: IdDisposition): string[] {
  * disposition appartient à l'appareil : retrancher ici ferait disparaître pour
  * tout le foyer les mots que CE clavier ne sait pas écrire, à la première
  * ouverture de la liste sur la tablette. Le tri se fait au moment de jouer,
- * appareil par appareil, où il est réversible (`composerBlocPerso`).
+ * appareil par appareil, où il est réversible (`composerBlocDeListe`).
  */
 export function motsDeLaSaisie(
   texte: string,

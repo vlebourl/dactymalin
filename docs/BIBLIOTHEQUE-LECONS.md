@@ -81,14 +81,14 @@ liste(id text PK, user_id text → user cascade, nom text, mots jsonb, cree_le)
   isolé, on charge toujours la liste entière. Même choix que `progression.etat`
   (`schema.ts:85`).
 - **Forme minimale** : `{id, nom, mots[], créée le}`. Pas d'icône, pas de
-  couleur, pas d'ordre imposé ni de taille de bloc paramétrable. `composerBlocPerso`
+  couleur, pas d'ordre imposé ni de taille de bloc paramétrable. `composerBlocDeListe`
   mélange et coupe à 12 — ça marche, on ne le paramètre pas avant qu'un usage
   réel le demande.
 - **Privée au compte.** Ni partage par lien, ni catalogue public. Ce sont des
   produits différents : le partage apporte modération et contenu tiers arbitraire,
   le catalogue apporte un travail éditorial. On ne les bâcle pas maintenant.
 - **Bornes** : 30 listes par compte, 100 mots par liste, 1 à 30 caractères par
-  mot. Les deux dernières sont les bornes actuelles de `motsPersoValides`.
+  mot. Les deux dernières sont les bornes actuelles de `motsValides` (alors `motsPersoValides`).
 
 ### Ce qui disparaît
 

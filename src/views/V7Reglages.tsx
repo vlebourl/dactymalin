@@ -109,7 +109,6 @@ export function V7Reglages() {
             </div>
           </div>
 
-
           {INTERRUPTEURS.map((r) => (
             <div key={r.cle} className={v.ligneReglage}>
               <span>

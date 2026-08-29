@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
 import { creerEtat, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
-import { composerBloc, composerBlocPerso, pouceDeLEspace } from '../core/generator';
+import { composerBloc, composerBlocDeListe, pouceDeLEspace } from '../core/generator';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -43,7 +43,7 @@ export function V4Lecon() {
   const items = useMemo(
     () =>
       app.listeJouee
-        ? composerBlocPerso(app.listeJouee.mots, id)
+        ? composerBlocDeListe(app.listeJouee.mots, id)
         : composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
     // un nouveau bloc à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
