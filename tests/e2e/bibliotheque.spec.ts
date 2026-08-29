@@ -19,14 +19,14 @@ test('le parent crée une liste, l’enfant la joue, le palier ne bouge pas', as
   await page.getByLabel('Nom de la liste').fill('Dictée de la semaine');
   await page.getByLabel('Les mots de la liste').fill(MOTS.join('\n'));
   await page.getByRole('button', { name: 'Créer la liste' }).click();
-  await expect(page.getByText('Dictée de la semaine')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Modifier Dictée de la semaine' })).toBeVisible();
 
   // — la liste survit à un rechargement : elle vit sur le compte, pas ici.
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
   await page.getByLabel('Réglages').click();
   await page.getByRole('button', { name: 'Ouvrir' }).click();
-  await expect(page.getByText('Dictée de la semaine')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Modifier Dictée de la semaine' })).toBeVisible();
   await page.getByLabel('Revenir').click();
   await page.getByLabel('Revenir').click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
@@ -99,7 +99,7 @@ test('les deux enfants du foyer voient la même liste', async ({ page }) => {
   await page.getByLabel('Nom de la liste').fill('La famille');
   await page.getByLabel('Les mots de la liste').fill('papi\nmamie');
   await page.getByRole('button', { name: 'Créer la liste' }).click();
-  await expect(page.getByText('La famille')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Modifier La famille' })).toBeVisible();
 
   await page.getByLabel('Prénom du nouvel enfant').fill('Zoé');
   await page.getByRole('button', { name: 'Ajouter un enfant' }).click();
@@ -124,4 +124,59 @@ test('les deux enfants du foyer voient la même liste', async ({ page }) => {
     await expect(page.getByRole('button', { name: /La famille/ })).toBeVisible();
     await page.reload();
   }
+});
+
+/**
+ * #10 — la dictée change chaque semaine. Le parent réécrit SA liste plutôt
+ * que d'en empiler une nouvelle, la renomme, et jette celles qui ne servent
+ * plus pour que la grille de l'enfant ne se remplisse pas de listes mortes.
+ */
+test('le parent modifie, renomme, puis supprime une liste', async ({ page }) => {
+  await ouvrir(page, 'fr-FR', 1);
+  const parent = async () => {
+    await page.getByLabel('Réglages').click();
+    await page.getByRole('button', { name: 'Ouvrir' }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V9');
+  };
+
+  await parent();
+  await page.getByLabel('Nom de la liste').fill('Dictée');
+  await page.getByLabel('Les mots de la liste').fill('papa\nmaman');
+  await page.getByRole('button', { name: 'Créer la liste' }).click();
+  await expect(page.getByRole('button', { name: 'Modifier Dictée' })).toBeVisible();
+
+  // — modifier les mots ET le nom d'un coup, puis relire depuis le serveur
+  await page.getByRole('button', { name: 'Modifier Dictée' }).click();
+  await page.getByLabel('Nom de Dictée').fill('Dictée du 2 septembre');
+  await page.getByLabel('Les mots de Dictée').fill('lundi\nmardi\nmercredi');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByRole('button', { name: 'Modifier Dictée du 2 septembre' })).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+
+  // — le nouveau nom est sur la carte de l'accueil, et ce sont les nouveaux mots
+  const carte = page.getByRole('button', { name: /Dictée du 2 septembre/ });
+  await expect(carte).toBeVisible();
+  await expect(carte).toContainText('3 mots');
+  await carte.click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+  expect(['lundi', 'mardi', 'mercredi']).toContain((await motCourant(page))!);
+
+  // — supprimer : une confirmation d'abord, et elle nomme la liste
+  await page.goto('/');
+  await parent();
+  await page.getByLabel('Supprimer Dictée du 2 septembre').click();
+  await expect(page.getByRole('alert')).toContainText('Dictée du 2 septembre');
+  await page.getByRole('button', { name: 'Annuler' }).click();
+  await expect(page.getByRole('button', { name: 'Modifier Dictée du 2 septembre' })).toBeVisible();
+
+  await page.getByLabel('Supprimer Dictée du 2 septembre').click();
+  await page.getByRole('button', { name: 'Oui, supprimer Dictée du 2 septembre' }).click();
+  await expect(page.getByText("Aucune liste pour l'instant.")).toBeVisible();
+
+  // — et elle a bien disparu de l'accueil de l'enfant
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+  await expect(page.getByRole('button', { name: /Dictée/ })).toHaveCount(0);
 });

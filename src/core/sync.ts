@@ -166,6 +166,12 @@ export const listesDistantes = () =>
 export const creerListeDistante = (nom: string, mots: string[]) =>
   json<Liste>('/api/listes', { method: 'POST', body: JSON.stringify({ nom, mots }) });
 
+export const modifierListeDistante = (id: string, nom: string, mots: string[]) =>
+  json<Liste>(`/api/listes/${id}`, { method: 'PUT', body: JSON.stringify({ nom, mots }) });
+
+export const supprimerListeDistante = (id: string) =>
+  json(`/api/listes/${id}`, { method: 'DELETE' });
+
 /* ------------------------------------------------------------------- envoi */
 
 async function envoyer(e: EnAttente): Promise<void> {

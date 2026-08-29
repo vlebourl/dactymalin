@@ -29,6 +29,16 @@ d('bibliothèque de listes', () => {
   const creer = (h: HeadersInit, nom: unknown, mots: unknown) =>
     app.request('/api/listes', { method: 'POST', headers: h, body: JSON.stringify({ nom, mots }) });
 
+  const modifier = (h: HeadersInit, id: string, nom: unknown, mots: unknown) =>
+    app.request(`/api/listes/${id}`, {
+      method: 'PUT',
+      headers: h,
+      body: JSON.stringify({ nom, mots }),
+    });
+
+  const supprimer = (h: HeadersInit, id: string) =>
+    app.request(`/api/listes/${id}`, { method: 'DELETE', headers: h });
+
   const lire = async (h: HeadersInit) =>
     (await (await app.request('/api/listes', { headers: h })).json()) as {
       listes: { id: string; nom: string; mots: string[]; creeLe: string }[];
@@ -102,6 +112,96 @@ d('bibliothèque de listes', () => {
     expect(uneDeTrop.status).toBe(409);
     expect(((await uneDeTrop.json()) as { code: string }).code).toBe('TROP_DE_LISTES');
     expect((await lire(h)).listes).toHaveLength(LISTES_MAX);
+  });
+
+  /* #10 — la dictée change chaque semaine : on modifie la liste, on ne la
+     recrée pas. */
+  it('modifie les mots et le nom d’une liste, et les relit', async () => {
+    const h = await inscrire(`r${Date.now()}@exemple.fr`);
+    const { id } = (await (await creer(h, 'Dictée', ['chat'])).json()) as { id: string };
+
+    const modifiee = await modifier(h, id, 'Dictée du 2 septembre', ['chien', 'cheval']);
+    expect(modifiee.status).toBe(200);
+    expect(await modifiee.json()).toMatchObject({
+      id,
+      nom: 'Dictée du 2 septembre',
+      mots: ['chien', 'cheval'],
+    });
+
+    const { listes } = await lire(h);
+    expect(listes).toHaveLength(1);
+    expect(listes[0]).toMatchObject({ id, nom: 'Dictée du 2 septembre', mots: ['chien', 'cheval'] });
+  });
+
+  it('refuse une modification invalide, et laisse la liste intacte', async () => {
+    const h = await inscrire(`s${Date.now()}@exemple.fr`);
+    const { id } = (await (await creer(h, 'Dictée', ['chat'])).json()) as { id: string };
+
+    expect((await modifier(h, id, '', ['chien'])).status).toBe(400);
+    expect((await modifier(h, id, 'Dictée', [])).status).toBe(400);
+    expect((await modifier(h, id, 'n'.repeat(NOM_LISTE_MAX + 1), ['chien'])).status).toBe(400);
+
+    expect((await lire(h)).listes[0]).toMatchObject({ nom: 'Dictée', mots: ['chat'] });
+  });
+
+  it('supprime une liste, et elle ne revient pas', async () => {
+    const h = await inscrire(`t${Date.now()}@exemple.fr`);
+    const { id } = (await (await creer(h, 'Morte', ['chat'])).json()) as { id: string };
+
+    const suppression = await supprimer(h, id);
+    expect(suppression.status).toBe(200);
+    expect((await lire(h)).listes).toHaveLength(0);
+
+    // deux fois de suite : la seconde ne trouve plus rien
+    expect((await supprimer(h, id)).status).toBe(404);
+  });
+
+  /* Supprimer libère une place sous le plafond : sinon le compte resterait
+     bloqué à 30 pour toujours. */
+  it('supprimer rend une place sous le plafond', async () => {
+    const h = await inscrire(`u${Date.now()}@exemple.fr`);
+    const ids: string[] = [];
+    for (let i = 0; i < LISTES_MAX; i++) {
+      ids.push(((await (await creer(h, `Liste ${i}`, ['chat'])).json()) as { id: string }).id);
+    }
+    expect((await creer(h, 'Une de trop', ['chat'])).status).toBe(409);
+    expect((await supprimer(h, ids[0])).status).toBe(200);
+    expect((await creer(h, 'La remplaçante', ['chat'])).status).toBe(201);
+  });
+
+  /* La règle non négociable, sur les QUATRE routes : lire, créer, modifier,
+     supprimer. C'est ici que fuiraient les données d'une famille vers une
+     autre. Un identifiant deviné ne donne rien — et le 404 ne dit même pas
+     que la liste existe. */
+  it("un compte ne modifie ni ne supprime la liste d'un autre", async () => {
+    const a = await inscrire(`v${Date.now()}@exemple.fr`);
+    const b = await inscrire(`w${Date.now()}@exemple.fr`);
+    const { id } = (await (await creer(a, 'Chez A', ['chat'])).json()) as { id: string };
+
+    expect((await modifier(b, id, 'Volée', ['pirate'])).status).toBe(404);
+    expect((await supprimer(b, id)).status).toBe(404);
+
+    // rien n'a bougé chez A
+    expect((await lire(a)).listes[0]).toMatchObject({ nom: 'Chez A', mots: ['chat'] });
+  });
+
+  it('refuse de modifier ou supprimer sans session', async () => {
+    const h = await inscrire(`x${Date.now()}@exemple.fr`);
+    const { id } = (await (await creer(h, 'Dictée', ['chat'])).json()) as { id: string };
+    const sansCookie = { 'Content-Type': 'application/json' };
+
+    expect(
+      (
+        await app.request(`/api/listes/${id}`, {
+          method: 'PUT',
+          headers: sansCookie,
+          body: JSON.stringify({ nom: 'Volée', mots: ['pirate'] }),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (await app.request(`/api/listes/${id}`, { method: 'DELETE', headers: sansCookie })).status,
+    ).toBe(401);
   });
 
   /* Le plafond se compte par compte, pas globalement : le voisin garde ses 30. */
