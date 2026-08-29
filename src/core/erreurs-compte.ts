@@ -11,6 +11,7 @@
  * serveur, pas de sa documentation.
  */
 
+import { LISTES_MAX, NOM_LISTE_MAX } from './listes';
 import { PRENOM_MAX, PROFILS_MAX } from './profils';
 
 export type Mode = 'connexion' | 'creation';
@@ -84,6 +85,24 @@ export function messageDEchecProfil(erreur: unknown): string {
       return `Ce prénom ne convient pas : au moins une lettre, ${PRENOM_MAX} au maximum.`;
     case 'PROFIL_INTROUVABLE':
       return "Cet enfant n'existe plus sur le compte. Rechargez la page.";
+  }
+
+  return parDefaut(statut, 'La session a expiré. Il faut se reconnecter.');
+}
+
+/**
+ * Et pour la bibliothèque (#9). Même règle : le serveur nomme la cause, l'écran
+ * la traduit. Le parent qui prépare la dictée du lundi soir n'a pas à deviner
+ * pourquoi son bouton reste sans effet.
+ */
+export function messageDEchecListe(erreur: unknown): string {
+  const { statut, code } = (erreur ?? {}) as Echec;
+
+  switch (code) {
+    case 'TROP_DE_LISTES':
+      return `Ce compte a atteint ses ${LISTES_MAX} listes. Supprimez-en une pour en ajouter une autre.`;
+    case 'LISTE_INVALIDE':
+      return `Il faut un nom (${NOM_LISTE_MAX} caractères au maximum) et au moins un mot.`;
   }
 
   return parDefaut(statut, 'La session a expiré. Il faut se reconnecter.');

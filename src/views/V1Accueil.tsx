@@ -81,6 +81,26 @@ export function V1Accueil() {
           </button>
         </div>
 
+        {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
+            saisit rien : il reconnaît la carte de sa dictée et appuie. */}
+        {app.listes.length > 0 && (
+          <ul className={v.cartesListes} aria-label="Les listes de la maison">
+            {app.listes.map((liste) => (
+              <li key={liste.id}>
+                <button
+                  className={v.carteListe}
+                  onClick={() => envoi({ type: 'commencer', liste })}
+                >
+                  <span className={v.carteNom}>{liste.nom}</span>
+                  <span className={v.carteMots}>
+                    {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
         {listeOuverte && (
           <div className={v.panneauListe}>
             <label className={v.promessePalier} htmlFor="mots-perso">

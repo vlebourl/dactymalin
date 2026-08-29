@@ -43,11 +43,14 @@ export function V4Lecon() {
   const items = useMemo(
     () =>
       app.blocPerso
-        ? composerBlocPerso(app.motsPerso, id)
+        ? /* Une carte de l'accueil impose SA liste ; sans carte, c'est encore
+             « Notre leçon », la liste unique d'avant la bibliothèque (#12 la
+             retirera). */
+          composerBlocPerso(app.listeJouee?.mots ?? app.motsPerso, id)
         : composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
     // un nouveau bloc à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.palier, app.bloc, app.blocPerso],
+    [id, app.palier, app.bloc, app.blocPerso, app.listeJouee],
   );
 
   // Latence de départ 0 : en débutant elle y reste plafonnée (P6).

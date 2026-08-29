@@ -8,6 +8,13 @@
       "when": 1787945375184,
       "tag": "0000_comptes_profils_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788015583708,
+      "tag": "0001_bibliotheque_de_listes",
+      "breakpoints": true
     }
   ]
 }

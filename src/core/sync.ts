@@ -1,3 +1,4 @@
+import type { Liste } from './listes';
 import { CLE, charger, estIntact, sauver, type Sauvegarde } from './storage';
 import { cleDe, oublierProfils, remplacerIndex } from './profils';
 import { fusionner } from './fusion';
@@ -151,6 +152,19 @@ export const renommerProfilDistant = (id: string, prenom: string) =>
 
 export const supprimerProfilDistant = (id: string) =>
   json(`/api/profils/${id}`, { method: 'DELETE' });
+
+/* ------------------------------------------------------------- bibliothèque */
+
+/**
+ * Les listes du COMPTE. Elles ne passent pas par la file d'envoi : le parent
+ * les prépare posément, en ligne, à la maison. Jouer une liste déjà chargée
+ * hors ligne est un ticket à part (#11).
+ */
+export const listesDistantes = () =>
+  json<{ listes: Liste[] }>('/api/listes').then((r) => r.listes);
+
+export const creerListeDistante = (nom: string, mots: string[]) =>
+  json<Liste>('/api/listes', { method: 'POST', body: JSON.stringify({ nom, mots }) });
 
 /* ------------------------------------------------------------------- envoi */
 
