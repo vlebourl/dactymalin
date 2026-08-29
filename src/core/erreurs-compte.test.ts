@@ -91,6 +91,7 @@ describe('messageDEchecProfil', () => {
 describe('messageDEchecListe', () => {
   const cas: [string, { statut?: number; code?: string }, RegExp][] = [
     ['plafond atteint', { statut: 409, code: 'TROP_DE_LISTES' }, new RegExp(`${LISTES_MAX} listes`)],
+    ['liste disparue', { statut: 404, code: 'LISTE_INTROUVABLE' }, /n'existe plus/],
     ['liste invalide', { statut: 400, code: 'LISTE_INVALIDE' }, /nom.*au moins un mot|au moins un mot/],
     ['session expirée', { statut: 401 }, /session a expiré/],
     ['serveur en panne', { statut: 503 }, /problème/],

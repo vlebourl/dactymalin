@@ -100,9 +100,11 @@ export function messageDEchecListe(erreur: unknown): string {
 
   switch (code) {
     case 'TROP_DE_LISTES':
-      /* Pas de « supprimez-en une » : la suppression n'existe pas encore
-         (#10). Un message qui indique un geste impossible est pire que muet. */
-      return `Ce compte a atteint ses ${LISTES_MAX} listes.`;
+      /* La suppression existe (#10) : le message peut de nouveau indiquer la
+         sortie, parce qu'elle est vraiment là. */
+      return `Ce compte a atteint ses ${LISTES_MAX} listes. Supprimez-en une pour en ajouter une autre.`;
+    case 'LISTE_INTROUVABLE':
+      return "Cette liste n'existe plus sur le compte. Rechargez la page.";
     case 'LISTE_INVALIDE':
       return `Il faut un nom (${NOM_LISTE_MAX} caractères au maximum) et au moins un mot.`;
   }

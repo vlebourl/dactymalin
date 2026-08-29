@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
-import { motsIntapables, NOM_LISTE_MAX, type Liste } from '../core/listes';
-import { motsPersoValides } from '../core/storage';
+import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
 import { chargerIndex, prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
 import {
   compteCourant,
   creerListeDistante,
   creerProfilDistant,
   listesDistantes,
+  modifierListeDistante,
+  supprimerListeDistante,
   deconnecter,
   enAttente,
   profilsDistants,
@@ -42,6 +43,77 @@ const refusDePrenom = (prenom: string): string | null =>
       : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`;
 
 /**
+ * « Supprimer », puis un « oui » explicite. La confirmation NOMME ce qu'elle
+ * détruit — « êtes-vous sûr ? » ne dit pas de quoi on parle, et c'est le seul
+ * geste irréversible de l'application.
+ *
+ * « Annuler » démonte le bouton qui avait le focus : sans le lui rendre, il
+ * retombe sur le corps du document et qui navigue au clavier se retrouve nulle
+ * part. Ce défaut a déjà été corrigé une fois ici ; il n'existe qu'en un seul
+ * endroit pour ne pas avoir à l'être deux.
+ */
+function ConfirmationSuppression({
+  quoi,
+  question,
+  surOui,
+}: {
+  /** Ce qu'on supprime, nommé : il apparaît sur les deux boutons. */
+  quoi: string;
+  /** La phrase qui dit ce que ça coûte. */
+  question: string;
+  surOui: () => void;
+}) {
+  const [confirme, setConfirme] = useState(false);
+  const bouton = useRef<HTMLButtonElement>(null);
+  const rendreLeFocus = useRef(false);
+
+  useEffect(() => {
+    if (!confirme && rendreLeFocus.current) {
+      bouton.current?.focus();
+      rendreLeFocus.current = false;
+    }
+  }, [confirme]);
+
+  if (!confirme) {
+    return (
+      <button
+        ref={bouton}
+        className={u.lien}
+        aria-label={`Supprimer ${quoi}`}
+        onClick={() => setConfirme(true)}
+      >
+        Supprimer
+      </button>
+    );
+  }
+
+  return (
+    <span className={v.confirmation} role="alert">
+      {question}{' '}
+      <button
+        className={v.petitBouton}
+        autoFocus
+        onClick={() => {
+          setConfirme(false);
+          surOui();
+        }}
+      >
+        {`Oui, supprimer ${quoi}`}
+      </button>{' '}
+      <button
+        className={u.lien}
+        onClick={() => {
+          rendreLeFocus.current = true;
+          setConfirme(false);
+        }}
+      >
+        Annuler
+      </button>
+    </span>
+  );
+}
+
+/**
  * Une ligne « enfant » : son prénom modifiable, où il en est, et sa
  * suppression. Chaque ligne porte SON brouillon et SON message — un refus de
  * renommage affiché en haut du panneau, loin du champ fautif, n'apprend à
@@ -59,20 +131,8 @@ function LigneEnfant({
   surChangement: () => Promise<void>;
 }) {
   const [brouillon, setBrouillon] = useState<string | null>(null);
-  const [confirme, setConfirme] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
-  const boutonSupprimer = useRef<HTMLButtonElement>(null);
-  const rendreLeFocus = useRef(false);
-
-  /* « Annuler » démonte le bouton qui avait le focus : sans ça, il retombe sur
-     le corps du document et qui navigue au clavier se retrouve nulle part. */
-  useEffect(() => {
-    if (!confirme && rendreLeFocus.current) {
-      boutonSupprimer.current?.focus();
-      rendreLeFocus.current = false;
-    }
-  }, [confirme]);
 
   const nom = brouillon ?? profil.prenom;
 
@@ -96,18 +156,12 @@ function LigneEnfant({
     }
   };
 
-  /**
-   * Supprimer, après un « oui » explicite : c'est le seul geste de l'app qui
-   * détruit une progression, et il est irréversible. La confirmation NOMME
-   * l'enfant — « êtes-vous sûr ? » ne dit pas de qui on parle.
-   */
   const supprimer = async () => {
     if (occupe) return;
     setOccupe(true);
     setEchec(null);
     try {
       await supprimerProfilDistant(profil.id);
-      setConfirme(false);
       await surChangement();
       /* L'enfant supprimé était celui en train de jouer : son état est chargé
          dans l'application entière, et la laisser tourner lui ferait écrire la
@@ -142,35 +196,11 @@ function LigneEnfant({
       <span className={v.promessePalier}>
         {profil.etat ? `palier ${profil.etat.palier}` : 'aucune progression enregistrée'}
       </span>{' '}
-      {confirme ? (
-        <span className={v.confirmation} role="alert">
-          Supprimer {profil.prenom} et toute sa progression ? C'est définitif.{' '}
-          <button className={v.petitBouton} autoFocus onClick={() => void supprimer()}>
-            {`Oui, supprimer ${profil.prenom}`}
-          </button>{' '}
-          <button
-            className={u.lien}
-            onClick={() => {
-              rendreLeFocus.current = true;
-              setConfirme(false);
-            }}
-          >
-            Annuler
-          </button>
-        </span>
-      ) : (
-        <button
-          ref={boutonSupprimer}
-          className={u.lien}
-          aria-label={`Supprimer ${profil.prenom}`}
-          onClick={() => {
-            setEchec(null);
-            setConfirme(true);
-          }}
-        >
-          Supprimer
-        </button>
-      )}
+      <ConfirmationSuppression
+        quoi={profil.prenom}
+        question={`Supprimer ${profil.prenom} et toute sa progression ? C'est définitif.`}
+        surOui={() => void supprimer()}
+      />
       {echec && (
         <span className={v.erreurCompte} role="alert">
           {' '}
@@ -178,6 +208,145 @@ function LigneEnfant({
         </span>
       )}
     </li>
+  );
+}
+
+/**
+ * Une ligne « liste » : son nom, ses mots, et sa suppression. Elle est repliée
+ * par défaut — trente listes dépliées feraient un mur d'où le parent ne
+ * retrouverait plus la sienne.
+ *
+ * Comme pour les enfants, chaque ligne porte SON brouillon et SON message : un
+ * refus affiché en haut du panneau, loin du champ fautif, n'apprend à personne
+ * quelle liste il concerne.
+ */
+function LigneListe({ liste, surChangement }: { liste: Liste; surChangement: () => Promise<void> }) {
+  const app = useApp();
+  const [ouverte, setOuverte] = useState(false);
+  const [nom, setNom] = useState(liste.nom);
+  const [motsSaisis, setMotsSaisis] = useState(liste.mots.join('\n'));
+  const [occupe, setOccupe] = useState(false);
+  const [echec, setEchec] = useState<string | null>(null);
+
+  const { mots: aEnregistrer, refuses } = motsDeLaSaisie(motsSaisis, app.disposition);
+  const inchangee =
+    nom.trim() === liste.nom && aEnregistrer.join('\n') === liste.mots.join('\n');
+
+  const enregistrer = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await modifierListeDistante(liste.id, nom.trim(), aEnregistrer);
+      setOuverte(false);
+      await surChangement();
+    } catch (erreur) {
+      setEchec(messageDEchecListe(erreur));
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  const supprimer = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await supprimerListeDistante(liste.id);
+      await surChangement();
+    } catch (erreur) {
+      setEchec(messageDEchecListe(erreur));
+      /* La liste a disparu ailleurs — l'autre appareil du foyer l'a supprimée.
+         La relecture retire la ligne morte tout de suite, plutôt que de laisser
+         le parent devant un message qui lui demande de recharger. */
+      if ((erreur as { code?: string })?.code === 'LISTE_INTROUVABLE') await surChangement();
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <li>
+      <b>{liste.nom}</b>{' '}
+      <span className={v.promessePalier}>
+        — {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
+      </span>{' '}
+      <button
+        className={v.petitBouton}
+        aria-expanded={ouverte}
+        onClick={() => {
+          /* Rouvrir repart de ce que le SERVEUR dit, pas d'un brouillon
+             abandonné il y a trois clics. */
+          setNom(liste.nom);
+          setMotsSaisis(liste.mots.join('\n'));
+          setEchec(null);
+          setOuverte((x) => !x);
+        }}
+      >
+        {ouverte ? 'Fermer' : `Modifier ${liste.nom}`}
+      </button>{' '}
+      <ConfirmationSuppression
+        quoi={liste.nom}
+        question={`Supprimer « ${liste.nom} » ? Elle disparaîtra de l'accueil des enfants.`}
+        surOui={() => void supprimer()}
+      />
+
+      {ouverte && (
+        <div className={v.panneauListe}>
+          <input
+            className={v.champNom}
+            value={nom}
+            maxLength={NOM_LISTE_MAX}
+            aria-label={`Nom de ${liste.nom}`}
+            onChange={(e) => {
+              setNom(e.target.value);
+              setEchec(null);
+            }}
+          />
+          <textarea
+            className={v.champMots}
+            aria-label={`Les mots de ${liste.nom}`}
+            rows={5}
+            value={motsSaisis}
+            onChange={(e) => {
+              setMotsSaisis(e.target.value);
+              setEchec(null);
+            }}
+          />
+          {refuses.length > 0 && <MotsEcartes mots={refuses} />}
+          <button
+            className={[u.bouton, u.primaire].join(' ')}
+            disabled={occupe || inchangee || nom.trim().length === 0 || aEnregistrer.length === 0}
+            onClick={() => void enregistrer()}
+          >
+            Enregistrer
+          </button>
+        </div>
+      )}
+
+      {echec && (
+        <span className={v.erreurCompte} role="alert">
+          {' '}
+          {echec}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Le mot que CETTE disposition ne sait pas écrire d'une seule frappe. Il reste
+ * dans la liste — elle appartient au compte, et un autre appareil l'écrira
+ * peut-être très bien. Il est seulement écarté de la leçon ici, et le parent
+ * l'apprend maintenant plutôt qu'en cherchant pourquoi il n'arrive jamais.
+ */
+function MotsEcartes({ mots }: { mots: string[] }) {
+  return (
+    <p className={v.erreurCompte} role="status">
+      Ce clavier ne sait pas écrire {mots.map((m) => `« ${m} »`).join(', ')} d'une seule frappe :{' '}
+      {mots.length > 1 ? 'ces mots ne seront pas proposés' : 'ce mot ne sera pas proposé'} dans la
+      leçon sur cet appareil.
+    </p>
   );
 }
 
@@ -196,24 +365,24 @@ function Bibliotheque() {
   const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
 
-  /* Le même découpage qu'à la saisie : une ligne, une virgule ou un
-     point-virgule séparent deux mots. */
-  const proposes = motsPersoValides(mots.split(/[\n,;]+/));
   /* Averti À LA SAISIE, pas au moment de jouer : « la fête » demande une
      touche morte, deux frappes pour un caractère attendu. Le bloc l'écarterait
      en silence et le parent chercherait longtemps pourquoi. */
-  const refuses = motsIntapables(proposes, app.disposition);
-  const retenus = proposes.filter((m) => !refuses.includes(m));
+  const { mots: aEnregistrer, refuses } = motsDeLaSaisie(mots, app.disposition);
+
+  /* Relire la bibliothèque après un changement accepté par le serveur : les
+     cartes de l'accueil viennent du même état, donc elles suivent. */
+  const relire = async () => envoi({ type: 'listes', listes: await listesDistantes() });
 
   const creer = async () => {
     if (occupe) return;
     setOccupe(true);
     setEchec(null);
     try {
-      await creerListeDistante(nom.trim(), retenus);
+      await creerListeDistante(nom.trim(), aEnregistrer);
       setNom('');
       setMots('');
-      envoi({ type: 'listes', listes: await listesDistantes() });
+      await relire();
     } catch (erreur) {
       setEchec(messageDEchecListe(erreur));
     } finally {
@@ -231,12 +400,7 @@ function Bibliotheque() {
 
       <ul className={v.listeProfils}>
         {app.listes.map((liste: Liste) => (
-          <li key={liste.id}>
-            <b>{liste.nom}</b>{' '}
-            <span className={v.promessePalier}>
-              — {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
-            </span>
-          </li>
+          <LigneListe key={liste.id} liste={liste} surChangement={relire} />
         ))}
         {app.listes.length === 0 && (
           <li className={v.promessePalier}>Aucune liste pour l'instant.</li>
@@ -266,12 +430,7 @@ function Bibliotheque() {
         }}
       />
 
-      {refuses.length > 0 && (
-        <p className={v.erreurCompte} role="status">
-          Le clavier ne sait pas écrire {refuses.map((m) => `« ${m} »`).join(', ')} d'une seule
-          frappe : ce mot est écarté de la liste.
-        </p>
-      )}
+      {refuses.length > 0 && <MotsEcartes mots={refuses} />}
 
       {echec && (
         <p className={v.erreurCompte} role="alert">
@@ -281,7 +440,7 @@ function Bibliotheque() {
 
       <button
         className={[u.bouton, u.primaire].join(' ')}
-        disabled={occupe || nom.trim().length === 0 || retenus.length === 0}
+        disabled={occupe || nom.trim().length === 0 || aEnregistrer.length === 0}
         onClick={() => void creer()}
       >
         Créer la liste
