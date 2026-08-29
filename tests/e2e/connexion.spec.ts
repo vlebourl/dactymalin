@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { inscrit, courrielUnique, MDP_TEST, ouvrir } from './helpers/app';
+import { assureProfil, inscrit, courrielUnique, MDP_TEST, ouvrir } from './helpers/app';
 
 /**
  * La connexion est OBLIGATOIRE, et c'est le premier écran. Le parent la
@@ -17,16 +17,20 @@ test.describe('connexion obligatoire', () => {
     await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible();
   });
 
-  test('créer un compte mène au choix du profil, puis à la leçon', async ({ page }) => {
+  test('créer un compte mène au prénom du premier enfant, puis à la leçon', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Créer un compte' }).click();
     await page.getByLabel('Adresse électronique').fill(courrielUnique());
     await page.getByLabel(/Mot de passe/).fill(MDP_TEST);
     await page.getByRole('button', { name: 'Créer notre compte' }).click();
 
-    /* Appareil neuf : on enchaîne sur le choix du clavier, première étape du
-       parcours. Ce qui compte ici est qu'on ait quitté le portail pour de bon
-       et qu'on soit entré dans l'application. */
+    /* Compte neuf : AUCUN profil, et on n'en invente pas — on demande le
+       prénom du premier enfant plutôt que de faire hériter d'un « Joueur 1 ». */
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+    await page.getByLabel('Ton prénom').fill('Timo');
+    await page.getByRole('button', { name: "C'est parti !" }).click();
+
+    /* Puis le choix du clavier, première étape du parcours. */
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
   });
 
@@ -35,6 +39,7 @@ test.describe('connexion obligatoire', () => {
      l'app restait bloquée avant le premier écran. */
   test('un rechargement ne redemande pas la connexion', async ({ page }) => {
     await inscrit(page);
+    await assureProfil(page, 'Timo');
     await page.goto('/');
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
     await page.reload();
@@ -46,6 +51,7 @@ test.describe('connexion obligatoire', () => {
      un mot de passe VALIDE. */
   test('se reconnecter à l’écran avec le bon mot de passe', async ({ page }) => {
     const email = await inscrit(page);
+    await assureProfil(page, 'Timo');
     await page.context().clearCookies();
     await page.goto('/');
     await page.getByLabel('Adresse électronique').fill(email);

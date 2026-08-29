@@ -140,4 +140,91 @@ d('profils et progression', () => {
       (await app.request(`/api/profils/${id}`, { method: 'DELETE', headers: b })).status,
     ).toBe(404);
   });
+  /* #4 : l'identité d'un profil est son id, jamais son prénom. Deux enfants
+     homonymes sont deux profils, et renommer n'en perd pas la progression. */
+  it('deux enfants du même prénom sont deux profils distincts', async () => {
+    const h = await inscrire(`f${Date.now()}@exemple.fr`);
+    const creer = () =>
+      app.request('/api/profils', {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({ prenom: 'Timo' }),
+      });
+    const un = (await (await creer()).json()) as { id: string };
+    const deux = (await (await creer()).json()) as { id: string };
+    expect(un.id).not.toBe(deux.id);
+
+    await app.request(`/api/profils/${un.id}/progression`, {
+      method: 'PUT',
+      headers: h,
+      body: JSON.stringify({ etat: { ...DEFAUTS, palier: 6 }, majLe: new Date().toISOString() }),
+    });
+    const liste = (await (await app.request('/api/profils', { headers: h })).json()) as {
+      profils: { id: string; etat: { palier: number } | null }[];
+    };
+    expect(liste.profils).toHaveLength(2);
+    expect(liste.profils.find((p) => p.id === un.id)?.etat?.palier).toBe(6);
+    expect(liste.profils.find((p) => p.id === deux.id)?.etat).toBeNull();
+  });
+
+  it('renommer un profil conserve sa progression', async () => {
+    const h = await inscrire(`g${Date.now()}@exemple.fr`);
+    const { id } = (await (
+      await app.request('/api/profils', {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({ prenom: 'Timo' }),
+      })
+    ).json()) as { id: string };
+    await app.request(`/api/profils/${id}/progression`, {
+      method: 'PUT',
+      headers: h,
+      body: JSON.stringify({ etat: { ...DEFAUTS, palier: 5 }, majLe: new Date().toISOString() }),
+    });
+
+    const renomme = await app.request(`/api/profils/${id}`, {
+      method: 'PATCH',
+      headers: h,
+      body: JSON.stringify({ prenom: 'Timothée' }),
+    });
+    expect(renomme.status).toBe(200);
+
+    const liste = (await (await app.request('/api/profils', { headers: h })).json()) as {
+      profils: { id: string; prenom: string; etat: { palier: number } | null }[];
+    };
+    expect(liste.profils).toHaveLength(1);
+    expect(liste.profils[0].prenom).toBe('Timothée');
+    expect(liste.profils[0].etat?.palier).toBe(5);
+  });
+
+  it('refuse un prénom vide, et le renommage du profil d\'un autre compte', async () => {
+    const a = await inscrire(`h${Date.now()}@exemple.fr`);
+    const b = await inscrire(`i${Date.now()}@exemple.fr`);
+    const { id } = (await (
+      await app.request('/api/profils', {
+        method: 'POST',
+        headers: a,
+        body: JSON.stringify({ prenom: 'Lou' }),
+      })
+    ).json()) as { id: string };
+
+    expect(
+      (
+        await app.request(`/api/profils/${id}`, {
+          method: 'PATCH',
+          headers: a,
+          body: JSON.stringify({ prenom: '   ' }),
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await app.request(`/api/profils/${id}`, {
+          method: 'PATCH',
+          headers: b,
+          body: JSON.stringify({ prenom: 'Pirate' }),
+        })
+      ).status,
+    ).toBe(404);
+  });
 });

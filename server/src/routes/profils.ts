@@ -60,6 +60,23 @@ export function routesProfils(base: Base, auth: Auth) {
     return c.json({ id, prenom: corps.data.prenom }, 201);
   });
 
+  /**
+   * Renomme un profil. Son identité est son ID, jamais son prénom : c'est ce
+   * qui permet de corriger « Timo » en « Timothée » sans rien perdre, et de
+   * garder deux homonymes séparés.
+   */
+  app.patch('/:id', async (c) => {
+    const corps = corpsProfil.safeParse(await c.req.json().catch(() => null));
+    if (!corps.success) return c.json({ erreur: 'prénom invalide' }, 400);
+    const renommes = await base
+      .update(profil)
+      .set({ prenom: corps.data.prenom })
+      .where(and(eq(profil.id, c.req.param('id')), eq(profil.userId, c.get('userId'))))
+      .returning({ id: profil.id, prenom: profil.prenom });
+    if (renommes.length === 0) return c.json({ erreur: 'profil introuvable' }, 404);
+    return c.json(renommes[0]);
+  });
+
   app.delete('/:id', async (c) => {
     const userId = c.get('userId');
     const supprimes = await base
