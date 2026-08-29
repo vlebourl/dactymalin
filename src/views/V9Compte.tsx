@@ -1,11 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { messageDEchecProfil } from '../core/erreurs-compte';
-import {
-  chargerIndex,
-  prenomValide,
-  PRENOM_MAX,
-  remplacerIndex,
-} from '../core/profils';
+import { chargerIndex, prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
 import {
   compteCourant,
   creerProfilDistant,
@@ -31,16 +26,164 @@ import u from '../ui/ui.module.css';
  * détruisent une progression ne sont pas à portée d'un enfant de sept ans qui
  * cherchait le bouton des sons.
  */
+/**
+ * Le motif d'un refus de prénom, dit sans attendre le serveur. C'est
+ * `prenomValide` qui juge — ici on ne fait que traduire son verdict.
+ */
+const refusDePrenom = (prenom: string): string | null =>
+  prenomValide(prenom)
+    ? null
+    : prenom.trim().length === 0
+      ? 'Écrivez le prénom de l’enfant : un profil ne peut pas être sans nom.'
+      : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`;
+
+/**
+ * Une ligne « enfant » : son prénom modifiable, où il en est, et sa
+ * suppression. Chaque ligne porte SON brouillon et SON message — un refus de
+ * renommage affiché en haut du panneau, loin du champ fautif, n'apprend à
+ * personne quel enfant il concerne.
+ */
+function LigneEnfant({
+  profil,
+  estActif,
+  surChangement,
+}: {
+  profil: ProfilDistant;
+  /** Le joueur en cours sur cet appareil : le supprimer ferme sa session. */
+  estActif: boolean;
+  /** Relire la liste du compte après un changement accepté par le serveur. */
+  surChangement: () => Promise<void>;
+}) {
+  const [brouillon, setBrouillon] = useState<string | null>(null);
+  const [confirme, setConfirme] = useState(false);
+  const [echec, setEchec] = useState<string | null>(null);
+  const [occupe, setOccupe] = useState(false);
+  const boutonSupprimer = useRef<HTMLButtonElement>(null);
+  const rendreLeFocus = useRef(false);
+
+  /* « Annuler » démonte le bouton qui avait le focus : sans ça, il retombe sur
+     le corps du document et qui navigue au clavier se retrouve nulle part. */
+  useEffect(() => {
+    if (!confirme && rendreLeFocus.current) {
+      boutonSupprimer.current?.focus();
+      rendreLeFocus.current = false;
+    }
+  }, [confirme]);
+
+  const nom = brouillon ?? profil.prenom;
+
+  const renommer = async () => {
+    const refus = refusDePrenom(nom);
+    if (refus) return setEchec(refus);
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await renommerProfilDistant(profil.id, nom.trim());
+      /* Le brouillon a servi : le champ repart du prénom que le SERVEUR
+         confirme, pas de ce qu'on croyait avoir envoyé. */
+      setBrouillon(null);
+      await surChangement();
+    } catch (erreur) {
+      setBrouillon(null);
+      setEchec(messageDEchecProfil(erreur));
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  /**
+   * Supprimer, après un « oui » explicite : c'est le seul geste de l'app qui
+   * détruit une progression, et il est irréversible. La confirmation NOMME
+   * l'enfant — « êtes-vous sûr ? » ne dit pas de qui on parle.
+   */
+  const supprimer = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await supprimerProfilDistant(profil.id);
+      setConfirme(false);
+      await surChangement();
+      /* L'enfant supprimé était celui en train de jouer : son état est chargé
+         dans l'application entière, et la laisser tourner lui ferait écrire la
+         progression d'un profil qui n'existe plus. */
+      if (estActif) location.reload();
+    } catch (erreur) {
+      setEchec(messageDEchecProfil(erreur));
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <li>
+      <input
+        className={v.champNom}
+        value={nom}
+        aria-label={`Prénom de ${profil.prenom}`}
+        onChange={(e) => {
+          setBrouillon(e.target.value);
+          setEchec(null);
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && void renommer()}
+      />
+      <button
+        className={v.petitBouton}
+        disabled={nom.trim() === profil.prenom}
+        onClick={() => void renommer()}
+      >
+        Renommer
+      </button>{' '}
+      <span className={v.promessePalier}>
+        {profil.etat ? `palier ${profil.etat.palier}` : 'aucune progression enregistrée'}
+      </span>{' '}
+      {confirme ? (
+        <span className={v.confirmation} role="alert">
+          Supprimer {profil.prenom} et toute sa progression ? C'est définitif.{' '}
+          <button className={v.petitBouton} autoFocus onClick={() => void supprimer()}>
+            {`Oui, supprimer ${profil.prenom}`}
+          </button>{' '}
+          <button
+            className={u.lien}
+            onClick={() => {
+              rendreLeFocus.current = true;
+              setConfirme(false);
+            }}
+          >
+            Annuler
+          </button>
+        </span>
+      ) : (
+        <button
+          ref={boutonSupprimer}
+          className={u.lien}
+          aria-label={`Supprimer ${profil.prenom}`}
+          onClick={() => {
+            setEchec(null);
+            setConfirme(true);
+          }}
+        >
+          Supprimer
+        </button>
+      )}
+      {echec && (
+        <span className={v.erreurCompte} role="alert">
+          {' '}
+          {echec}
+        </span>
+      )}
+    </li>
+  );
+}
+
 export function V9Compte() {
   const envoi = useEnvoi();
   const [compte, setCompte] = useState<Compte | null>(null);
   const [profils, setProfils] = useState<ProfilDistant[]>([]);
   const [file, setFile] = useState(0);
-  /** Brouillons de prénom, par profil : seulement ceux que le parent a tapés. */
-  const [saisie, setSaisie] = useState<Record<string, string>>({});
-  /** Enfant dont la suppression attend un « oui » explicite. */
-  const [aSupprimer, setASupprimer] = useState<string | null>(null);
   const [nouveau, setNouveau] = useState('');
+  const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
 
   const adopterListe = (liste: ProfilDistant[]) => {
@@ -49,10 +192,6 @@ export function V9Compte() {
        tout de suite sur l'écran « Qui joue ? » et dans la leçon, et un enfant
        supprimé doit emporter sa progression en cache. */
     remplacerIndex(liste.map((p) => ({ id: p.id, nom: p.prenom })));
-    /* On ne touche PAS aux champs : la liste arrive du réseau, donc à un
-       moment qu'on ne choisit pas, et elle effaçait le prénom que le parent
-       était en train de taper. Un champ sans brouillon affiche déjà celui du
-       serveur. */
   };
 
   const rafraichir = async () => {
@@ -71,71 +210,31 @@ export function V9Compte() {
     void rafraichir();
   }, []);
 
-  /** Le motif d'un refus de prénom, dit avant même d'appeler le serveur. */
-  const refusLocal = (prenom: string): string | null =>
-    prenomValide(prenom)
-      ? null
-      : prenom.trim().length === 0
-        ? 'Écrivez le prénom de l’enfant : un profil ne peut pas être sans nom.'
-        : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`;
+  const relire = async () => adopterListe(await profilsDistants());
 
+  /* Ajouter un enfant est un geste de PARENT : il se fait ici, pas sur l'écran
+     où l'enfant vient choisir son prénom pour jouer. */
   const ajouter = async () => {
-    const refus = refusLocal(nouveau);
+    const refus = refusDePrenom(nouveau);
     if (refus) return setEchec(refus);
+    if (occupe) return;
+    setOccupe(true);
     setEchec(null);
     try {
       await creerProfilDistant(nouveau.trim());
       setNouveau('');
-      adopterListe(await profilsDistants());
+      await relire();
     } catch (erreur) {
       /* Prénom déjà pris, plafond atteint, session expirée : le serveur dit
          laquelle, et le parent la lit. Un bouton qui ne fait rien sans un mot
          est un bouton cassé. */
       setEchec(messageDEchecProfil(erreur));
+    } finally {
+      setOccupe(false);
     }
   };
 
-  /**
-   * Renommer. L'identité d'un enfant est son identifiant serveur : corriger
-   * « Timo » en « Timothée » ne touche PAS à sa progression.
-   */
-  const renommer = async (id: string) => {
-    const prenom = (saisie[id] ?? '').trim();
-    const refus = refusLocal(prenom);
-    if (refus) return setEchec(refus);
-    setEchec(null);
-    try {
-      await renommerProfilDistant(id, prenom);
-      /* Le brouillon a servi : le champ repart du prénom que le SERVEUR
-         confirme, pas de ce qu'on croyait avoir envoyé. */
-      setSaisie(({ [id]: _, ...reste }) => reste);
-      adopterListe(await profilsDistants());
-    } catch (erreur) {
-      setSaisie(({ [id]: _, ...reste }) => reste);
-      setEchec(messageDEchecProfil(erreur));
-    }
-  };
-
-  /**
-   * Supprimer, après un « oui » explicite : c'est le seul geste de l'app qui
-   * détruit une progression, et il est irréversible. La confirmation nomme
-   * l'enfant — « êtes-vous sûr ? » ne dit pas de QUI on parle.
-   */
-  const supprimer = async (id: string) => {
-    setEchec(null);
-    const actif = chargerIndex().actif;
-    try {
-      await supprimerProfilDistant(id);
-      setASupprimer(null);
-      adopterListe(await profilsDistants());
-      /* L'enfant supprimé était celui en train de jouer : son état est chargé
-         dans l'application entière, et le laisser tourner ferait écrire une
-         progression à un profil qui n'existe plus. */
-      if (id === actif) location.reload();
-    } catch (erreur) {
-      setEchec(messageDEchecProfil(erreur));
-    }
-  };
+  const actif = chargerIndex().actif;
 
   return (
     <div className={v.ecran}>
@@ -168,68 +267,27 @@ export function V9Compte() {
                 : `${file} progression(s) en attente d'envoi.`}
             </p>
 
-            {echec && (
-              <p className={v.erreurCompte} role="alert">
-                {echec}
-              </p>
-            )}
-
             <h2 className={v.titrePetit}>Nos enfants</h2>
             <ul className={v.listeProfils}>
               {profils.map((p) => (
-                <li key={p.id}>
-                  <input
-                    className={v.champNom}
-                    value={saisie[p.id] ?? p.prenom}
-                    aria-label={`Prénom de ${p.prenom}`}
-                    onChange={(e) => {
-                      setSaisie({ ...saisie, [p.id]: e.target.value });
-                      setEchec(null);
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && void renommer(p.id)}
-                  />
-                  <button
-                    className={v.petitBouton}
-                    disabled={(saisie[p.id] ?? p.prenom).trim() === p.prenom}
-                    onClick={() => void renommer(p.id)}
-                  >
-                    Renommer
-                  </button>{' '}
-                  <span className={v.promessePalier}>
-                    {p.etat ? `palier ${p.etat.palier}` : 'aucune progression enregistrée'}
-                  </span>{' '}
-                  {aSupprimer === p.id ? (
-                    <span className={v.confirmation}>
-                      Supprimer {p.prenom} et toute sa progression ? C'est définitif.{' '}
-                      <button
-                        className={v.petitBouton}
-                        onClick={() => void supprimer(p.id)}
-                      >{`Oui, supprimer ${p.prenom}`}</button>{' '}
-                      <button className={u.lien} onClick={() => setASupprimer(null)}>
-                        Annuler
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      className={u.lien}
-                      aria-label={`Supprimer ${p.prenom}`}
-                      onClick={() => {
-                        setEchec(null);
-                        setASupprimer(p.id);
-                      }}
-                    >
-                      Supprimer
-                    </button>
-                  )}
-                </li>
+                <LigneEnfant
+                  key={p.id}
+                  profil={p}
+                  estActif={p.id === actif}
+                  surChangement={relire}
+                />
               ))}
               {profils.length === 0 && (
                 <li className={v.promessePalier}>Aucun profil sur le compte pour l'instant.</li>
               )}
             </ul>
 
-            {/* Ajouter un enfant est un geste de PARENT : il se fait ici, pas
-                sur l'écran où l'enfant vient choisir son prénom pour jouer. */}
+            {echec && (
+              <p className={v.erreurCompte} role="alert">
+                {echec}
+              </p>
+            )}
+
             <p className={v.ligneClavier}>
               <input
                 className={v.champNom}
@@ -242,7 +300,7 @@ export function V9Compte() {
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && void ajouter()}
               />
-              <button className={v.petitBouton} onClick={() => void ajouter()}>
+              <button className={v.petitBouton} disabled={occupe} onClick={() => void ajouter()}>
                 Ajouter un enfant
               </button>
             </p>

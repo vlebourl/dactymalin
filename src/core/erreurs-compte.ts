@@ -17,6 +17,15 @@ export type Mode = 'connexion' | 'creation';
 
 type Echec = { statut?: number; code?: string };
 
+/** Sans code, ou avec un code inconnu : le statut décide, et il est toujours dit. */
+const parDefaut = (statut: number | undefined, sur401: string) => {
+  if (statut === 401) return sur401;
+  if (statut !== undefined && statut >= 500) {
+    return 'Le serveur a un problème. Réessayez dans un instant.';
+  }
+  return inattendu(statut);
+};
+
 /** Dernier recours : jamais muet sur le statut, pour rester diagnosticable. */
 const inattendu = (statut?: number) =>
   statut === undefined
@@ -77,9 +86,5 @@ export function messageDEchecProfil(erreur: unknown): string {
       return "Cet enfant n'existe plus sur le compte. Rechargez la page.";
   }
 
-  if (statut === 401) return 'La session a expiré. Il faut se reconnecter.';
-  if (statut !== undefined && statut >= 500) {
-    return 'Le serveur a un problème. Réessayez dans un instant.';
-  }
-  return inattendu(statut);
+  return parDefaut(statut, 'La session a expiré. Il faut se reconnecter.');
 }
