@@ -8,8 +8,8 @@ import { profil, progression } from '../db/schema';
 /* Le serveur valide avec le MÊME code que le client : une seule définition de
    la forme d'une progression, pas deux qui divergeraient. */
 import { estIntact } from '../../../src/core/storage';
+import { PRENOM_MAX } from '../../../src/core/profils';
 
-const PRENOM_MAX = 30;
 /** Un compte de famille, pas une classe : la borne protège la base. */
 const PROFILS_MAX = 12;
 

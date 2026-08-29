@@ -9,6 +9,8 @@ import {
   effacerDemandeDeChoix,
   nomProfilActif,
   oublierProfils,
+  prenomValide,
+  PRENOM_MAX,
   profilInitial,
   remplacerIndex,
 } from './profils';
@@ -112,6 +114,15 @@ describe('cache local des profils du compte', () => {
     expect(localStorage.getItem(cleDe('a'))).toBeNull();
     expect(localStorage.getItem(`${cleDe('a')}.backup`)).toBeNull();
     expect(charger(cleDe('a')).palier).toBe(DEFAUTS.palier);
+  });
+
+  it('un prénom vide, blanc ou trop long est refusé ; un prénom normal passe', () => {
+    expect(prenomValide('Timo')).toBe(true);
+    expect(prenomValide('  Zoé  ')).toBe(true); // les espaces autour ne comptent pas
+    expect(prenomValide('a'.repeat(PRENOM_MAX))).toBe(true);
+    expect(prenomValide('')).toBe(false);
+    expect(prenomValide('   ')).toBe(false);
+    expect(prenomValide('a'.repeat(PRENOM_MAX + 1))).toBe(false);
   });
 
   it("la clé de progression est suffixée par l'identifiant serveur", () => {

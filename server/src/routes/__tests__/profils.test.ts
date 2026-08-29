@@ -4,6 +4,7 @@ import { creerAuth } from '../../auth';
 import { creerBase } from '../../db/client';
 import { lireEnv } from '../../env';
 import { DEFAUTS } from '../../../../src/core/storage';
+import { PRENOM_MAX } from '../../../../src/core/profils';
 
 /**
  * Ces tests parlent à un VRAI PostgreSQL : la règle qui compte ici — un compte
@@ -69,6 +70,19 @@ d('profils et progression', () => {
     expect(liste.profils).toHaveLength(1);
     expect(liste.profils[0].prenom).toBe('Timo');
     expect(liste.profils[0].etat?.palier).toBe(3);
+  });
+
+  /* La borne est celle de `src/core/profils.ts` : l'écran et le serveur jugent
+     avec le MÊME nombre, sinon l'écran promet ce que le serveur refuse. */
+  it('refuse à la création un prénom vide, blanc ou trop long', async () => {
+    const h = await inscrire(`j${Date.now()}@exemple.fr`);
+    const creer = (prenom: unknown) =>
+      app.request('/api/profils', { method: 'POST', headers: h, body: JSON.stringify({ prenom }) });
+
+    expect((await creer('')).status).toBe(400);
+    expect((await creer('   ')).status).toBe(400);
+    expect((await creer('a'.repeat(PRENOM_MAX + 1))).status).toBe(400);
+    expect((await creer('a'.repeat(PRENOM_MAX))).status).toBe(201);
   });
 
   it('refuse un état qui ne ressemble pas à une progression', async () => {
