@@ -1,8 +1,5 @@
-import { useState } from 'react';
 import { disposition } from '../core/layouts';
-import { composerBlocPerso } from '../core/generator';
 import { estJouable } from '../core/listes';
-import { motsPersoValides } from '../core/storage';
 import { ensembleTouches } from '../core/paliers';
 import { Keyboard } from '../ui/Keyboard';
 import { useApp, useEnvoi } from '../state';
@@ -27,12 +24,6 @@ export function V1Accueil() {
   const app = useApp();
   const envoi = useEnvoi();
   const d = disposition(app.disposition);
-  /* Le choix est posé DÈS L'ACCUEIL : le parcours, ou notre liste à nous.
-     La liste s'écrit ici même — elle était enfouie dans les réglages. */
-  const [listeOuverte, setListeOuverte] = useState(false);
-  const [mots, setMots] = useState(app.motsPerso.join('\n'));
-  const motsPrets = motsPersoValides(mots.split(/[\n,;]+/));
-  const listeJouable = composerBlocPerso(motsPrets, app.disposition).length > 0;
   /* Une carte qui lance un bloc vide n'est pas une carte : la liste vient du
      COMPTE, la disposition vient de CET appareil, et les deux peuvent ne pas
      s'accorder. Mieux vaut pas de carte qu'une carte sans rien à taper. */
@@ -70,21 +61,12 @@ export function V1Accueil() {
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
-        <div className={v.choixDepart}>
-          <button
-            className={[u.bouton, u.primaire, u.geant].join(' ')}
-            onClick={() => envoi({ type: 'commencer', perso: false })}
-          >
-            On commence !
-          </button>
-          <button
-            className={[u.bouton, u.geant].join(' ')}
-            aria-expanded={listeOuverte}
-            onClick={() => setListeOuverte((x) => !x)}
-          >
-            Notre liste à nous
-          </button>
-        </div>
+        <button
+          className={[u.bouton, u.primaire, u.geant].join(' ')}
+          onClick={() => envoi({ type: 'commencer', liste: null })}
+        >
+          On commence !
+        </button>
 
         {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
             saisit rien : il reconnaît la carte de sa dictée et appuie. */}
@@ -104,32 +86,6 @@ export function V1Accueil() {
               </li>
             ))}
           </ul>
-        )}
-
-        {listeOuverte && (
-          <div className={v.panneauListe}>
-            <label className={v.promessePalier} htmlFor="mots-perso">
-              Un mot par ligne (les prénoms de la famille, les mots de l'école…).
-            </label>
-            <textarea
-              id="mots-perso"
-              className={v.champMots}
-              aria-label="Notre liste à nous"
-              rows={5}
-              value={mots}
-              onChange={(ev) => setMots(ev.target.value)}
-            />
-            <button
-              className={[u.bouton, u.primaire].join(' ')}
-              disabled={!listeJouable}
-              onClick={() => {
-                envoi({ type: 'motsPerso', mots: motsPrets });
-                envoi({ type: 'commencer', perso: true });
-              }}
-            >
-              On tape notre liste !
-            </button>
-          </div>
         )}
 
         <p className={v.ligneClavier}>

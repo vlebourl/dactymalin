@@ -1,4 +1,3 @@
-import { composerBlocPerso } from '../core/generator';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
 import { Cadenas } from '../ui/Key';
 import { ensembleTouches, nouvellesTouches, PALIERS } from '../core/paliers';
@@ -79,20 +78,11 @@ export function V6Carte() {
 
         <button
           className={[u.bouton, u.primaire].join(' ')}
-          onClick={() => envoi({ type: 'commencer', perso: false })}
+          onClick={() => envoi({ type: 'commencer', liste: null })}
         >
           Continuer la leçon
         </button>
 
-        {/* « Notre leçon » : les mots de la famille (Réglages), mode libre. */}
-        {composerBlocPerso(app.motsPerso, id).length > 0 && (
-          <button
-            className={u.bouton}
-            onClick={() => envoi({ type: 'commencer', perso: true })}
-          >
-            Notre leçon : nos mots à nous
-          </button>
-        )}
       </div>
     </div>
   );

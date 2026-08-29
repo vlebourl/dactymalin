@@ -1,6 +1,6 @@
 import { estEcrivable } from './generator';
 import type { IdDisposition } from './layouts';
-import { motsPersoValides } from './storage';
+import { motsValides } from './storage';
 
 /**
  * Une liste de mots préparée par le parent — « Dictée de la semaine », « Les
@@ -27,7 +27,7 @@ export const NOM_LISTE_MAX = 40;
 
 /**
  * Une liste acceptable, ou `null`. Les bornes de mots ne sont pas réécrites :
- * `motsPersoValides` les tient déjà (1 à 30 caractères, 100 mots, dédoublonné).
+ * `motsValides` les tient déjà (1 à 30 caractères, 100 mots, dédoublonné).
  *
  * Une liste sans aucun mot valide est refusée : elle donnerait une carte qui
  * lance un bloc vide, un cul-de-sac que l'enfant ne saurait pas expliquer.
@@ -36,7 +36,7 @@ export function listeValidee(nom: unknown, mots: unknown): { nom: string; mots: 
   if (typeof nom !== 'string') return null;
   const propre = nom.trim();
   if (propre.length < 1 || propre.length > NOM_LISTE_MAX) return null;
-  const valides = motsPersoValides(mots);
+  const valides = motsValides(mots);
   if (valides.length === 0) return null;
   return { nom: propre, mots: valides };
 }
@@ -44,7 +44,7 @@ export function listeValidee(nom: unknown, mots: unknown): { nom: string; mots: 
 /**
  * Les mots que la disposition ne sait pas écrire directement — « la fête »
  * demande une touche morte, deux frappes pour un seul caractère attendu.
- * `composerBlocPerso` les écarte déjà au moment de jouer ; cette fonction
+ * `composerBlocDeListe` les écarte déjà au moment de jouer ; cette fonction
  * existe pour que le parent l'apprenne à la saisie plutôt que de chercher
  * pourquoi son mot n'apparaît jamais.
  */
@@ -62,13 +62,13 @@ export function motsIntapables(mots: string[], id: IdDisposition): string[] {
  * disposition appartient à l'appareil : retrancher ici ferait disparaître pour
  * tout le foyer les mots que CE clavier ne sait pas écrire, à la première
  * ouverture de la liste sur la tablette. Le tri se fait au moment de jouer,
- * appareil par appareil, où il est réversible (`composerBlocPerso`).
+ * appareil par appareil, où il est réversible (`composerBlocDeListe`).
  */
 export function motsDeLaSaisie(
   texte: string,
   id: IdDisposition,
 ): { mots: string[]; refuses: string[] } {
-  const mots = motsPersoValides(texte.split(/[\n,;]+/));
+  const mots = motsValides(texte.split(/[\n,;]+/));
   return { mots, refuses: motsIntapables(mots, id) };
 }
 

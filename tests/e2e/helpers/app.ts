@@ -66,6 +66,17 @@ export async function assureProfil(page: Page, prenom = 'Joueur 1'): Promise<str
   return id;
 }
 
+/**
+ * Une liste de la bibliothèque du foyer, posée par l'API. Le parcours de
+ * création par l'écran est couvert par `bibliotheque.spec.ts` ; les tests qui
+ * veulent seulement JOUER une liste n'ont pas à le rejouer.
+ */
+export async function creeListe(page: Page, nom: string, mots: string[]): Promise<string> {
+  const r = await page.request.post('/api/listes', { data: { nom, mots } });
+  if (!r.ok()) throw new Error(`création de liste impossible (${r.status()})`);
+  return ((await r.json()) as { id: string }).id;
+}
+
 /** Clé de progression du profil joué par ce test. */
 export function cleProfil(page: Page): string {
   const id = profilDe.get(page);

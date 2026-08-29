@@ -328,7 +328,7 @@ Les sept étapes sont faites. Ce qui a changé par rapport au plan :
   **3003**. Coolify ne gère pas le TLS ici.
 - **`estIntact`** sert de validateur côté serveur : le plan disait « le même
   code que le client », c'est littéralement le même import.
-- Le mode libre (« Notre liste à nous ») accepte tout ce que la disposition sait
-  écrire, et non plus le seul curriculum.
+- Le bloc d'une liste accepte tout ce que la disposition sait écrire, et non
+  plus le seul curriculum.
 
 Coordonnées, vérifications et retours arrière : `docs/DEPLOIEMENT-RUNBOOK.md`.
