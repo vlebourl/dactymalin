@@ -25,7 +25,8 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
   const [nom, setNom] = useState('');
   const [creation, setCreation] = useState(ix.liste.length === 0);
   const [occupe, setOccupe] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
+  /** Ce que le RÉSEAU a refusé : n'existe qu'après un essai. */
+  const [echecReseau, setEchecReseau] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.dataset.vue = 'V0';
@@ -37,27 +38,32 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
     onChoix(id);
   };
 
-  /* Le motif du refus, ou `null` si le prénom passe. Calculé à CHAQUE frappe :
-     l'enfant voit le message disparaître dès qu'il corrige, sans avoir à
-     réessayer pour savoir si c'est bon. */
-  const refus =
-    nom.trim().length === 0
+  /* Le motif du refus, ou `null` si le prénom passe. C'est `prenomValide` qui
+     juge — la vue ne fait que traduire son verdict — sinon l'écran finirait
+     par dire « c'est bon » là où le serveur répond « non ». */
+  const refus = prenomValide(nom)
+    ? null
+    : nom.trim().length === 0
       ? 'Écris ton prénom pour commencer.'
-      : nom.trim().length > PRENOM_MAX
-        ? `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`
-        : null;
+      : `Ce prénom est trop long : ${PRENOM_MAX} lettres au maximum.`;
+
+  /* Le motif se montre dès la saisie — l'enfant le voit disparaître quand il
+     corrige, sans avoir à réessayer pour savoir si c'est bon ; l'échec réseau,
+     lui, n'existe qu'après un essai. */
+  const message = echecReseau ?? (nom.length > 0 ? refus : null);
 
   const creer = async () => {
     if (occupe) return;
     /* Un prénom vide donnait « Joueur 2 », sans un mot : un nom que personne
        ne garde et que personne ne pense à changer. On le REFUSE, en disant
-       pourquoi. */
-    if (!prenomValide(nom)) {
-      setErreur(refus);
+       pourquoi — y compris sur un champ jamais touché, où rien ne s'affiche
+       encore. */
+    if (refus) {
+      setEchecReseau(refus);
       return;
     }
     setOccupe(true);
-    setErreur(null);
+    setEchecReseau(null);
     try {
       const premier = ix.liste.length === 0;
       const cree = await creerProfilDistant(nom.trim());
@@ -70,7 +76,7 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
       /* Créer un joueur DEMANDE le réseau : c'est le serveur qui lui donne son
          identifiant. Le dire plutôt que fabriquer un profil local qui n'aurait
          d'existence sur aucun autre appareil. */
-      setErreur("Il faut être connecté à internet pour ajouter un joueur.");
+      setEchecReseau("Il faut être connecté à internet pour ajouter un joueur.");
       setOccupe(false);
     }
   };
@@ -93,11 +99,12 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
           ))}
         </div>
 
-        {/* Le motif du refus se montre dès la saisie ; l'échec réseau, lui,
-            n'existe qu'après un essai. */}
-        {(erreur ?? (nom.length > 0 ? refus : null)) && (
-          <p className={v.erreurCompte} role="alert">
-            {erreur ?? refus}
+        {/* `status` et non `alert` : le message change à chaque frappe, et une
+            région assertive le rejetterait à la figure de qui écoute l'écran,
+            lettre après lettre. */}
+        {message && (
+          <p className={v.erreurCompte} role="status">
+            {message}
           </p>
         )}
 
@@ -114,7 +121,7 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
               autoFocus
               onChange={(e) => {
                 setNom(e.target.value);
-                setErreur(null);
+                setEchecReseau(null);
               }}
               onKeyDown={(e) => e.key === 'Enter' && void creer()}
             />
