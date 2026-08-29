@@ -12,6 +12,25 @@ async function coquilleGardee(page: import('@playwright/test').Page) {
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
   await page.reload();
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+
+  /* Puis on attend que le cache cesse de grossir. La mise en cache se fait au
+     fil des requêtes ; couper le réseau à la seconde où la page a fini de
+     charger l'interrompt en plein vol, et il manque alors un morceau de la
+     coquille. Un vrai départ en voyage laisse ce temps-là de lui-même. */
+  const entrees = () =>
+    page.evaluate(async () => {
+      let n = 0;
+      for (const nom of await caches.keys()) n += (await (await caches.open(nom)).keys()).length;
+      return n;
+    });
+  let precedent = -1;
+  for (let i = 0; i < 40; i++) {
+    const n = await entrees();
+    if (n === precedent && n > 5) return;
+    precedent = n;
+    await page.waitForTimeout(150);
+  }
+  throw new Error('la coquille n’a jamais fini d’être gardée');
 }
 
 /**
@@ -36,6 +55,51 @@ test('sans réseau, l’application démarre et la leçon se joue', async ({ pag
   await page.getByRole('button', { name: 'On commence !' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
   expect(await jouerItem(page, 'fr-FR')).toBeTruthy();
+});
+
+/**
+ * L'invariant du service worker : il garde la COQUILLE, jamais les DONNÉES.
+ * Une session, une progression ou une liste resservie depuis un cache serait
+ * une réponse périmée présentée comme fraîche — et la promesse « aucun tiers
+ * pendant la leçon » ne dit rien de la fraîcheur de ce qu'on affiche.
+ */
+test('le cache garde la coquille, jamais l’API', async ({ page, context }) => {
+  await ouvrir(page, 'fr-FR', 1);
+  await coquilleGardee(page);
+
+  // en ligne, l'API répond — et cette réponse ne doit pas être gardée
+  expect(
+    await page.evaluate(async () => (await fetch('/api/auth/get-session')).status),
+  ).toBe(200);
+
+  await context.setOffline(true);
+  /* Le document, lui, se recharge depuis le cache : c'est bien le worker qui
+     travaille, et pourtant l'API échoue. */
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+
+  expect(
+    await page.evaluate(async () => {
+      try {
+        await fetch('/api/auth/get-session');
+        return 'SERVIE DEPUIS LE CACHE';
+      } catch {
+        return 'injoignable';
+      }
+    }),
+  ).toBe('injoignable');
+
+  const cachees = await page.evaluate(async () => {
+    const noms = await caches.keys();
+    const urls: string[] = [];
+    for (const nom of noms) {
+      for (const requete of await (await caches.open(nom)).keys()) urls.push(requete.url);
+    }
+    return urls;
+  });
+  expect(cachees.filter((u) => u.includes('/api/'))).toEqual([]);
+  // …et la coquille, elle, est bien là
+  expect(cachees.length).toBeGreaterThan(0);
 });
 
 /* Le travail fait dans le train n'est pas perdu : il attend dans la file, et

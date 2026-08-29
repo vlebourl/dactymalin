@@ -167,6 +167,19 @@ export function progressionEnCache(id: string): Sauvegarde | null {
 }
 
 /**
+ * Le foyer tel que CET appareil le connaît, avec la progression en cache de
+ * chacun. C'est ce qu'on montre quand le serveur ne répond pas : afficher une
+ * liste vide ferait croire au parent qu'il a perdu ses enfants (#3).
+ */
+export function profilsEnCache(): { id: string; prenom: string; etat: Sauvegarde | null }[] {
+  return chargerIndex().liste.map((p) => ({
+    id: p.id,
+    prenom: p.nom,
+    etat: progressionEnCache(p.id),
+  }));
+}
+
+/**
  * Profil à ouvrir au chargement, ou `null` si l'écran « Qui joue ? » doit
  * décider : zéro profil (il demandera le premier prénom), plusieurs joueurs,
  * ou changement demandé depuis les réglages.

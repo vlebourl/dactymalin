@@ -116,9 +116,17 @@ export const compteEnCache = (): Compte | null => lire<Compte | null>(CLE_COMPTE
 export async function compteCourant(): Promise<Compte | null> {
   try {
     const s = await json<{ user?: Compte } | null>('/api/auth/get-session');
-    const compte = s?.user ?? null;
-    if (compte) ecrire(CLE_COMPTE, compte);
-    else effacer(CLE_COMPTE);
+    const brut = s?.user ?? null;
+    if (!brut) {
+      effacer(CLE_COMPTE);
+      return null;
+    }
+    /* On garde les TROIS champs dont l'écran a besoin, choisis un par un. Le
+       serveur en renvoie davantage (adresse vérifiée, image, dates) : les
+       recopier tels quels laisserait au repos, sur la machine familiale, tout
+       ce que Better Auth décidera d'ajouter un jour. */
+    const compte: Compte = { id: brut.id, email: brut.email, name: brut.name };
+    ecrire(CLE_COMPTE, compte);
     return compte;
   } catch (erreur) {
     /* Une réponse d'ERREUR du serveur est une réponse : lui aussi sait. Seule

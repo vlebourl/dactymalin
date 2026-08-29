@@ -68,7 +68,32 @@ function Attente() {
    un confort, jamais une condition pour jouer. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(() => {});
+    void (async () => {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+        const pret = await navigator.serviceWorker.ready;
+        /* Les requêtes de cette première visite sont parties AVANT que le
+           worker ne prenne les commandes : il n'a donc rien vu du document ni
+           du script de l'application. On lui dit ce qu'on a chargé, sans quoi
+           il faudrait un SECOND passage en ligne avant de pouvoir démarrer
+           sans réseau — et le parent qui ouvre l'app une fois puis part en
+           voyage n'en ferait pas un. */
+        const aGarder = [
+          location.href,
+          ...performance
+            .getEntriesByType('resource')
+            .map((r) => r.name)
+            .filter((url) => url.startsWith(location.origin) && !url.includes('/api/')),
+        ];
+        (pret.active ?? navigator.serviceWorker.controller)?.postMessage({
+          type: 'garder',
+          urls: [...new Set(aGarder)],
+        });
+      } catch {
+        /* Pas de service worker (navigation privée, contexte non sécurisé) :
+           c'est un confort de démarrage, jamais une condition pour jouer. */
+      }
+    })();
   });
 }
 
