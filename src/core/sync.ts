@@ -35,6 +35,8 @@ export const CLE_FILE = 'tapeavecmoi.file';
 export const CLE_MAJ = 'tapeavecmoi.maj';
 /** Le compte de la dernière session CONNUE : ce qui permet de démarrer hors ligne. */
 export const CLE_COMPTE = 'tapeavecmoi.compte';
+/** La bibliothèque telle que le serveur l'a dite, pour la jouer sans réseau. */
+export const CLE_LISTES = 'tapeavecmoi.listes';
 
 type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
 
@@ -171,6 +173,7 @@ export const connecter = (email: string, motDePasse: string) =>
 export const deconnecter = async () => {
   await json('/api/auth/sign-out', { method: 'POST', body: '{}' });
   effacer(CLE_COMPTE);
+  effacer(CLE_LISTES);
   effacer(CLE_FILE);
   effacer(CLE_MAJ);
   oublierProfils();
@@ -199,12 +202,35 @@ export const supprimerProfilDistant = (id: string) =>
 /* ------------------------------------------------------------- bibliothèque */
 
 /**
- * Les listes du COMPTE. Elles ne passent pas par la file d'envoi : le parent
- * les prépare posément, en ligne, à la maison. Jouer une liste déjà chargée
- * hors ligne est un ticket à part (#11).
+ * Les listes du COMPTE, avec un cache en LECTURE SEULE (#11).
+ *
+ * Le serveur fait foi dès qu'il répond : sa réponse remplace le cache, donc une
+ * liste supprimée sur la tablette disparaît aussi d'ici. Quand il ne répond
+ * pas, on rend la dernière bibliothèque connue — l'enfant retrouve ses cartes
+ * dans le train.
+ *
+ * Le cache ne se remplit QUE de ce que le serveur a dit. Aucune intention
+ * locale n'y entre, et aucune modification n'est mise en file : ce serait la
+ * porte ouverte aux conflits d'édition (deux appareils qui renomment la même
+ * liste) pour un cas qui n'arrivera pas — préparer une liste est un geste
+ * posé, à la maison.
  */
-export const listesDistantes = () =>
-  json<{ listes: Liste[] }>('/api/listes').then((r) => r.listes);
+export async function listesDistantes(): Promise<Liste[]> {
+  try {
+    const { listes } = await json<{ listes: Liste[] }>('/api/listes');
+    ecrire(CLE_LISTES, listes);
+    return listes;
+  } catch (erreur) {
+    /* Comme pour la session : une réponse d'ERREUR est une réponse, et on la
+       laisse remonter à l'écran. Seule l'absence de réponse vaut « hors
+       ligne », et c'est là qu'on sert le cache. */
+    if ((erreur as { statut?: number }).statut !== undefined) throw erreur;
+    return listesEnCache();
+  }
+}
+
+/** La dernière bibliothèque connue de cet appareil. */
+export const listesEnCache = (): Liste[] => lire<Liste[]>(CLE_LISTES, []);
 
 export const creerListeDistante = (nom: string, mots: string[]) =>
   json<Liste>('/api/listes', { method: 'POST', body: JSON.stringify({ nom, mots }) });

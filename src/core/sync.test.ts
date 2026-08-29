@@ -3,6 +3,10 @@ import {
   adopterProgressionHistorique,
   compteCourant,
   compteEnCache,
+  creerListeDistante,
+  listesDistantes,
+  modifierListeDistante,
+  supprimerListeDistante,
   CLE_FILE,
   CLE_MAJ,
   deconnecter,
@@ -377,6 +381,83 @@ describe('démarrage hors ligne', () => {
     await compteCourant();
     await deconnecter();
     expect(compteEnCache()).toBeNull();
+  });
+});
+
+/**
+ * #11 — hors ligne, l'enfant retrouve les listes déjà connues de l'appareil et
+ * peut les jouer. Le cache est en LECTURE SEULE : il ne se remplit que de ce
+ * que le serveur a dit, jamais d'une intention locale.
+ *
+ * Rien n'est mis en file d'attente. Préparer une liste est un geste posé, à la
+ * maison ; l'édition hors ligne apporterait des conflits d'édition (deux
+ * appareils qui renomment la même liste) pour un cas qui n'arrivera pas.
+ */
+describe('cache des listes, en lecture seule', () => {
+  const DICTEE = { id: 'l1', nom: 'Dictée', mots: ['papa'], creeLe: '2026-08-29T10:00:00.000Z' };
+
+  /** Faux serveur de bibliothèque, coupable de tomber quand on le lui demande. */
+  function bibliotheque(listes: unknown[], { coupe = false } = {}) {
+    const appels = vi.fn(async (url: string, init?: RequestInit) => {
+      if (coupe) throw new TypeError('Failed to fetch');
+      if (url === '/api/listes' && !init?.method) return rep({ listes });
+      return rep({ ok: true }, 201);
+    });
+    vi.stubGlobal('fetch', appels);
+    return appels;
+  }
+
+  it('garde ce que le serveur a dit, et le rend quand il ne répond plus', async () => {
+    bibliotheque([DICTEE]);
+    expect(await listesDistantes()).toEqual([DICTEE]);
+
+    bibliotheque([], { coupe: true });
+    expect(await listesDistantes()).toEqual([DICTEE]);
+  });
+
+  it('un appareil qui n’a jamais rien reçu ne rend rien', async () => {
+    bibliotheque([], { coupe: true });
+    expect(await listesDistantes()).toEqual([]);
+  });
+
+  /* Le serveur fait foi dès qu'il répond : une liste supprimée ailleurs
+     disparaît d'ici, elle ne survit pas dans le cache. */
+  it('le serveur qui répond remplace le cache, suppressions comprises', async () => {
+    bibliotheque([DICTEE]);
+    await listesDistantes();
+
+    bibliotheque([]);
+    expect(await listesDistantes()).toEqual([]);
+
+    bibliotheque([], { coupe: true });
+    expect(await listesDistantes()).toEqual([]);
+  });
+
+  /* LECTURE SEULE : une création refusée par le réseau ne doit rien laisser
+     derrière elle — ni dans le cache, ni dans une file. */
+  it('une création hors ligne échoue, sans rien mettre en attente', async () => {
+    bibliotheque([DICTEE]);
+    await listesDistantes();
+
+    bibliotheque([], { coupe: true });
+    await expect(creerListeDistante('Nouvelle', ['chat'])).rejects.toThrow();
+    await expect(modifierListeDistante('l1', 'Renommée', ['chat'])).rejects.toThrow();
+    await expect(supprimerListeDistante('l1')).rejects.toThrow();
+
+    expect(enAttente()).toBe(0);
+    // le cache n'a pas bougé : il ne connaît que ce que le serveur a dit
+    expect(await listesDistantes()).toEqual([DICTEE]);
+  });
+
+  it('la bibliothèque du compte s’en va avec la déconnexion', async () => {
+    bibliotheque([DICTEE]);
+    await listesDistantes();
+
+    bibliotheque([]);
+    await deconnecter();
+
+    bibliotheque([], { coupe: true });
+    expect(await listesDistantes()).toEqual([]);
   });
 });
 

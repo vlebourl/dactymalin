@@ -562,16 +562,15 @@ export function V9Compte() {
               {horsLigne
                 ? /* Ce n'est pas une panne : l'application marche, et le travail
                      de l'enfant est gardé ici en attendant le réseau. */
-                  /* Ce que la phrase ne promet PAS : que les listes soient
-                     lisibles ici. Elles viennent du réseau et ne sont pas
-                     encore gardées sur l'appareil — c'est #11. Dire « elles ne
-                     se modifient qu'en ligne » laisserait croire qu'on peut au
-                     moins les voir. */
+                  /* Les listes SE LISENT hors ligne depuis #11 — l'enfant
+                     retrouve ses cartes dans le train. Elles ne s'y modifient
+                     pas : le cache est en lecture seule, et rien n'est mis en
+                     file pour plus tard. */
                   `Hors ligne. ${
                     file === 0
                       ? 'Rien n’attend d’être envoyé.'
                       : `${file} progression(s) partiront au retour du réseau.`
-                  } Les enfants et la bibliothèque reviendront avec le réseau.`
+                  } Les listes déjà connues restent jouables ; les modifier demande le réseau.`
                 : file === 0
                   ? 'Toutes les progressions sont synchronisées.'
                   : `${file} progression(s) en attente d'envoi.`}

@@ -95,10 +95,17 @@ describe('messageDEchecListe', () => {
     ['liste invalide', { statut: 400, code: 'LISTE_INVALIDE' }, /nom.*au moins un mot|au moins un mot/],
     ['session expirée', { statut: 401 }, /session a expiré/],
     ['serveur en panne', { statut: 503 }, /problème/],
-    ['hors ligne', {}, /Internet/],
+    /* #11 — le refus doit DIRE que c'est le réseau, et que rien n'est perdu.
+       « Une erreur inattendue » laisserait le parent croire qu'il a cassé
+       quelque chose au moment où il prépare la dictée du lundi. */
+    ['hors ligne', {}, /Hors ligne.*réseau/],
   ];
 
   it.each(cas)('%s', (_titre, erreur, attendu) => {
     expect(messageDEchecListe(erreur)).toMatch(attendu);
+  });
+
+  it('hors ligne, il dit aussi que rien n’est perdu', () => {
+    expect(messageDEchecListe({})).toMatch(/rien n’est perdu|rien n'est perdu/i);
   });
 });
