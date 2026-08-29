@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { connecte, courrielUnique, inscrit, ouvrir, sauvegarde } from './helpers/app';
+import {
+  assureProfil,
+  connecte,
+  courrielUnique,
+  inscrit,
+  jouerBlocParfait,
+  ouvrir,
+  sauvegarde,
+} from './helpers/app';
 
 /**
  * Comptes parents et synchronisation. L'API et sa base sont désormais
@@ -43,6 +51,69 @@ test.describe('comptes parents', () => {
 
     // la progression du premier a rejoint le second
     await expect.poll(async () => (await sauvegarde(page2)).palier, { timeout: 5000 }).toBe(4);
+    await autre.close();
+  });
+
+  /**
+   * #8 — la promesse centrale du compte, jamais vérifiée jusqu'ici : une
+   * progression RÉELLEMENT JOUÉE sur un ordinateur se retrouve sur l'autre.
+   *
+   * Le test au-dessus part d'une progression SEMÉE dans le stockage ; il
+   * prouve la règle de fusion, pas le chemin qu'emprunte une frappe d'enfant.
+   * Celui-ci joue un bloc entier au clavier, donc il traverse tout : le
+   * reducer, l'écriture locale, la file d'envoi, la base, puis la
+   * réconciliation au démarrage de l'autre appareil.
+   */
+  test('une progression JOUÉE sur un ordinateur se retrouve sur l’autre', async ({
+    browser,
+    page,
+  }) => {
+    const email = courrielUnique();
+    await inscrit(page, email);
+    await ouvrir(page, 'fr-FR', 1, false, 'Timo');
+
+    // l'enfant joue un bloc entier, sans une faute
+    await page.getByRole('button', { name: 'On commence !' }).click();
+    await jouerBlocParfait(page, 'fr-FR');
+
+    const joue = await sauvegarde(page);
+    /* Ce bloc a laissé une trace qu'aucun appareil neuf ne peut inventer :
+       un compteur avancé, et des touches marquées comme tapées proprement. */
+    expect(joue.bloc).toBe(2);
+    expect(Object.keys(joue.maitrise).length).toBeGreaterThan(0);
+
+    /* Le compte l'a reçue : c'est la moitié « envoi » de la promesse.
+       Le foyer n'a qu'un enfant — c'est ce qui rend `profils[0]` sûr malgré
+       l'absence d'ordre garanti par l'API, et c'est aussi ce qui fera entrer
+       le second appareil directement dans la leçon, sans écran de choix. */
+    await expect
+      .poll(
+        async () => {
+          const r = await page.request.get('/api/profils');
+          const { profils } = (await r.json()) as { profils: { etat: { bloc: number } | null }[] };
+          return profils.length === 1 ? (profils[0].etat?.bloc ?? null) : `${profils.length} profils`;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(joue.bloc);
+
+    // ordinateur 2 : même compte, jamais joué, rien en stockage
+    const autre = await browser.newContext();
+    const page2 = await autre.newPage();
+    await connecte(page2, email);
+    await assureProfil(page2, 'Timo');
+    await page2.goto('/');
+
+    /* Et c'est la moitié « réception ». Arriver sur l'ACCUEIL et non sur le
+       choix du clavier est déjà une preuve : cet appareil-ci n'a jamais choisi
+       de disposition, il tient ce choix du premier. */
+    await expect(page2.locator('body')).toHaveAttribute('data-vue', 'V1');
+    const recu = await sauvegarde(page2);
+    expect(recu.bloc).toBe(joue.bloc);
+    expect(recu.maitrise).toEqual(joue.maitrise);
+    /* Pas d'assertion sur le palier : un seul bloc parfait ne le fait pas
+       monter, il vaudrait 1 des deux côtés et passerait sans aucune synchro. */
+
     await autre.close();
   });
 });
