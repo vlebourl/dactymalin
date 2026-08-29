@@ -911,6 +911,49 @@
   text-align: left;
 }
 
+/* Accueil : la bibliothèque du foyer, une carte par liste. Une carte est un
+   bouton entier — un enfant vise large, et le nom seul serait une cible fine. */
+.cartesListes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(8px, 1.6vw, 16px);
+  width: min(680px, 94vw);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.carteListe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+  padding: clamp(10px, 1.8vw, 18px) clamp(14px, 2.4vw, 24px);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré);
+  border-radius: var(--r-bloc);
+  cursor: pointer;
+}
+
+.carteListe:hover,
+.carteListe:focus-visible {
+  border-color: var(--teal-vif);
+}
+
+.carteNom {
+  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  font-weight: 700;
+}
+
+.carteMots {
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
 /* Écran parent : le seul de l'app à parler comme à un adulte. */
 .titrePetit {
   font-size: clamp(20px, 2.4vw, 28px);

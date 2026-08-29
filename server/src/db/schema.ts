@@ -85,3 +85,21 @@ export const progression = pgTable('progression', {
   etat: jsonb('etat').notNull(),
   majLe: timestamp('maj_le', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Une liste de mots de la bibliothèque du foyer. Elle pend au COMPTE et non au
+ * profil : les deux enfants voient les mêmes listes, et le parent ne saisit la
+ * dictée qu'une fois (#9).
+ *
+ * Les mots sont en `jsonb` plutôt qu'une ligne par mot, comme `progression.etat`
+ * : on ne requête jamais un mot isolé, on charge toujours la liste entière.
+ */
+export const liste = pgTable('liste', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  nom: text('nom').notNull(),
+  mots: jsonb('mots').notNull().$type<string[]>(),
+  creeLe: timestamp('cree_le', { withTimezone: true }).notNull().defaultNow(),
+});

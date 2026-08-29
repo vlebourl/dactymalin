@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { Auth } from '../auth';
 import type { Base } from '../db/client';
 import { profil, progression } from '../db/schema';
+import { exigeSession, type AvecCompte } from '../lib/session';
 /* Le serveur valide avec le MÊME code que le client : une seule définition de
    la forme d'une progression, pas deux qui divergeraient. */
 import { estIntact } from '../../../src/core/storage';
@@ -14,7 +15,7 @@ const corpsProfil = z.object({ prenom: z.string().trim().min(1).max(PRENOM_MAX) 
 const corpsProgression = z.object({ etat: z.unknown(), majLe: z.string().datetime() });
 
 export function routesProfils(base: Base, auth: Auth) {
-  const app = new Hono<{ Variables: { userId: string } }>();
+  const app = new Hono<AvecCompte>();
 
   /**
    * Le prénom est-il libre dans ce foyer ? Un prénom déjà pris est refusé :
@@ -39,12 +40,7 @@ export function routesProfils(base: Base, auth: Auth) {
 
   /* Toute route ci-dessous exige une session valide. Un id de profil deviné ne
      donne accès à rien : chaque requête filtre AUSSI sur le compte. */
-  app.use('*', async (c, suivant) => {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session?.user) return c.json({ erreur: 'connexion requise' }, 401);
-    c.set('userId', session.user.id);
-    await suivant();
-  });
+  app.use('*', exigeSession(auth));
 
   app.get('/', async (c) => {
     const lignes = await base
