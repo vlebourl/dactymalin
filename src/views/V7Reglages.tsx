@@ -49,9 +49,10 @@ export function V7Reglages() {
               ajouter, renommer et supprimer sont des gestes de parent, et cet
               écran-ci s'ouvre depuis l'accueil de l'enfant. */}
           <div className={v.ligneReglage}>
-            <span>
-              <b>Nos enfants</b>
-              <br />
+            {/* Un `div`, pas un `span` : une liste n'est pas du contenu de
+                phrase, et le navigateur la sortait du `span` en la reparentant. */}
+            <div>
+              <h2 className={v.titrePetit}>Nos enfants</h2>
               <ul className={v.listeEnfants}>
                 {enfants.map((e) => (
                   <li key={e.id} className={v.promessePalier}>
@@ -63,7 +64,7 @@ export function V7Reglages() {
                   <li className={v.promessePalier}>Aucun enfant sur le compte.</li>
                 )}
               </ul>
-            </span>
+            </div>
             <button className={v.petitBouton} onClick={() => envoi({ type: 'vue', vue: 'V9' })}>
               Gérer les enfants
             </button>

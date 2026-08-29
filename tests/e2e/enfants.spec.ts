@@ -16,12 +16,17 @@ async function espaceParent(page: Page) {
   await expect(page.getByRole('heading', { name: 'Nos enfants' })).toBeVisible();
 }
 
-test('les réglages listent les enfants du compte, avec leur progression', async ({ page }) => {
+test('les réglages listent les enfants DU COMPTE, avec leur progression', async ({ page }) => {
   await ouvrir(page, 'fr-FR', 4, false, 'Timo');
-  await page.request.post('/api/profils', { data: { prenom: 'Zoé' } });
+  await espaceParent(page);
+  await page.getByLabel('Prénom du nouvel enfant').fill('Zoé');
+  await page.getByRole('button', { name: 'Ajouter un enfant' }).click();
+  await expect(page.getByLabel('Prénom de Zoé')).toBeVisible();
 
-  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Revenir' }).click();
+  // Timo a joué ICI : son palier s'affiche. Zoé, non : on ne l'invente pas.
   await expect(page.getByText('Timo — leçon 4')).toBeVisible();
+  await expect(page.getByText('Zoé — pas encore joué sur cet appareil')).toBeVisible();
 });
 
 test('le parent ajoute un enfant, il apparaît aussitôt sur « Qui joue ? »', async ({ page }) => {
@@ -39,6 +44,24 @@ test('le parent ajoute un enfant, il apparaît aussitôt sur « Qui joue ? »', 
   await page.getByRole('button', { name: 'Timo' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
   expect((await sauvegarde(page)).palier).toBe(3);
+});
+
+test("le dernier enfant supprimé, l'écran redemande un prénom plutôt que d'enfermer le compte", async ({
+  page,
+}) => {
+  /* Un compte sans aucun enfant n'a plus d'écran parent atteignable : les
+     réglages vivent DANS l'application, qui exige un joueur. Le champ de
+     « Qui joue ? » est donc le seul chemin de retour — le retirer là
+     enfermerait le foyer dehors. */
+  await ouvrir(page, 'fr-FR', 2, false, 'Timo');
+  await espaceParent(page);
+  await page.getByRole('button', { name: 'Supprimer Timo' }).click();
+  await page.getByRole('button', { name: 'Oui, supprimer Timo' }).click();
+
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+  await page.getByLabel('Ton prénom').fill('Timo');
+  await page.getByRole('button', { name: "C'est parti !" }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
 });
 
 test("l'enfant ne peut pas créer de joueur depuis son écran", async ({ page }) => {

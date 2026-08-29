@@ -23,13 +23,16 @@ import u from '../ui/ui.module.css';
 export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
   const [ix, setIx] = useState<IndexProfils>(() => chargerIndex());
   const [nom, setNom] = useState('');
-  /* Le champ n'existe qu'au tout premier enfant du compte : le parent vient
-     de se connecter, il est devant l'écran (#5). Ensuite, l'ajout est un geste
-     de parent qui se fait dans les réglages (#18). */
+  /* Le champ n'existe QUE si le compte n'a aucun enfant : le parent vient de
+     se connecter, il est devant l'écran (#5). Dès qu'il y en a un, ajouter
+     devient un geste de parent, qui se fait dans les réglages (#18).
+     Il reste dans le cas « zéro enfant » même après une suppression : les
+     réglages vivent DANS l'application, qui exige un joueur, donc le retirer
+     là enfermerait dehors un foyer qui vient de supprimer son dernier profil. */
   const creation = ix.liste.length === 0;
   const [occupe, setOccupe] = useState(false);
-  /** Ce que le RÉSEAU a refusé : n'existe qu'après un essai. */
-  const [echecReseau, setEchecReseau] = useState<string | null>(null);
+  /** Ce qu'un ESSAI a refusé : réseau muet, ou champ vide au moment du clic. */
+  const [echec, setEchec] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.dataset.vue = 'V0';
@@ -53,7 +56,7 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
   /* Le motif se montre dès la saisie — l'enfant le voit disparaître quand il
      corrige, sans avoir à réessayer pour savoir si c'est bon ; l'échec réseau,
      lui, n'existe qu'après un essai. */
-  const message = echecReseau ?? (nom.length > 0 ? refus : null);
+  const message = echec ?? (nom.length > 0 ? refus : null);
 
   const creer = async () => {
     if (occupe) return;
@@ -62,11 +65,11 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
        pourquoi — y compris sur un champ jamais touché, où rien ne s'affiche
        encore. */
     if (refus) {
-      setEchecReseau(refus);
+      setEchec(refus);
       return;
     }
     setOccupe(true);
-    setEchecReseau(null);
+    setEchec(null);
     try {
       const premier = ix.liste.length === 0;
       const cree = await creerProfilDistant(nom.trim());
@@ -79,7 +82,7 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
       /* Créer un joueur DEMANDE le réseau : c'est le serveur qui lui donne son
          identifiant. Le dire plutôt que fabriquer un profil local qui n'aurait
          d'existence sur aucun autre appareil. */
-      setEchecReseau("Il faut être connecté à internet pour ajouter un joueur.");
+      setEchec("Il faut être connecté à internet pour ajouter un joueur.");
       setOccupe(false);
     }
   };
@@ -124,7 +127,7 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
               autoFocus
               onChange={(e) => {
                 setNom(e.target.value);
-                setEchecReseau(null);
+                setEchec(null);
               }}
               onKeyDown={(e) => e.key === 'Enter' && void creer()}
             />

@@ -16,6 +16,27 @@ const corpsProgression = z.object({ etat: z.unknown(), majLe: z.string().datetim
 export function routesProfils(base: Base, auth: Auth) {
   const app = new Hono<{ Variables: { userId: string } }>();
 
+  /**
+   * Le prénom est-il libre dans ce foyer ? Un prénom déjà pris est refusé :
+   * deux boutons identiques sur « Qui joue ? » ne se distinguent pas, et
+   * l'enfant ouvrirait la progression de l'autre une fois sur deux. C'est une
+   * règle d'ERGONOMIE — l'identité d'un profil reste son id, et rien n'est
+   * jamais fusionné par prénom (#4).
+   *
+   * `sauf` est le profil qu'on renomme : se renommer en soi-même n'est pas un
+   * doublon, sinon corriger une casse ou une espace serait refusé au nom du
+   * prénom qu'on porte déjà.
+   *
+   * La vérification est applicative et non un index unique : des homonymes
+   * créés AVANT cette règle existent peut-être, et l'index refuserait alors
+   * d'être créé.
+   */
+  const fratrie = (userId: string) =>
+    base.select({ id: profil.id, prenom: profil.prenom }).from(profil).where(eq(profil.userId, userId));
+
+  const prenomLibre = async (userId: string, prenom: string, sauf?: string) =>
+    !(await fratrie(userId)).some((p) => p.id !== sauf && memePrenom(p.prenom, prenom));
+
   /* Toute route ci-dessous exige une session valide. Un id de profil deviné ne
      donne accès à rien : chaque requête filtre AUSSI sur le compte. */
   app.use('*', async (c, suivant) => {
@@ -52,21 +73,10 @@ export function routesProfils(base: Base, auth: Auth) {
       return c.json({ erreur: 'prénom invalide', code: 'PRENOM_INVALIDE' }, 400);
     }
     const userId = c.get('userId');
-    const deja = await base
-      .select({ id: profil.id, prenom: profil.prenom })
-      .from(profil)
-      .where(eq(profil.userId, userId));
-    if (deja.length >= PROFILS_MAX) {
+    if ((await fratrie(userId)).length >= PROFILS_MAX) {
       return c.json({ erreur: 'trop de profils', code: 'TROP_DE_PROFILS' }, 409);
     }
-    /* Un prénom déjà pris DANS CE FOYER est refusé : deux boutons identiques
-       sur « Qui joue ? » ne se distinguent pas, et l'enfant ouvrirait la
-       progression de l'autre une fois sur deux. C'est une règle d'ergonomie —
-       l'identité d'un profil reste son id, et rien n'est jamais fusionné par
-       prénom (#4). La vérification est applicative et non un index unique :
-       des homonymes créés AVANT cette règle existent peut-être, et l'index
-       refuserait alors d'être créé. */
-    if (deja.some((p) => memePrenom(p.prenom, corps.data.prenom))) {
+    if (!(await prenomLibre(userId, corps.data.prenom))) {
       return c.json({ erreur: 'prénom déjà pris', code: 'PRENOM_DEJA_PRIS' }, 409);
     }
     const id = randomUUID();
@@ -85,19 +95,14 @@ export function routesProfils(base: Base, auth: Auth) {
       return c.json({ erreur: 'prénom invalide', code: 'PRENOM_INVALIDE' }, 400);
     }
     const id = c.req.param('id');
-    const fratrie = await base
-      .select({ id: profil.id, prenom: profil.prenom })
-      .from(profil)
-      .where(eq(profil.userId, c.get('userId')));
-    /* Se renommer en soi-même n'est pas un doublon : corriger une casse ou une
-       espace ne doit pas être refusé au nom du prénom qu'on porte déjà. */
-    if (fratrie.some((p) => p.id !== id && memePrenom(p.prenom, corps.data.prenom))) {
+    const userId = c.get('userId');
+    if (!(await prenomLibre(userId, corps.data.prenom, id))) {
       return c.json({ erreur: 'prénom déjà pris', code: 'PRENOM_DEJA_PRIS' }, 409);
     }
     const renommes = await base
       .update(profil)
       .set({ prenom: corps.data.prenom })
-      .where(and(eq(profil.id, id), eq(profil.userId, c.get('userId'))))
+      .where(and(eq(profil.id, id), eq(profil.userId, userId)))
       .returning({ id: profil.id, prenom: profil.prenom });
     if (renommes.length === 0) {
       return c.json({ erreur: 'profil introuvable', code: 'PROFIL_INTROUVABLE' }, 404);
