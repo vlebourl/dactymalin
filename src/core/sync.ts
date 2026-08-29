@@ -1,4 +1,4 @@
-import { charger, estIntact, sauver, type Sauvegarde } from './storage';
+import { CLE, charger, estIntact, sauver, type Sauvegarde } from './storage';
 import { cleDe, oublierProfils, remplacerIndex } from './profils';
 import { fusionner } from './fusion';
 
@@ -235,6 +235,32 @@ export function pousser(idProfil: string, etat: Sauvegarde): Promise<void> {
 
 /** Nombre d'envois encore en attente : affiché au parent, jamais à l'enfant. */
 export const enAttente = (): number => lire<EnAttente[]>(CLE_FILE, []).length;
+
+/**
+ * REPRISE, une seule fois, de la progression d'AVANT les identifiants serveur.
+ *
+ * Un appareil qui a joué avant que la connexion ne devienne obligatoire garde
+ * sa progression sous la clé historique `tapeavecmoi.v1`, et personne ne l'a
+ * jamais envoyée au compte : sans reprise, l'enfant recommencerait à zéro et
+ * la déconnexion finirait par effacer son travail.
+ *
+ * Elle rejoint le PREMIER enfant créé après la mise à jour, puis la clé
+ * historique disparaît — une fois, sans appariement par prénom et sans table
+ * de liens. Un appareil qui avait PLUSIEURS enfants locaux ne peut pas être
+ * démêlé sans réinventer cet appariement : seul le premier est repris.
+ */
+export function adopterProgressionHistorique(idProfil: string): Promise<void> {
+  /* On juge la valeur BRUTE, pas ce que `charger` en fait : celui-ci rend les
+     défauts quand la clé est illisible, et adopter des défauts effacerait la
+     clé historique en faisant croire à une reprise. */
+  const brut = lire<unknown>(CLE, null) ?? lire<unknown>(`${CLE}.backup`, null);
+  if (!estIntact(brut)) return Promise.resolve();
+  const historique = charger(CLE);
+  sauver(historique, cleDe(idProfil));
+  effacer(CLE);
+  effacer(`${CLE}.backup`);
+  return pousser(idProfil, historique);
+}
 
 /**
  * Au démarrage : on prend la liste des profils DU COMPTE, on l'écrit dans le
