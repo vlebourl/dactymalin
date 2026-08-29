@@ -171,6 +171,7 @@ export function V4Lecon() {
       }
     },
     (actif) => envoi({ type: 'verrMaj', actif }),
+    id,
   );
 
   /* ------------------------------------------------------- fin de bloc */

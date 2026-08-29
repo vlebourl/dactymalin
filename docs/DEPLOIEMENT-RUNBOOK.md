@@ -4,23 +4,26 @@ Tout est en place. Ce document sert le jour où quelque chose cloche.
 
 ## En une phrase
 
-`npm run deploy` demande à Coolify de reconstruire l'image depuis le
-`Dockerfile` et de remplacer le conteneur ; celui-ci sauvegarde la base, migre,
-puis démarre.
+Un push sur `main` déclenche le déploiement. GitHub appelle le webhook de
+Coolify, qui reconstruit l'image depuis le `Dockerfile` et remplace le
+conteneur ; celui-ci sauvegarde la base, migre, puis démarre.
 
-**Il n'y a pas de webhook**, et il ne peut pas y en avoir : l'hôte Coolify est
-en `192.168.1.48`, une adresse privée que GitHub ne peut pas appeler. Seul le
-port 3003 est publié vers l'extérieur, pas l'API sur 8000. D'où le déclenchement
-explicite, qui est la règle et non un contournement.
+Ce qui a rendu l'automatisme possible : le dépôt est passé sur **GitHub**, et
+GitHub appelle Coolify par son **domaine public**. Le montage précédent visait
+`192.168.1.48` depuis Gitea, qui refuse par défaut d'appeler une adresse privée
+(`ALLOWED_HOST_LIST`) — le webhook existait, actif, et n'a jamais rien livré.
+La leçon n'est pas « ouvrir Gitea » mais « ne pas viser une adresse privée
+depuis l'extérieur ».
 
 ## Les coordonnées
 
 | Quoi | Où |
 |---|---|
-| Dépôt | `https://github.com/vlebourl/dactymalin` (**public**) |
-| Clone par Coolify | `https://github.com/vlebourl/dactymalin.git`, branche `main`, HTTPS anonyme — pas de clé de déploiement |
+| Dépôt | `https://github.com/vlebourl/dactymalin` (public) |
+| Clone par Coolify | `https://github.com/vlebourl/dactymalin.git`, dépôt public, aucune clé |
 | Hôte Coolify | `192.168.1.48`, `ssh lyra@coolify`, API sur `localhost:8000/api/v1` |
-| Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` |
+| Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` (noms Coolify, pas renommés) |
+| Webhook | GitHub → `https://coolify.tiarkaerell.com/webhooks/source/github/events/manual`, secret partagé stocké dans Coolify |
 | Base | `typing-app-db`, UUID `hrfpcwechi8tb7imlir13b1a`, PostgreSQL 17 |
 | Sauvegarde planifiée | UUID `i101zg9ef5sh78fy1yheqtkw`, tous les jours à 03:00 |
 | Port hôte | **3003** → 3000 dans le conteneur |
@@ -38,6 +41,9 @@ curl -s http://192.168.1.48:3003/api/health
 `DATABASE_URL` : les comptes sont indisponibles, mais l'app reste jouable.
 
 ## Déployer
+
+Pousser sur `main` suffit. `npm run deploy` reste utile pour redéployer sans
+pousser, ou quand on veut le verdict et les logs sous les yeux :
 
 ```sh
 npm run deploy      # scripts/deployer.sh : déclenche, attend, montre les logs si ça casse
@@ -58,7 +64,8 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | Le conteneur démarre puis meurt | pas de sauvegarde planifiée ACTIVE sur la base | l'activer dans Coolify — c'est volontaire : pas de sauvegarde, pas de migration |
 | `Invalid origin` en développement | Vite sert sur `:3000` et proxifie vers `:3001` | déjà traité : les origines locales sont déclarées de confiance hors production |
 | `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
-| Un push sur `main` ne déploie pas | c'est normal : il n'y a pas de webhook, Coolify est sur le LAN | `npm run deploy` |
+| Un push ne déclenche rien | le runner `homelab-runner` est hors ligne | `sudo systemctl status actions.runner.vlebourl-dactymalin.homelab-runner` sur l'hôte Coolify |
+| Webhook GitHub renvoyant 403 | Cloudflare défie les POST de GitHub (« Just a moment… ») | ne pas utiliser de webhook : le runner appelle Coolify en localhost |
 
 ## Ce qui protège les données
 

@@ -5,10 +5,18 @@ import type { Main } from '../core/layouts';
  * Les photographies sont réservées aux quatre pastilles (addendum) ;
  * partout ailleurs — V3 et overlay d'aide — le schématique reste la règle.
  *
- * Les quatre doigts sont dessinés SÉPARÉMENT et dépassent franchement de la
- * paume : collés et rentrés, la silhouette se lisait comme une tasse
- * (itération 002, point 15).
+ * Dessinée en DEUX COUCHES de la même forme : la sombre, épaissie par le trait,
+ * puis la pâle par-dessus. Les doigts et la paume fusionnent donc en un seul
+ * contour continu, et l'écart entre deux doigts devient un simple trait — ce
+ * qu'un contour par doigt posé SUR une paume ne savait pas faire (la ligne
+ * haute de la paume barrait la main).
  */
+
+/** Épaisseur du contour, en unités du viewBox. */
+const TRAIT = 3.6;
+/** Ligne où les doigts s'enfoncent dans la paume : jamais visible. */
+const RACINE = 96;
+
 export function MainSchematique({
   cote,
   largeur = 120,
@@ -21,32 +29,42 @@ export function MainSchematique({
   const teinte = cote === 'gauche' ? 'var(--teal-vif)' : 'var(--orange-vif)';
   const pale = cote === 'gauche' ? 'var(--teal-pale)' : 'var(--orange-pale)';
 
-  /** x, sommet au repos, sommet quand l'index est tendu, largeur du doigt */
+  /* x, sommet au repos, sommet quand l'index est tendu, largeur du doigt.
+     Les quatre doigts dépassent franchement de la paume : collés et rentrés,
+     la silhouette se lisait comme une tasse (itération 002, point 15). */
   const doigts = [
-    { x: 31, repos: 40, tendu: 46, l: 12 }, // auriculaire
-    { x: 46, repos: 28, tendu: 36, l: 13 }, // annulaire
-    { x: 61, repos: 24, tendu: 32, l: 13.5 }, // majeur
+    { x: 21, repos: 48, tendu: 48, l: 12.5 }, // auriculaire
+    { x: 35, repos: 32, tendu: 32, l: 13 }, // annulaire
+    { x: 49, repos: 26, tendu: 26, l: 13 }, // majeur
+    { x: 63, repos: 34, tendu: 12, l: 13 }, // index
   ];
-  const index = { x: 76, repos: 30, tendu: 8, l: 13.5 };
 
-  const doigt = (d: { x: number; l: number }, sommet: number, actif: boolean) => (
-    <g key={d.x}>
-      <path
-        d={`M${d.x} 84 L${d.x} ${sommet}`}
-        stroke={teinte}
-        strokeWidth={d.l + 4}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d={`M${d.x} 82 L${d.x} ${sommet + 1}`}
-        stroke={pale}
-        strokeWidth={d.l}
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* ongle : le repère qui dit « c'est un doigt » et donne son sens */}
-      <circle cx={d.x} cy={sommet + 6} r={d.l * 0.26} fill={teinte} opacity={actif ? 0.5 : 0.28} />
+  /* Une couche = toute la main d'une seule couleur. Sombre avec le trait,
+     pâle sans : la différence des deux EST le contour. */
+  const couche = (couleur: string, trait: number) => (
+    <g
+      fill={couleur}
+      stroke={couleur}
+      strokeWidth={trait}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    >
+      {doigts.map((d) => (
+        <line
+          key={d.x}
+          x1={d.x}
+          y1={RACINE}
+          x2={d.x}
+          y2={tendu ? d.tendu : d.repos}
+          strokeWidth={d.l + trait}
+        />
+      ))}
+      {/* Pouce du côté de l'index : main à plat vue de dessus, le pouce d'une
+          main gauche pointe vers l'INTÉRIEUR du clavier, pas vers l'extérieur. */}
+      <line x1={69} y1={99} x2={87} y2={83} strokeWidth={15 + trait} />
+      {/* paume : son flanc part exactement au bord de l'auriculaire — décalé,
+          il laissait un décroché au raccord — puis s'évase vers le talon. */}
+      <path d="M14.75 72 L13.6 100 Q16 122 42 125 Q70 122 70 96 L70 72 Z" />
     </g>
   );
 
@@ -57,35 +75,20 @@ export function MainSchematique({
       style={{ transform: cote === 'droite' ? 'scaleX(-1)' : undefined }}
       aria-hidden="true"
     >
-      {doigts.map((d) => doigt(d, tendu ? d.tendu : d.repos, false))}
-      {doigt(index, tendu ? index.tendu : index.repos, true)}
-
-      {/* paume : plus large aux jointures qu'au poignet, coins nettement arrondis */}
-      <path
-        d="M23 74 Q20 108 32 120 Q50 130 70 122 Q84 114 85 96 L85 72 Q54 64 23 74 Z"
-        fill={pale}
-        stroke={teinte}
-        strokeWidth="3.4"
-        strokeLinejoin="round"
-      />
-      {/* Pouce du côté de l'index : main à plat vue de dessus, le pouce d'une
-          main gauche pointe vers l'INTÉRIEUR du clavier, pas vers l'extérieur. */}
-      <path
-        d="M76 84 Q93 88 92 101 Q89 115 71 109"
-        fill={pale}
-        stroke={teinte}
-        strokeWidth="3.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* jointures : quatre petits creux qui donnent l'échelle de la main */}
-      <path
-        d="M31 78 v5 M46 76 v5 M61 76 v5 M76 78 v5"
-        stroke={teinte}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        opacity="0.4"
-      />
+      {couche(teinte, TRAIT)}
+      {couche(pale, 0)}
+      {/* ongle : le repère qui dit « c'est un doigt » et donne son sens.
+          Celui de l'index est plus marqué — c'est le doigt que la leçon vise. */}
+      {doigts.map((d, i) => (
+        <circle
+          key={d.x}
+          cx={d.x}
+          cy={(tendu ? d.tendu : d.repos) + 6}
+          r={d.l * 0.2}
+          fill={teinte}
+          opacity={i === doigts.length - 1 ? 0.5 : 0.28}
+        />
+      ))}
     </svg>
   );
 }
