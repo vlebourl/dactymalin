@@ -6,8 +6,14 @@
 # entrante, donc rien à traverser. Même montage que le dépôt ecoride.
 name: Déploiement
 
+# Le déploiement part APRÈS le verdict des vérifications, jamais en même temps.
+# Sur `push`, il courait à côté d'elles : une fusion rouge atteignait la
+# production, et le seul filet était un hook `pre-push` local que rien
+# n'obligeait personne à activer.
 on:
-  push:
+  workflow_run:
+    workflows: [Vérifications]
+    types: [completed]
     branches: [main]
 
 # Un déploiement à la fois : deux pushs rapprochés reconstruisaient deux fois
@@ -20,6 +26,8 @@ jobs:
   deploy:
     name: Déployer sur Coolify
     runs-on: homelab-runner
+    # Vérifications rouges = rien ne part. C'est tout l'intérêt de la barrière.
+    if: github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Déclencher le déploiement
         run: |
