@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
 import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
-import { chargerIndex, prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
+import {
+  chargerIndex,
+  prenomValide,
+  PRENOM_MAX,
+  progressionEnCache,
+  remplacerIndex,
+} from '../core/profils';
 import {
   compteCourant,
   creerListeDistante,
@@ -451,6 +457,12 @@ function Bibliotheque() {
 
 export function V9Compte() {
   const envoi = useEnvoi();
+  /* « Hors ligne » n'est pas déduit de `navigator.onLine` : ce drapeau ment
+     dans les deux sens — il annonce « en ligne » sur un Wi-Fi de train qui ne
+     mène nulle part, et il revient à `true` sur une page rouverte depuis le
+     cache alors que rien ne passe. Ce qui fait foi, c'est la requête qui vient
+     d'échouer. */
+  const [horsLigne, setHorsLigne] = useState(false);
   const [compte, setCompte] = useState<Compte | null>(null);
   const [profils, setProfils] = useState<ProfilDistant[]>([]);
   const [file, setFile] = useState(0);
@@ -473,8 +485,21 @@ export function V9Compte() {
     if (!c) return setProfils([]);
     try {
       adopterListe(await profilsDistants());
+      setHorsLigne(false);
     } catch {
-      setProfils([]);
+      setHorsLigne(true);
+      /* Hors ligne, on montre ce que l'appareil CONNAÎT du foyer plutôt qu'une
+         liste vide : « aucun profil sur le compte » serait un mensonge, et le
+         parent croirait avoir perdu ses enfants (#3). On ne réécrit pas le
+         cache — il n'y a rien de neuf à en dire. */
+      setProfils(
+        chargerIndex().liste.map((p) => ({
+          id: p.id,
+          prenom: p.nom,
+          etat: progressionEnCache(p.id),
+          majLe: null,
+        })),
+      );
     }
     /* La bibliothèque est relue À CHAQUE ouverture de l'espace parent : c'est
        ici que le parent l'édite, donc ici qu'elle doit être à jour. */
@@ -541,9 +566,17 @@ export function V9Compte() {
               Connecté en tant que <b>{compte.email}</b>.
             </p>
             <p className={v.promessePalier}>
-              {file === 0
-                ? 'Toutes les progressions sont synchronisées.'
-                : `${file} progression(s) en attente d'envoi.`}
+              {horsLigne
+                ? /* Ce n'est pas une panne : l'application marche, et le travail
+                     de l'enfant est gardé ici en attendant le réseau. */
+                  `Hors ligne. ${
+                    file === 0
+                      ? 'Rien n’attend d’être envoyé.'
+                      : `${file} progression(s) partiront au retour du réseau.`
+                  } Les listes et les enfants ne se modifient qu’en ligne.`
+                : file === 0
+                  ? 'Toutes les progressions sont synchronisées.'
+                  : `${file} progression(s) en attente d'envoi.`}
             </p>
 
             <h2 className={v.titrePetit}>Nos enfants</h2>
