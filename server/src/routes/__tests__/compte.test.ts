@@ -34,25 +34,33 @@ d('suppression du compte', () => {
     return { Cookie: r.headers.get('set-cookie')!.split(';')[0], 'Content-Type': 'application/json' };
   };
 
-  /** Un foyer complet : un enfant, sa progression, et une liste. */
+  /**
+   * Un foyer complet : un enfant, sa progression, et une liste. CHAQUE écriture
+   * est vérifiée — sans quoi « 0 ligne après suppression » serait vrai d'un
+   * foyer qui n'a jamais rien contenu, et le test ne prouverait rien.
+   */
   const foyerGarni = async (h: HeadersInit) => {
-    const { id } = (await (
-      await app.request('/api/profils', {
-        method: 'POST',
-        headers: h,
-        body: JSON.stringify({ prenom: 'Timo' }),
-      })
-    ).json()) as { id: string };
-    await app.request(`/api/profils/${id}/progression`, {
+    const cree = await app.request('/api/profils', {
+      method: 'POST',
+      headers: h,
+      body: JSON.stringify({ prenom: 'Timo' }),
+    });
+    expect(cree.status).toBe(201);
+    const { id } = (await cree.json()) as { id: string };
+
+    const pousse = await app.request(`/api/profils/${id}/progression`, {
       method: 'PUT',
       headers: h,
       body: JSON.stringify({ etat: { ...DEFAUTS, palier: 3 }, majLe: new Date().toISOString() }),
     });
-    await app.request('/api/listes', {
+    expect(pousse.status).toBe(200);
+
+    const listeCreee = await app.request('/api/listes', {
       method: 'POST',
       headers: h,
       body: JSON.stringify({ nom: 'Dictée', mots: ['papa'] }),
     });
+    expect(listeCreee.status).toBe(201);
     return id;
   };
 
@@ -80,6 +88,14 @@ d('suppression du compte', () => {
     const idUser = (await idDuCompte(email))!;
     expect(idUser).toBeTruthy();
 
+    /* Le foyer est bien GARNI avant qu'on le supprime : c'est ce qui donne son
+       sens aux « zéro ligne » d'après. */
+    expect(await base.select().from(profil).where(eq(profil.userId, idUser))).toHaveLength(1);
+    expect(
+      await base.select().from(progression).where(eq(progression.profilId, idProfil)),
+    ).toHaveLength(1);
+    expect(await base.select().from(liste).where(eq(liste.userId, idUser))).toHaveLength(1);
+
     expect((await app.request('/api/compte', { method: 'DELETE', headers: h })).status).toBe(200);
 
     // le compte lui-même
@@ -102,7 +118,9 @@ d('suppression du compte', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: MDP }),
     });
-    expect(reconnexion.status).toBeGreaterThanOrEqual(400);
+    /* 401 précisément : « au moins 400 » passerait sur un 500, c'est-à-dire
+       sur un serveur cassé pris pour un refus. */
+    expect(reconnexion.status).toBe(401);
 
     /* Et le cookie d'avant ne vaut plus rien : la session est partie avec le
        compte, sinon une page restée ouverte continuerait de servir. */

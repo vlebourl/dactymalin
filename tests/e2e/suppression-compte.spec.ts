@@ -19,7 +19,10 @@ test('le parent supprime son compte, après confirmation, et tout part', async (
   /* Une confirmation précède l'action, et elle NOMME ce qu'elle détruit —
      « êtes-vous sûr ? » ne dit pas de quoi on parle. */
   await page.getByLabel('Supprimer le compte').click();
-  const avertissement = page.getByRole('alert');
+  /* L'alerte de CETTE confirmation, pas n'importe laquelle : l'espace parent
+     en contient d'autres, et un `getByRole('alert')` nu finirait par pointer
+     ailleurs sans qu'on le voie. */
+  const avertissement = page.getByRole('alert').filter({ hasText: 'Supprimer le compte' });
   await expect(avertissement).toContainText(email);
   await expect(avertissement).toContainText(/définitif/i);
 
@@ -44,7 +47,7 @@ test('le parent supprime son compte, après confirmation, et tout part', async (
     data: { email, password: MDP_TEST },
     failOnStatusCode: false,
   });
-  expect(reconnexion.status()).toBeGreaterThanOrEqual(400);
+  expect(reconnexion.status()).toBe(401);
 
   // et la session d'avant ne vaut plus rien
   expect((await page.request.get('/api/profils')).status()).toBe(401);
@@ -68,7 +71,7 @@ test('hors ligne, la suppression est refusée et le dit', async ({ page, context
   await page.getByLabel('Supprimer le compte').click();
   await page.getByRole('button', { name: 'Oui, supprimer le compte' }).click();
 
-  await expect(page.getByText(/Rien n’a été supprimé/)).toBeVisible();
+  await expect(page.getByText(/n’a pas pu être confirmée/)).toBeVisible();
   // on est toujours dans l'espace parent, pas sur le portail
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V9');
 

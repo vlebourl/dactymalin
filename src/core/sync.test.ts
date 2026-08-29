@@ -6,6 +6,7 @@ import {
   creerListeDistante,
   listesDistantes,
   modifierListeDistante,
+  supprimerLeCompte,
   supprimerListeDistante,
   CLE_FILE,
   CLE_MAJ,
@@ -15,7 +16,7 @@ import {
   synchroniserProfils,
   viderLaFile,
 } from './sync';
-import { CLE_PROFILS, chargerIndex, cleDe } from './profils';
+import { CLE_PROFILS, chargerIndex, cleDe, remplacerIndex } from './profils';
 import { CLE, DEFAUTS, charger, sauver, type Sauvegarde } from './storage';
 
 /** Faux stockage : `core/` doit rester testable en env node (cf. profils.test.ts). */
@@ -486,6 +487,56 @@ describe('cache des listes, en lecture seule', () => {
 
     bibliotheque([], { coupe: true });
     expect(await listesDistantes()).toEqual([]);
+  });
+});
+
+/* #6 — « partir sans laisser de trace » vaut aussi pour l'APPAREIL. Garder la
+   progression d'enfants qui n'existent plus ferait revenir leurs prénoms sur
+   l'écran du prochain compte ouvert ici. */
+describe('suppression du compte', () => {
+  it('efface du même geste le compte, sa bibliothèque, les profils et la file', async () => {
+    /* On garnit l'appareil comme une vraie session le ferait : un compte connu,
+       une bibliothèque en cache, un profil, sa progression, et un envoi resté
+       en file parce que le réseau a coupé. */
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/api/listes'
+          ? rep({ listes: [{ id: 'l1', nom: 'D', mots: ['papa'], creeLe: '2026-08-29T00:00:00Z' }] })
+          : rep({ user: { id: 'u1', email: 'p@exemple.fr', name: 'Parent' } }),
+      ),
+    );
+    await compteCourant();
+    await listesDistantes();
+    remplacerIndex([{ id: 'a', nom: 'Timo' }]);
+    sauver({ ...DEFAUTS, palier: 3 }, cleDe('a'));
+
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    await pousser('a', { ...DEFAUTS, palier: 4 });
+
+    expect(enAttente()).toBe(1);
+    expect(chargerIndex().liste).toHaveLength(1);
+
+    vi.stubGlobal('fetch', vi.fn(async () => rep({ supprime: true })));
+    await supprimerLeCompte();
+
+    expect(compteEnCache()).toBeNull();
+    expect(enAttente()).toBe(0);
+    expect(chargerIndex().liste).toEqual([]);
+    expect(localStorage.getItem(cleDe('a'))).toBeNull();
+
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    expect(await listesDistantes()).toEqual([]);
+  });
+
+  it('ne touche à rien si le serveur refuse', async () => {
+    serveur([]);
+    vi.stubGlobal('fetch', vi.fn(async () => rep({ user: { id: 'u1', email: 'p@exemple.fr', name: 'P' } })));
+    await compteCourant();
+
+    vi.stubGlobal('fetch', vi.fn(async () => rep({ erreur: 'non' }, 500)));
+    await expect(supprimerLeCompte()).rejects.toThrow();
+    expect(compteEnCache()).not.toBeNull();
   });
 });
 

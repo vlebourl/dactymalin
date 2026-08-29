@@ -119,9 +119,12 @@ describe('messageDEchecListe', () => {
    que le compte est parti alors qu'il est intact : c'est la pire des issues
    pour un geste qu'on ne fait qu'une fois, en partant. */
 describe('messageDEchecCompte', () => {
-  it('hors ligne, il dit que rien n’a été supprimé', () => {
-    expect(messageDEchecCompte({})).toMatch(/n’a été supprimé|n'a été supprimé/i);
-    expect(messageDEchecCompte({})).toMatch(/réseau|Internet/i);
+  /* Il ne jure PAS que rien n'a été supprimé : si le réseau tombe après que le
+     serveur a agi, personne ne le sait de ce côté-ci. Il dit ce qu'on sait. */
+  it('hors ligne, il dit que la suppression n’est pas confirmée', () => {
+    expect(messageDEchecCompte({})).toMatch(/n’a pas pu être confirmée/i);
+    expect(messageDEchecCompte({})).toMatch(/Internet/i);
+    expect(messageDEchecCompte({})).not.toMatch(/^Rien n/);
   });
 
   it('session finie ou serveur en panne : chacun son motif', () => {

@@ -20,6 +20,12 @@ export function routesCompte(base: Base, auth: Auth) {
    * schéma : sessions, comptes de fournisseurs, profils, progressions, listes.
    * Les énumérer ici serait les énumérer DEUX fois, et la seconde liste
    * finirait par oublier la table ajoutée l'an prochain.
+   *
+   * La limite de cet argument, énoncée : une table SANS clé étrangère vers le
+   * compte échapperait silencieusement à la cascade. C'est le cas de
+   * `verification`, dont les lignes sont indexées par adresse — inoffensif
+   * aujourd'hui, puisque rien n'envoie de courriel et qu'aucune ligne n'y est
+   * donc écrite. Le jour où un envoi existera, c'est ici qu'il faudra revenir.
    */
   app.delete('/', async (c) => {
     await base.delete(user).where(eq(user.id, c.get('userId')));
