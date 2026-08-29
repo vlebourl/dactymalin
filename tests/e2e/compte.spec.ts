@@ -82,13 +82,16 @@ test.describe('comptes parents', () => {
     expect(joue.bloc).toBe(2);
     expect(Object.keys(joue.maitrise).length).toBeGreaterThan(0);
 
-    // le compte l'a reçue : c'est la moitié « envoi » de la promesse
+    /* Le compte l'a reçue : c'est la moitié « envoi » de la promesse.
+       Le foyer n'a qu'un enfant — c'est ce qui rend `profils[0]` sûr malgré
+       l'absence d'ordre garanti par l'API, et c'est aussi ce qui fera entrer
+       le second appareil directement dans la leçon, sans écran de choix. */
     await expect
       .poll(
         async () => {
           const r = await page.request.get('/api/profils');
           const { profils } = (await r.json()) as { profils: { etat: { bloc: number } | null }[] };
-          return profils[0]?.etat?.bloc ?? null;
+          return profils.length === 1 ? (profils[0].etat?.bloc ?? null) : `${profils.length} profils`;
         },
         { timeout: 10_000 },
       )
@@ -108,7 +111,8 @@ test.describe('comptes parents', () => {
     const recu = await sauvegarde(page2);
     expect(recu.bloc).toBe(joue.bloc);
     expect(recu.maitrise).toEqual(joue.maitrise);
-    expect(recu.palier).toBe(joue.palier);
+    /* Pas d'assertion sur le palier : un seul bloc parfait ne le fait pas
+       monter, il vaudrait 1 des deux côtés et passerait sans aucune synchro. */
 
     await autre.close();
   });
