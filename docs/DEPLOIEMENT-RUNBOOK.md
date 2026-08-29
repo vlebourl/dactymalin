@@ -8,18 +8,17 @@ Tout est en place. Ce document sert le jour où quelque chose cloche.
 `Dockerfile` et de remplacer le conteneur ; celui-ci sauvegarde la base, migre,
 puis démarre.
 
-Le webhook Gitea est configuré mais **ne délivre pas** : Gitea refuse par défaut
-d'appeler une adresse privée (`ALLOWED_HOST_LIST`), et l'hôte Coolify est en
-`192.168.1.48`. D'où le déclenchement explicite. Pour le faire marcher un jour,
-il faudrait ajouter `192.168.1.48` à `ALLOWED_HOST_LIST` dans la configuration
-de Gitea.
+**Il n'y a pas de webhook**, et il ne peut pas y en avoir : l'hôte Coolify est
+en `192.168.1.48`, une adresse privée que GitHub ne peut pas appeler. Seul le
+port 3003 est publié vers l'extérieur, pas l'API sur 8000. D'où le déclenchement
+explicite, qui est la règle et non un contournement.
 
 ## Les coordonnées
 
 | Quoi | Où |
 |---|---|
-| Dépôt | `https://git.tiarkaerell.com/vlb/typing-app` (privé) |
-| Clone par Coolify | `git@192.168.1.225:30143/vlb/typing-app.git`, clé de déploiement en lecture seule |
+| Dépôt | `https://github.com/vlebourl/dactymalin` (**public**) |
+| Clone par Coolify | `https://github.com/vlebourl/dactymalin.git`, branche `main`, HTTPS anonyme — pas de clé de déploiement |
 | Hôte Coolify | `192.168.1.48`, `ssh lyra@coolify`, API sur `localhost:8000/api/v1` |
 | Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` |
 | Base | `typing-app-db`, UUID `hrfpcwechi8tb7imlir13b1a`, PostgreSQL 17 |
@@ -59,7 +58,7 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | Le conteneur démarre puis meurt | pas de sauvegarde planifiée ACTIVE sur la base | l'activer dans Coolify — c'est volontaire : pas de sauvegarde, pas de migration |
 | `Invalid origin` en développement | Vite sert sur `:3000` et proxifie vers `:3001` | déjà traité : les origines locales sont déclarées de confiance hors production |
 | `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
-| Le webhook Gitea ne part pas | Gitea bloque les adresses privées | `npm run deploy`, ou ouvrir `ALLOWED_HOST_LIST` côté Gitea |
+| Un push sur `main` ne déploie pas | c'est normal : il n'y a pas de webhook, Coolify est sur le LAN | `npm run deploy` |
 
 ## Ce qui protège les données
 
