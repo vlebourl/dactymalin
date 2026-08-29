@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { LISTES_MAX, NOM_LISTE_MAX, estJouable, listeValidee, motsIntapables } from './listes';
+import {
+  LISTES_MAX,
+  NOM_LISTE_MAX,
+  estJouable,
+  listeValidee,
+  motsDeLaSaisie,
+  motsIntapables,
+} from './listes';
 
 /* Le validateur est partagé client/serveur (#9) : une seule définition de ce
    qu'est une liste acceptable, pas deux qui divergeraient. */
@@ -69,5 +76,34 @@ describe('estJouable', () => {
   it('fausse quand la disposition ne sait écrire aucun mot', () => {
     expect(estJouable(liste(['la fête', 'ЖЖЖ']), 'fr-FR')).toBe(false);
     expect(estJouable(liste([]), 'fr-FR')).toBe(false);
+  });
+});
+
+/* La saisie du parent est un texte libre : une ligne, une virgule ou un
+   point-virgule séparent deux mots. Le formulaire de création et celui de
+   modification en font la même lecture — une seule définition (#10). */
+describe('motsDeLaSaisie', () => {
+  /* Régression (revue de #10) : la liste appartient au COMPTE, la disposition
+     appartient à l'APPAREIL. Rendre seulement les mots tapables ici faisait
+     disparaître, pour tout le foyer, ceux que CE clavier ne sait pas écrire —
+     il suffisait d'ouvrir la liste sur la tablette et d'enregistrer. La saisie
+     est donc rendue ENTIÈRE ; `refuses` ne sert qu'à avertir. */
+  it('rend tous les mots, et nomme à part ceux que ce clavier ne sait pas écrire', () => {
+    expect(motsDeLaSaisie('papa\nla fête ; maman, papa', 'fr-FR')).toEqual({
+      mots: ['papa', 'la fête', 'maman'],
+      refuses: ['la fête'],
+    });
+  });
+
+  it('un même texte donne les mêmes mots sur les deux dispositions', () => {
+    const texte = 'où est papa';
+    expect(motsDeLaSaisie(texte, 'fr-FR').mots).toEqual(motsDeLaSaisie(texte, 'fr-CH').mots);
+    // seul l'avertissement change : « où » ne s'écrit pas sur le clavier suisse
+    expect(motsDeLaSaisie(texte, 'fr-FR').refuses).toEqual([]);
+    expect(motsDeLaSaisie(texte, 'fr-CH').refuses).toEqual(['où est papa']);
+  });
+
+  it('ne retient rien d’un texte vide', () => {
+    expect(motsDeLaSaisie('   \n\n', 'fr-FR')).toEqual({ mots: [], refuses: [] });
   });
 });
