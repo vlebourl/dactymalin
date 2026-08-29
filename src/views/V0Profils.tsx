@@ -6,7 +6,7 @@ import {
   effacerDemandeDeChoix,
   type IndexProfils,
 } from '../core/profils';
-import { creerProfilDistant } from '../core/sync';
+import { adopterProgressionHistorique, creerProfilDistant } from '../core/sync';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
@@ -40,8 +40,12 @@ export function V0Profils({ onChoix }: { onChoix: (id: string) => void }) {
     setOccupe(true);
     setErreur(null);
     try {
+      const premier = ix.liste.length === 0;
       const cree = await creerProfilDistant(nom.trim() || `Joueur ${ix.liste.length + 1}`);
       setIx(ajouterProfil({ id: cree.id, nom: cree.prenom }));
+      /* Premier enfant du compte sur cet appareil : s'il y a une progression
+         d'avant les identifiants serveur, elle est à lui. */
+      if (premier) await adopterProgressionHistorique(cree.id);
       onChoix(cree.id);
     } catch {
       /* Créer un joueur DEMANDE le réseau : c'est le serveur qui lui donne son

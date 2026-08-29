@@ -26,6 +26,41 @@ test("un compte tout neuf demande le prénom du premier enfant, il n'y a pas de 
   expect(profils.map((p) => p.prenom)).toEqual(['Timo']);
 });
 
+test("la progression d'avant la mise à jour rejoint le premier enfant créé", async ({ page }) => {
+  /* Appareil qui a joué AVANT que les profils ne viennent du serveur : sa
+     progression est sous la clé historique, et personne ne l'a jamais envoyée
+     au compte. Elle ne doit pas être perdue. */
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'tapeavecmoi.v1',
+      JSON.stringify({
+        version: 1,
+        disposition: 'fr-FR',
+        dispositionChoisieALaMain: true,
+        palier: 5,
+        blocsSurPalier: 0,
+        bloc: 1,
+        maitrise: {},
+        guideDoigtVu: true,
+        reglages: { sons: false, texteEspace: false, animationsDouces: false },
+      }),
+    );
+  });
+  await inscrit(page);
+  await page.goto('/');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V0');
+  await page.getByLabel('Ton prénom').fill('Timo');
+  await page.getByRole('button', { name: "C'est parti !" }).click();
+
+  // il reprend à son palier, pas à zéro, et la clé historique a disparu
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+  expect(await page.evaluate(() => localStorage.getItem('tapeavecmoi.v1'))).toBeNull();
+  const { profils } = (await (await page.request.get('/api/profils')).json()) as {
+    profils: { prenom: string; etat: { palier: number } | null }[];
+  };
+  expect(profils[0].etat?.palier).toBe(5);
+});
+
 test('les profils du compte se retrouvent sur un autre appareil', async ({ browser, page }) => {
   const email = courrielUnique();
   await inscrit(page, email);

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  adopterProgressionHistorique,
   CLE_FILE,
   CLE_MAJ,
   deconnecter,
@@ -9,7 +10,7 @@ import {
   viderLaFile,
 } from './sync';
 import { CLE_PROFILS, chargerIndex, cleDe } from './profils';
-import { DEFAUTS, charger, sauver, type Sauvegarde } from './storage';
+import { CLE, DEFAUTS, charger, sauver, type Sauvegarde } from './storage';
 
 /** Faux stockage : `core/` doit rester testable en env node (cf. profils.test.ts). */
 class FauxStockage {
@@ -270,6 +271,41 @@ describe('réconciliation : l’appareil local ne gagne plus par principe', () =
 
     await synchroniserProfils();
     expect(s.puts.map((p) => p.etat.palier)).toEqual([7]);
+  });
+});
+
+describe('reprise de la progression d’avant les identifiants serveur', () => {
+  it('la clé historique rejoint le premier enfant créé, puis disparaît', async () => {
+    const s = serveur([{ id: 'd1', prenom: 'Timo', etat: null, majLe: null }]);
+    sauver({ ...DEFAUTS, palier: 5, guideDoigtVu: true }, CLE);
+
+    await adopterProgressionHistorique('d1');
+
+    expect(charger(cleDe('d1')).palier).toBe(5);
+    expect(localStorage.getItem(CLE)).toBeNull();
+    expect(localStorage.getItem(`${CLE}.backup`)).toBeNull();
+    /* Et le compte la reçoit : c'est ce qui la rend visible sur la tablette. */
+    expect(s.puts.map((p) => p.etat.palier)).toEqual([5]);
+  });
+
+  it('rien à reprendre sur un appareil neuf : la progression du profil n’est pas touchée', async () => {
+    const s = serveur([{ id: 'd1', prenom: 'Timo', etat: null, majLe: null }]);
+    sauver({ ...DEFAUTS, palier: 2 }, cleDe('d1'));
+
+    await adopterProgressionHistorique('d1');
+
+    expect(charger(cleDe('d1')).palier).toBe(2);
+    expect(s.puts).toHaveLength(0);
+  });
+
+  it('une clé historique illisible est ignorée, jamais reprise', async () => {
+    const s = serveur([{ id: 'd1', prenom: 'Timo', etat: null, majLe: null }]);
+    localStorage.setItem(CLE, '{"version":1,"palier":"beaucoup"}');
+
+    await adopterProgressionHistorique('d1');
+
+    expect(charger(cleDe('d1')).palier).toBe(DEFAUTS.palier);
+    expect(s.puts).toHaveLength(0);
   });
 });
 
