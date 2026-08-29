@@ -274,7 +274,9 @@ l'autre, et couper le serveur en pleine leçon ne se voit pas.
 - Le filet de sécurité passe donc **avant** le push, pas après : un hook
   `pre-push` versionné (`git config core.hooksPath .githooks`) refuse de
   pousser si `npm run build`, `npm test` ou `npm run e2e` échouent. Sans runner
-  CI, c'est la seule barrière — et elle vaut mieux qu'un déploiement rouge.
+  CI, c'était alors la seule barrière — et elle valait mieux qu'un
+  déploiement rouge. (Depuis le 2026-08-29, le workflow `Vérifications` la
+  double côté GitHub, et le déploiement attend son verdict.)
 - Le runbook documente le rollback : Coolify garde les révisions précédentes,
   on redéploie l'avant-dernière depuis l'UI.
 

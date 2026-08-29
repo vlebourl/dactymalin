@@ -61,8 +61,8 @@ un cas qui n'arrivera pas : préparer une liste est un geste de parent, posé, �
 la maison.
 
 Écarté : le mode strict (« pas de réseau, pas d'app »). Il transforme une app
-d'apprentissage en app qui refuse de démarrer quand un serveur unique, sans CI
-ni redondance, tombe.
+d'apprentissage en app qui refuse de démarrer quand un serveur unique, sans
+redondance, tombe.
 
 ---
 
@@ -234,7 +234,8 @@ serveur de 2. Chaque étape est poussable et testable seule.
 Énoncés, pas subis.
 
 - **L'app ne démarre plus jamais sans un premier passage en ligne.** Serveur
-  unique, pas de CI, pas de redondance.
+  unique, pas de redondance. (La CI est arrivée depuis : le workflow
+  `Vérifications` garde la porte, et le déploiement attend son verdict.)
 - **Pas de récupération de mot de passe** (`src/views/V9Compte.tsx:176-178`).
   Aujourd'hui la perdre coûte la synchronisation ; demain elle coûte l'app.
   Google SSO couvre les comptes Google, pas les autres.
