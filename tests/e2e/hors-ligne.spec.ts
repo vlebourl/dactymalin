@@ -218,6 +218,17 @@ test('hors ligne, créer une liste est refusé et dit pourquoi', async ({ page, 
 
   await context.setOffline(true);
   await page.reload();
+
+  /* On joue d'abord un mot : la file porte alors une progression, et la
+     vérification d'en bas cesse d'être vraie par vacuité — une file vide
+     satisfait n'importe quelle assertion sur son contenu. */
+  await page.getByRole('button', { name: 'On commence !' }).click();
+  await jouerItem(page, 'fr-FR');
+  await page.waitForFunction(
+    () => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]').length === 1,
+  );
+
+  await page.goto('/');
   await page.getByLabel('Réglages').click();
   await page.getByRole('button', { name: 'Ouvrir' }).click();
 
@@ -231,10 +242,12 @@ test('hors ligne, créer une liste est refusé et dit pourquoi', async ({ page, 
   await expect(page.getByRole('alert')).toContainText(/Hors ligne/);
   await expect(page.getByRole('alert')).toContainText(/rien n’est perdu/i);
 
-  /* La file ne porte QUE des progressions : aucune modification de liste ne s'y
-     glisse pour partir toute seule plus tard. */
+  /* La file porte TOUJOURS la seule progression jouée plus haut, et rien de
+     plus : la création refusée ne s'y est pas glissée pour partir toute seule
+     plus tard. */
   const file = await page.evaluate(
     () => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]') as { profilDistant?: string }[],
   );
-  expect(file.every((e) => typeof e.profilDistant === 'string')).toBe(true);
+  expect(file).toHaveLength(1);
+  expect(file[0].profilDistant).toEqual(expect.any(String));
 });
