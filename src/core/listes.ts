@@ -53,6 +53,21 @@ export function motsIntapables(mots: string[], id: IdDisposition): string[] {
 }
 
 /**
+ * Ce que le parent vient de taper, relu : les mots retenus, et ceux que la
+ * disposition ne sait pas écrire d'une seule frappe. Créer et modifier une
+ * liste lisent la saisie de la MÊME façon — sinon le même texte donnerait deux
+ * listes différentes selon le formulaire qui l'a reçu.
+ */
+export function motsDeLaSaisie(
+  texte: string,
+  id: IdDisposition,
+): { retenus: string[]; refuses: string[] } {
+  const proposes = motsPersoValides(texte.split(/[\n,;]+/));
+  const refuses = motsIntapables(proposes, id);
+  return { retenus: proposes.filter((m) => !refuses.includes(m)), refuses };
+}
+
+/**
  * Cette liste donne-t-elle un bloc sur CETTE disposition ? Une liste
  * appartient au compte, une disposition appartient à l'appareil : les mots de
  * la dictée écrite sur l'AZERTY du salon peuvent n'être plus tapables sur le

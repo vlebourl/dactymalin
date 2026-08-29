@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Auth } from '../auth';
 import type { Base } from '../db/client';
@@ -47,6 +47,42 @@ export function routesListes(base: Base, auth: Auth) {
       .values({ id: randomUUID(), userId, nom: valide.nom, mots: valide.mots })
       .returning({ id: liste.id, nom: liste.nom, mots: liste.mots, creeLe: liste.creeLe });
     return c.json({ ...creee, creeLe: creee.creeLe.toISOString() }, 201);
+  });
+
+  /**
+   * Modifie une liste : ses mots, son nom, ou les deux. La dictée change chaque
+   * semaine — on réécrit la liste, on n'en crée pas une nouvelle, sinon la
+   * grille de l'enfant se remplit de semaines mortes.
+   *
+   * Le filtre sur le propriétaire est DANS la requête d'écriture, pas dans une
+   * lecture préalable : c'est ce qui rend un identifiant deviné inoffensif,
+   * même entre les deux moments.
+   */
+  app.put('/:id', async (c) => {
+    const corps = (await c.req.json().catch(() => null)) as { nom?: unknown; mots?: unknown } | null;
+    const valide = listeValidee(corps?.nom, corps?.mots);
+    if (!valide) return c.json({ erreur: 'liste invalide', code: 'LISTE_INVALIDE' }, 400);
+
+    const modifiees = await base
+      .update(liste)
+      .set({ nom: valide.nom, mots: valide.mots })
+      .where(and(eq(liste.id, c.req.param('id')), eq(liste.userId, c.get('userId'))))
+      .returning({ id: liste.id, nom: liste.nom, mots: liste.mots, creeLe: liste.creeLe });
+    if (modifiees.length === 0) {
+      return c.json({ erreur: 'liste introuvable', code: 'LISTE_INTROUVABLE' }, 404);
+    }
+    return c.json({ ...modifiees[0], creeLe: modifiees[0].creeLe.toISOString() });
+  });
+
+  app.delete('/:id', async (c) => {
+    const supprimees = await base
+      .delete(liste)
+      .where(and(eq(liste.id, c.req.param('id')), eq(liste.userId, c.get('userId'))))
+      .returning({ id: liste.id });
+    if (supprimees.length === 0) {
+      return c.json({ erreur: 'liste introuvable', code: 'LISTE_INTROUVABLE' }, 404);
+    }
+    return c.json({ supprime: true });
   });
 
   return app;

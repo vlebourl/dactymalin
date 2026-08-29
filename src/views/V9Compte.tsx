@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
-import { motsIntapables, NOM_LISTE_MAX, type Liste } from '../core/listes';
-import { motsPersoValides } from '../core/storage';
+import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
 import { chargerIndex, prenomValide, PRENOM_MAX, remplacerIndex } from '../core/profils';
 import {
   compteCourant,
   creerListeDistante,
   creerProfilDistant,
   listesDistantes,
+  modifierListeDistante,
+  supprimerListeDistante,
   deconnecter,
   enAttente,
   profilsDistants,
@@ -182,6 +183,178 @@ function LigneEnfant({
 }
 
 /**
+ * Une ligne « liste » : son nom, ses mots, et sa suppression. Elle est repliée
+ * par défaut — trente listes dépliées feraient un mur d'où le parent ne
+ * retrouverait plus la sienne.
+ *
+ * Comme pour les enfants, chaque ligne porte SON brouillon et SON message : un
+ * refus affiché en haut du panneau, loin du champ fautif, n'apprend à personne
+ * quelle liste il concerne.
+ */
+function LigneListe({ liste, surChangement }: { liste: Liste; surChangement: () => Promise<void> }) {
+  const app = useApp();
+  const [ouverte, setOuverte] = useState(false);
+  const [nom, setNom] = useState(liste.nom);
+  const [mots, setMots] = useState(liste.mots.join('\n'));
+  const [confirme, setConfirme] = useState(false);
+  const [occupe, setOccupe] = useState(false);
+  const [echec, setEchec] = useState<string | null>(null);
+  const boutonSupprimer = useRef<HTMLButtonElement>(null);
+  const rendreLeFocus = useRef(false);
+
+  /* « Annuler » démonte le bouton qui avait le focus : sans ça, il retombe sur
+     le corps du document et qui navigue au clavier se retrouve nulle part. */
+  useEffect(() => {
+    if (!confirme && rendreLeFocus.current) {
+      boutonSupprimer.current?.focus();
+      rendreLeFocus.current = false;
+    }
+  }, [confirme]);
+
+  const { retenus, refuses } = motsDeLaSaisie(mots, app.disposition);
+  const inchangee =
+    nom.trim() === liste.nom && retenus.join('\n') === liste.mots.join('\n');
+
+  const enregistrer = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await modifierListeDistante(liste.id, nom.trim(), retenus);
+      setOuverte(false);
+      await surChangement();
+    } catch (erreur) {
+      setEchec(messageDEchecListe(erreur));
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  /* Supprimer après un « oui » explicite, et la confirmation NOMME la liste :
+     « êtes-vous sûr ? » ne dit pas de laquelle on parle. */
+  const supprimer = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await supprimerListeDistante(liste.id);
+      setConfirme(false);
+      await surChangement();
+    } catch (erreur) {
+      setEchec(messageDEchecListe(erreur));
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <li>
+      <b>{liste.nom}</b>{' '}
+      <span className={v.promessePalier}>
+        — {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
+      </span>{' '}
+      <button
+        className={v.petitBouton}
+        aria-expanded={ouverte}
+        onClick={() => {
+          /* Rouvrir repart de ce que le SERVEUR dit, pas d'un brouillon
+             abandonné il y a trois clics. */
+          setNom(liste.nom);
+          setMots(liste.mots.join('\n'));
+          setEchec(null);
+          setOuverte((x) => !x);
+        }}
+      >
+        {ouverte ? 'Fermer' : `Modifier ${liste.nom}`}
+      </button>{' '}
+      {confirme ? (
+        <span className={v.confirmation} role="alert">
+          Supprimer « {liste.nom} » ? Elle disparaîtra de l'accueil des enfants.{' '}
+          <button className={v.petitBouton} autoFocus onClick={() => void supprimer()}>
+            {`Oui, supprimer ${liste.nom}`}
+          </button>{' '}
+          <button
+            className={u.lien}
+            onClick={() => {
+              rendreLeFocus.current = true;
+              setConfirme(false);
+            }}
+          >
+            Annuler
+          </button>
+        </span>
+      ) : (
+        <button
+          ref={boutonSupprimer}
+          className={u.lien}
+          aria-label={`Supprimer ${liste.nom}`}
+          onClick={() => {
+            setEchec(null);
+            setConfirme(true);
+          }}
+        >
+          Supprimer
+        </button>
+      )}
+
+      {ouverte && (
+        <div className={v.panneauListe}>
+          <input
+            className={v.champNom}
+            value={nom}
+            maxLength={NOM_LISTE_MAX}
+            aria-label={`Nom de ${liste.nom}`}
+            onChange={(e) => {
+              setNom(e.target.value);
+              setEchec(null);
+            }}
+          />
+          <textarea
+            className={v.champMots}
+            aria-label={`Les mots de ${liste.nom}`}
+            rows={5}
+            value={mots}
+            onChange={(e) => {
+              setMots(e.target.value);
+              setEchec(null);
+            }}
+          />
+          {refuses.length > 0 && <MotsEcartes mots={refuses} />}
+          <button
+            className={[u.bouton, u.primaire].join(' ')}
+            disabled={occupe || inchangee || nom.trim().length === 0 || retenus.length === 0}
+            onClick={() => void enregistrer()}
+          >
+            Enregistrer
+          </button>
+        </div>
+      )}
+
+      {echec && (
+        <span className={v.erreurCompte} role="alert">
+          {' '}
+          {echec}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Le mot que la disposition ne sait pas écrire d'une seule frappe. Le bloc
+ * l'écarterait de toute façon, mais en silence : le parent chercherait
+ * longtemps pourquoi son mot n'arrive jamais dans la leçon.
+ */
+function MotsEcartes({ mots }: { mots: string[] }) {
+  return (
+    <p className={v.erreurCompte} role="status">
+      Le clavier ne sait pas écrire {mots.map((m) => `« ${m} »`).join(', ')} d'une seule frappe :{' '}
+      {mots.length > 1 ? 'ces mots sont écartés' : 'ce mot est écarté'} de la liste.
+    </p>
+  );
+}
+
+/**
  * La bibliothèque du foyer (#9). Le parent SEUL écrit ici : un enfant qui
  * apprend à taper ne saisit pas vingt mots, et l'accueil est l'écran qui dit
  * « appuie ici pour jouer », pas un formulaire.
@@ -196,14 +369,14 @@ function Bibliotheque() {
   const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
 
-  /* Le même découpage qu'à la saisie : une ligne, une virgule ou un
-     point-virgule séparent deux mots. */
-  const proposes = motsPersoValides(mots.split(/[\n,;]+/));
   /* Averti À LA SAISIE, pas au moment de jouer : « la fête » demande une
      touche morte, deux frappes pour un caractère attendu. Le bloc l'écarterait
      en silence et le parent chercherait longtemps pourquoi. */
-  const refuses = motsIntapables(proposes, app.disposition);
-  const retenus = proposes.filter((m) => !refuses.includes(m));
+  const { retenus, refuses } = motsDeLaSaisie(mots, app.disposition);
+
+  /* Relire la bibliothèque après un changement accepté par le serveur : les
+     cartes de l'accueil viennent du même état, donc elles suivent. */
+  const relire = async () => envoi({ type: 'listes', listes: await listesDistantes() });
 
   const creer = async () => {
     if (occupe) return;
@@ -213,7 +386,7 @@ function Bibliotheque() {
       await creerListeDistante(nom.trim(), retenus);
       setNom('');
       setMots('');
-      envoi({ type: 'listes', listes: await listesDistantes() });
+      await relire();
     } catch (erreur) {
       setEchec(messageDEchecListe(erreur));
     } finally {
@@ -231,12 +404,7 @@ function Bibliotheque() {
 
       <ul className={v.listeProfils}>
         {app.listes.map((liste: Liste) => (
-          <li key={liste.id}>
-            <b>{liste.nom}</b>{' '}
-            <span className={v.promessePalier}>
-              — {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
-            </span>
-          </li>
+          <LigneListe key={liste.id} liste={liste} surChangement={relire} />
         ))}
         {app.listes.length === 0 && (
           <li className={v.promessePalier}>Aucune liste pour l'instant.</li>
@@ -266,12 +434,7 @@ function Bibliotheque() {
         }}
       />
 
-      {refuses.length > 0 && (
-        <p className={v.erreurCompte} role="status">
-          Le clavier ne sait pas écrire {refuses.map((m) => `« ${m} »`).join(', ')} d'une seule
-          frappe : ce mot est écarté de la liste.
-        </p>
-      )}
+      {refuses.length > 0 && <MotsEcartes mots={refuses} />}
 
       {echec && (
         <p className={v.erreurCompte} role="alert">

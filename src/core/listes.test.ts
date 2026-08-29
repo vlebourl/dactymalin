@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { LISTES_MAX, NOM_LISTE_MAX, estJouable, listeValidee, motsIntapables } from './listes';
+import {
+  LISTES_MAX,
+  NOM_LISTE_MAX,
+  estJouable,
+  listeValidee,
+  motsDeLaSaisie,
+  motsIntapables,
+} from './listes';
 
 /* Le validateur est partagé client/serveur (#9) : une seule définition de ce
    qu'est une liste acceptable, pas deux qui divergeraient. */
@@ -69,5 +76,21 @@ describe('estJouable', () => {
   it('fausse quand la disposition ne sait écrire aucun mot', () => {
     expect(estJouable(liste(['la fête', 'ЖЖЖ']), 'fr-FR')).toBe(false);
     expect(estJouable(liste([]), 'fr-FR')).toBe(false);
+  });
+});
+
+/* La saisie du parent est un texte libre : une ligne, une virgule ou un
+   point-virgule séparent deux mots. Le formulaire de création et celui de
+   modification en font la même lecture — une seule définition (#10). */
+describe('motsDeLaSaisie', () => {
+  it('sépare, assainit, et met à part ce que le clavier ne sait pas écrire', () => {
+    expect(motsDeLaSaisie('papa\nla fête ; maman, papa', 'fr-FR')).toEqual({
+      retenus: ['papa', 'maman'],
+      refuses: ['la fête'],
+    });
+  });
+
+  it('ne retient rien d’un texte vide', () => {
+    expect(motsDeLaSaisie('   \n\n', 'fr-FR')).toEqual({ retenus: [], refuses: [] });
   });
 });
