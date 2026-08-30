@@ -72,6 +72,11 @@ test('les deux images chargent vraiment, et aucun mot ne dit la main', async ({ 
   await expect(page.getByText('GAUCHE', { exact: true })).toHaveCount(0);
   await expect(page.getByText('DROITE', { exact: true })).toHaveCount(0);
 
+  /* Mais la consigne de NIVEAU MAIN reste, à côté de la main active : P4 dit
+     que le dessin porte le doigt, pas que l'écran se taise. Elle avait disparu
+     avec le mot GAUCHE, et rien ne l'avait vu. */
+  await expect(page.getByText(/^Main (gauche|droite) · ton /)).toHaveCount(1);
+
   // une seule touche cible, et aucune légende couleur → doigt
   await expect(page.locator('[data-etat="cible"]')).toHaveCount(1);
   await expect(page.getByText(/légende/i)).toHaveCount(0);
