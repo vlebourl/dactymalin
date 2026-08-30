@@ -15,7 +15,7 @@ import {
   progressionEnCache,
   remplacerIndex,
 } from './profils';
-import { CLE, DEFAUTS, charger, sauver } from './storage';
+import { CLE, DEFAUTS, charger, progressionDe, sauver } from './storage';
 
 /** Faux stockage : `core/` doit rester testable en env node (cf. storage.test.ts). */
 class FauxStockage {
@@ -168,5 +168,33 @@ describe('cache local des profils du compte', () => {
 
   it("la clé de progression est suffixée par l'identifiant serveur", () => {
     expect(cleDe('9f1c')).toBe(`${CLE}.9f1c`);
+  });
+});
+
+describe('la progression en cache est rendue au modèle courant', () => {
+  it('une sauvegarde v1 écrite par un ancien bundle est migrée à la lecture', () => {
+    /* Exactement ce qu'un appareil d'avant la mise à jour a sur le disque. */
+    localStorage.setItem(
+      cleDe('d1'),
+      JSON.stringify({
+        version: 1,
+        disposition: 'fr-CH',
+        dispositionChoisieALaMain: true,
+        palier: 4,
+        blocsSurPalier: 2,
+        bloc: 9,
+        maitrise: { e: [1, 2] },
+        guideDoigtVu: true,
+        reglages: { sons: true, texteEspace: false, animationsDouces: true },
+      }),
+    );
+    const etat = progressionEnCache('d1');
+    expect(etat).not.toBeNull();
+    expect(progressionDe(etat!, 'decouverte', 'fr-CH')).toEqual({ etape: 4, leconsSurEtape: 2 });
+    expect(etat!.maitrise).toEqual({ e: [1, 2] });
+  });
+
+  it('un profil sans rien en cache reste `null`, il n\'invente pas d\'étape 1', () => {
+    expect(progressionEnCache('inconnu')).toBeNull();
   });
 });
