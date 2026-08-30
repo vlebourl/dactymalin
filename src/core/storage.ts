@@ -1,10 +1,10 @@
 import type { IdDisposition } from "./layouts";
 import {
   MEMOIRE_LECONS,
+  fusionnerMesures,
   type ComptesTouche,
   type LeconMesuree,
   type Mesures,
-  type Serie,
 } from "./mesures";
 import type { Maitrise } from "./progression";
 /**
@@ -250,13 +250,17 @@ function leconsValides(v: unknown): LeconMesuree[] {
     if (!l || typeof l !== "object") continue;
     const o = l as Record<string, unknown>;
     const etape = entierBorne(o.etape, 1, ETAPE_MAX, 0);
+    /* Une date illisible retombe à 0 plutôt que d'écarter la leçon : elle la
+       rend seulement « la plus ancienne », ce qui ne coûte rien. Une leçon
+       d'avant #64 n'en porte aucune, et c'est le même cas. */
+    const le = entierBorne(o.le, 0, DATE_MAX, 0);
     const ms = entierBorne(o.ms, 0, LECON_MS_MAX, -1);
     const lettres = entierBorne(o.lettres, 0, COMPTE_MAX, -1);
     const fautes = entierBorne(o.fautes, 0, COMPTE_MAX, -1);
     const barreau3 = entierBorne(o.barreau3, 0, COMPTE_MAX, -1);
     if (etape === 0 || ms < 0 || lettres < 0 || fautes < 0 || barreau3 < 0)
       continue;
-    sortie.push({ etape, ms, lettres, fautes, barreau3 });
+    sortie.push({ etape, le, ms, lettres, fautes, barreau3 });
   }
   return sortie;
 }
@@ -578,21 +582,13 @@ function fusionnerAvecStocke(etat: Sauvegarde, precedent: unknown): Sauvegarde {
  * par champ, et le retour du serveur passe par lui à chaque réconciliation.
  * Sans ceci, l'observation d'un enfant disparaîtrait à sa première synchro.
  *
- * La règle est PAR PARCOURS, jamais entre parcours : la série la mieux fournie
- * gagne. Ce n'est pas une fusion multi-appareil — celle-là appartient à
- * `fusion.ts` — c'est le refus de perdre ce qu'on avait déjà.
+ * Depuis #64 c'est la MÊME union que la fusion multi-appareil : chaque leçon
+ * porte sa date de clôture, donc deux séries se réunissent au lieu de se
+ * départager. L'ancienne règle — « la mieux fournie gagne » — jetait la moitié
+ * du travail d'un enfant qui joue sur deux appareils.
  */
 function garderLesMesures(neuf: Sauvegarde, avant: Sauvegarde): Mesures {
-  const sortie: Mesures = { ...avant.mesures };
-  for (const [cle, serie] of Object.entries(neuf.mesures ?? {}) as [
-    IdParcours,
-    Serie,
-  ][]) {
-    const stockee = sortie[cle];
-    if (!stockee || serie.lecons.length >= stockee.lecons.length)
-      sortie[cle] = serie;
-  }
-  return sortie;
+  return fusionnerMesures(avant.mesures ?? {}, neuf.mesures ?? {});
 }
 
 function lireCle(cle: string): unknown {
