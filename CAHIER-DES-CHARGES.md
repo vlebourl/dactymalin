@@ -40,6 +40,8 @@ C'est la règle qui a arbitré cette révision.
 | 15 | **Vitesse et précision sont mesurées et conservées**, jamais montrées à l'enfant. Deux séries, une par parcours. | v1 §4.5 (rien n'était compté) | Les deux garde-fous d'observation de la v1 étaient inapplicables faute de compteurs. |
 | 16 | **Les phrases n'existent qu'à partir de Maj et du point.** Les groupes nominaux sont admis dès l'espace. | v1 §4.7 (phrases hors MVP) | P3 : *le lion dort* est une phrase écrite faux ; *un chat* est vrai. |
 | 17 | **La proposition d'arrêt passe à la fin de la leçon.** | v1 §4.2 (4ᵉ bloc consécutif) | La leçon est désormais la séance entière. |
+| 18 | **Le clavier reste d'un seul tenant.** La frontière se lit dans la teinte des touches et dans les deux mains latérales, jamais dans un écart physique ; l'étiquette « la frontière » est retirée. | v2 P4, V3, V4 §5, §7.7 | Le code livré fait ce choix depuis le 2026-08-28 et un test le verrouille (`tests/e2e/corrections-2026-08-28.spec.ts`). Ratifié le 2026-08-30 : l'état livré convient, c'est le cahier qui est amendé. |
+| 19 | **L'espace parent est gardé par une question réservée aux adultes** — un produit à deux chiffres × un chiffre. | v2 §5/V7 (deux boutons ouvraient V9 sans garde) | #63 y met la vitesse et la précision, que §1 interdit de montrer à l'enfant, à côté de la suppression du compte déjà présente. Un ralentisseur, pas un coffre-fort : la console du navigateur reste ouverte à qui la connaît. |
 
 **Ce qui reste ouvert et n'est pas tranché ici** : le rendu en portrait sur
 téléphone, et le contenu exact de l'étape 10 (paragraphes).
@@ -312,10 +314,15 @@ cahier exige visible dès la première leçon. Elle reste affichée quel que soi
 doigt surligné : un point de référence n'a de sens que s'il ne bouge pas. Les
 visuels d'origine en portaient trois — annulaire, majeur, index — ce qui ne
 correspondait à aucune notion de la méthode et apprenait à l'enfant une
-convention inexistante. Sur le clavier, le porteur d'information reste la **POSITION**, pas la
-couleur : le clavier est scindé en trois blocs visuellement séparés. Chaque
-état doit rester discriminable **en niveaux de gris**. Aucune légende
-couleur→doigt sur l'écran de leçon.
+convention inexistante. Sur le clavier, le porteur d'information reste la **POSITION** pour tout ce qui
+concerne l'étape en cours : une touche de la leçon se distingue d'une touche
+éteinte par sa **luminance** et par l'épaisseur de son liseré, donc reste
+discriminable **en niveaux de gris**. La seule exception est l'appartenance
+gauche/droite, portée par la **teinte** (teal / orange) sur un clavier resté
+**d'un seul tenant** — décision 18. Elle n'a pas besoin du niveau de gris :
+elle est doublée par les deux mains dessinées, une de chaque côté, et par la
+position même de la touche. Seule la barre d'espace est détachée. Aucune
+légende couleur→doigt sur l'écran de leçon.
 
 **La raison.** Le placement **latéral** est ce qui change tout. Il occupe les
 marges horizontales, qui ne servent à rien, et ne prend aucune hauteur au
@@ -990,8 +997,10 @@ demande** depuis V1 ou V7. Jamais automatiquement. Une version par parcours.
 
 **Éléments.**
 - Flèche retour, titre « Chaque main garde son côté », bouton haut-parleur.
-- Grand clavier scindé en deux blocs par un séparateur vertical épais
-  **étiqueté « la frontière »**.
+- Grand clavier **d'un seul tenant**, les deux moitiés distinguées par leur
+  teinte et par les mains qui les encadrent. Aucun séparateur, aucune étiquette
+  « la frontière » — décision 18 : ce que la vue installe, elle le dit et le
+  montre, elle ne l'écrit pas sur le clavier.
 - Les deux mains dessinées, à leur place définitive — à gauche et à droite du
   clavier — index surligné en Découverte, main au repos en Dactylo.
 - Barre d'espace détachée en bas avec la mention « tes deux pouces ».
@@ -1030,8 +1039,8 @@ depuis « Continuer » sur V6.
 - **Zone 1** — l'exercice en très gros. Lettres déjà tapées estompées, lettre
   courante agrandie et soulignée. **Aucune lettre fausse n'est jamais
   affichée.**
-- **Zone 2** — le clavier fidèle, **en trois blocs disjoints**, encadré par
-  **les deux mains dessinées**. Le doigt à utiliser est surligné sur la main
+- **Zone 2** — le clavier fidèle, **d'un seul tenant** (seule la barre d'espace
+  est détachée), encadré par **les deux mains dessinées**. Le doigt à utiliser est surligné sur la main
   correspondante ; l'autre main est au repos.
 - Consigne de niveau main à côté de la main active : « Main gauche · ton index ».
 - **Touche cible** : saturation pleine, halo pulsé, léger agrandissement.
@@ -1327,19 +1336,22 @@ descendre sur le clavier physique. Si la frappe à l'aveugle devient un objectif
 le levier est de **couvrir le clavier physique**, pas d'ajouter un mécanisme
 logiciel.
 
-### 7.7 — La scission spatiale lue comme « deux claviers »
+### 7.7 — La frontière portée par la teinte seule
 
-**Le risque.** Chez un enfant en tout début d'apprentissage, les trois blocs
-disjoints peuvent être lus comme deux claviers séparés plutôt que comme une
-frontière entre deux mains.
+**Le risque.** Depuis la décision 18, le clavier est d'un seul tenant : rien ne
+sépare physiquement les deux moitiés. Un enfant qui ne perçoit pas l'écart de
+teinte — daltonisme, écran mal réglé, impression en niveaux de gris — n'a plus
+le contour du bloc pour lui dire où s'arrête sa main gauche.
 
-**Le garde-fou.** V3 nomme explicitement l'objet — « la frontière » — et le
-double d'audio. La barre d'espace, détachée sous les deux blocs, les rattache
-visuellement. Les deux mains latérales, une par bloc, désignent physiquement à
-qui chaque moitié appartient.
-**Ce qu'il faut observer.** Une confusion à la première séance. Si elle persiste,
-le levier est de rapprocher les blocs en gardant le séparateur épais, jamais de
-fusionner le clavier.
+**Le garde-fou.** Les deux mains dessinées, une de chaque côté du clavier,
+portent la même information sans dépendre de la couleur : c'est la main qui
+désigne, pas la teinte. V3 installe le partage une fois pour toutes, doublé
+d'audio. La barre d'espace détachée sous le clavier rappelle que les deux
+moitiés forment un seul objet.
+**Ce qu'il faut observer.** Un enfant qui frappe régulièrement une lettre de la
+mauvaise main sans que l'aide soit en cause. Si ça se produit, le levier est de
+renforcer le contraste de teinte ou de marquer la colonne de jonction, jamais de
+rouvrir un écart physique : le clavier d'un seul tenant est ratifié.
 
 ### 7.8 — L'étoile reste une récompense d'achèvement
 

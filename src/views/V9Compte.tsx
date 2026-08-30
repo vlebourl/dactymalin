@@ -34,6 +34,18 @@ import {
   type Compte,
   type ProfilDistant,
 } from '../core/sync';
+import {
+  LECONS_OBSERVEES,
+  alarmeBarreau3,
+  alarmePassageDactylo,
+  cumulRecent,
+  frequenceBarreau3,
+  leconsDeLEtape,
+  precision,
+  serieDe,
+  vitesse,
+} from '../core/mesures';
+import { NOM_PARCOURS, PARCOURS, type IdParcours } from '../core/parcours';
 import { progressionDe } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
@@ -524,6 +536,108 @@ function MethodesDeConnexion({ google }: { google: boolean | null }) {
  *
  * Les listes appartiennent au compte, donc les deux enfants voient les mêmes.
  */
+/**
+ * Ce que l'app observe, et que l'enfant ne voit jamais (§4.7, décision 15).
+ *
+ * C'est le lecteur qui manquait : les cinq mesures étaient comptées et
+ * conservées depuis #40 et #61, mais aucun écran ne les ouvrait — les deux
+ * garde-fous du cahier restaient donc inapplicables faute d'être observables.
+ *
+ * Les deux parcours sont montrés CÔTE À CÔTE, jamais additionnés : le passage
+ * à dix doigts fait mécaniquement chuter la vitesse, et une courbe unique qui
+ * plonge sans raison visible serait le pire artefact possible.
+ *
+ * Les COMPTES viennent de cet appareil : les mesures ne montent pas encore au
+ * serveur (#64). L'étape, elle, suit le compte comme le reste de la
+ * progression — et le panneau le dit, plutôt que de laisser croire que tout
+ * ici est local.
+ *
+ * Les chiffres sont ceux de l'enfant EN TRAIN de jouer sur cet appareil, et
+ * son prénom est au titre : une fratrie lirait sinon la vitesse d'un frère
+ * comme celle de l'autre.
+ */
+function Observation({ prenom }: { prenom: string | null }) {
+  const app = useApp();
+  const mesures = app.mesures ?? {};
+  const joues = PARCOURS.filter((p: IdParcours) => serieDe(mesures, p).lecons.length > 0);
+  /* §7.1 ne vise que l'index de Découverte. Un parent qui a DÉJÀ basculé sur
+     Dactylo n'a plus rien à faire de ce conseil — et comme plus aucune leçon
+     de Découverte ne s'enregistre, la moyenne des sept dernières resterait
+     au-dessus du seuil pour toujours. */
+  const proposerDactylo = app.parcours === 'decouverte' && alarmePassageDactylo(mesures);
+
+  return (
+    <>
+      <h2 className={v.titrePetit}>
+        Ce que l'app observe{prenom ? ` chez ${prenom}` : ''}
+      </h2>
+      <p className={v.promessePalier}>
+        Pour vous seul : rien de ces chiffres n'est jamais montré à l'enfant. Les comptes et les
+        vitesses sont ceux de cet appareil — ce qui a été joué ailleurs n'y est pas encore ajouté.
+        L'étape, elle, suit le compte.
+      </p>
+
+      {proposerDactylo && (
+        <p className={v.alerteObservation} role="status" data-alerte="passage-dactylo">
+          Il tape à 15 mots par minute ou plus en Découverte : c'est le moment de passer à Dactylo,
+          dans les réglages. Plus il attend, plus son index prend l'habitude de balayer toute sa
+          moitié de clavier.
+        </p>
+      )}
+
+      {joues.length === 0 ? (
+        <p className={v.promessePalier}>Aucune leçon jouée sur cet appareil pour l'instant.</p>
+      ) : (
+        <ul className={v.listeProfils}>
+          {joues.map((p: IdParcours) => (
+            <LigneObservation key={p} parcours={p} />
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+/** La lecture d'UN parcours. Elle ne connaît rien de l'autre, et c'est voulu. */
+function LigneObservation({ parcours }: { parcours: IdParcours }) {
+  const app = useApp();
+  const serie = serieDe(app.mesures ?? {}, parcours);
+  const cumul = cumulRecent(serie);
+  /* Pour le parcours EN COURS, `app.etape` est la seule valeur à jour :
+     `progressions` n'est réécrit qu'au changement de parcours, si bien qu'une
+     étape franchie à l'instant s'y lit encore à l'ancienne — à côté de leçons
+     qui, elles, sont fraîches. Pour l'autre parcours, la carte est la source. */
+  const etape =
+    parcours === app.parcours ? app.etape : progressionDe(app, parcours, app.disposition).etape;
+  const v7_5 = alarmeBarreau3(serie);
+  const barreau = frequenceBarreau3(serie);
+  const cumulees = Math.min(serie.lecons.length, LECONS_OBSERVEES);
+  const mpm = cumul && vitesse(cumul);
+  const juste = cumul && precision(cumul);
+
+  return (
+    <li className={v.ligneObservation}>
+      <b>{NOM_PARCOURS[parcours]}</b>
+      <span className={v.chiffresObservation} data-observation={parcours}>
+        Étape {etape} · {leconsDeLEtape(serie, etape)} leçon(s) sur cette étape ·{' '}
+        {serie.lecons.length} au total
+        {/* Tronqué, jamais arrondi au-dessus : à 14,6 mots/min, afficher « 15 »
+            à côté d'un conseil de passage qui ne s'affiche pas se contredit. */}
+        {mpm != null && ` · ${Math.floor(mpm)} mots/min`}
+        {juste != null && ` · ${Math.round(juste * 100)} % de frappes justes`}
+        {barreau != null && ` · aide poussée sur ${Math.round(barreau * 100)} % des lettres`}
+        {cumul != null && ` (sur ${cumulees} leçon(s))`}
+      </span>
+      {v7_5 && (
+        <span className={v.alerteObservation} role="status" data-alerte="barreau3">
+          L'aide va jusqu'au bout sur plus d'une lettre sur cinq. Si ça dure, c'est la main dessinée
+          qui se lit mal, pas l'enfant qui bloque.
+        </span>
+      )}
+    </li>
+  );
+}
+
 function Bibliotheque() {
   const app = useApp();
   const envoi = useEnvoi();
@@ -796,6 +910,8 @@ export function V9Compte() {
                 Ajouter un enfant
               </button>
             </p>
+
+            <Observation prenom={profils.find((p) => p.id === actif)?.prenom ?? null} />
 
             <MethodesDeConnexion google={googleDispo} />
 
