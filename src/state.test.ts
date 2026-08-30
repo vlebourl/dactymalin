@@ -106,7 +106,6 @@ describe('changement de disposition', () => {
     maitrise: { e: [1, 2, 3] },
     vue: 'V7',
     lecon: 5,
-    blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: '',
     etapeOuverte: null,
@@ -258,5 +257,48 @@ describe('choix du parcours', () => {
   it('ne fait rien quand on rechoisit le parcours déjà en cours', () => {
     const etat = jouer(etatDeDepart(), [], 2);
     expect(reducer(etat, { type: 'parcours', parcours: 'decouverte' })).toBe(etat);
+  });
+});
+
+/* REJOUER UNE ÉTAPE (#58).
+ *
+ * `rejouerEtape` posait bien l'étape à rejouer, et la vue servait bien son
+ * contenu — mais la fin de leçon incrémentait le quota de l'étape COURANTE
+ * sans jamais regarder qu'on était en train de rejouer. Refaire l'étape 2
+ * ouvrait donc l'étape 6. Le commentaire du reducer promettait déjà l'inverse
+ * de ce que le code faisait. */
+describe("rejouer une étape déjà faite", () => {
+  const aLEtape5 = (): EtatApp => ({
+    ...etatDeDepart(),
+    etape: 5,
+    leconsSurEtape: LECONS_PAR_ETAPE - 1,
+    premierLancement: false,
+  });
+
+  const enReplay = () =>
+    reducer(aLEtape5(), { type: 'rejouerEtape', etape: 2 });
+
+  it("ne fait pas avancer le quota de l'étape courante", () => {
+    const etat = jouer(enReplay(), ['e'], 1);
+    expect(etat.leconsSurEtape).toBe(LECONS_PAR_ETAPE - 1);
+  });
+
+  it("n'ouvre pas l'étape suivante, même à la septième leçon rejouée", () => {
+    const etat = jouer(enReplay(), ['e'], 3);
+    expect(etat.etape).toBe(5);
+    expect(etat.etapeOuverte).toBe(null);
+  });
+
+  /* Ce qui a été tapé reste vrai : le replay observe, il ne progresse pas. */
+  it('enregistre quand même ce que l’enfant a tapé', () => {
+    const etat = jouer(enReplay(), ['e'], 1);
+    expect(etat.maitrise.e?.length).toBe(1);
+  });
+
+  /* Sans replay, rien ne change : la septième leçon ouvre bien l'étape 6. */
+  it("laisse la progression ordinaire intacte", () => {
+    const etat = jouer(aLEtape5(), ['e'], 1);
+    expect(etat.etape).toBe(6);
+    expect(etat.leconsSurEtape).toBe(0);
   });
 });

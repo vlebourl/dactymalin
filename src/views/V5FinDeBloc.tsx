@@ -37,7 +37,14 @@ export function V5FinDeBloc() {
       .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
       .filter((c): c is string => !!c),
   );
-  const proposePause = app.blocsConsecutifs >= 4;
+  /* La proposition d'arrêt attendait QUATRE blocs d'affilée. Un bloc durait
+     60-90 s en v1 ; une leçon en dure douze minutes. L'enfant n'entendait donc
+     parler de pause qu'après trois quarts d'heure de frappe.
+     La décision 17 tranche : la leçon EST la séance, et la proposition passe à
+     sa fin. Une liste de la maison n'est pas une séance — c'est du jeu, souvent
+     trente secondes : on ne propose pas de s'arrêter à quelqu'un qui vient de
+     commencer. */
+  const proposePause = !app.listeJouee;
 
   /* Franchir un palier était MUET : le même titre d'encouragement que pour un
      bloc ordinaire, le même bouton « Encore ». L'état portait pourtant déjà
