@@ -71,6 +71,12 @@ export function V4Lecon() {
             parcours: app.parcours,
             etape: etapeJouee,
             aReinjecter: app.aReinjecter,
+            /* §7.4 : après plusieurs jours sans jouer, la première vague révise
+               l'étape précédente. Sans ces deux-là, `creerSession` ne pouvait
+               pas savoir qu'il y avait eu une absence, et la révision du retour
+               ne se déclenchait jamais en vrai. */
+            derniereLecon: app.derniereLecon,
+            maintenant: Date.now(),
           }),
     // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -240,6 +246,9 @@ export function V4Lecon() {
       /* Ce que la leçon a observé, tel que le reducer l'a compté. La vue ne le
          lit pas et ne le montre pas : elle le fait suivre, rien de plus (P1). */
       mesures: e.rapport,
+      /* L'horloge du MUR, pas celle de la page : `performance.now()` repart de
+         zéro à chaque chargement et ne saurait pas dire « il y a quinze jours ». */
+      fin: Date.now(),
     };
     envoi({ type: 'leconTerminee', bilan });
   }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps

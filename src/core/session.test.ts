@@ -7,6 +7,7 @@ import {
 } from "./session";
 import { ensembleTouches, nouvellesTouches } from "./parcours";
 import { DEFAUTS, valider } from "./storage";
+import { aSauvegarder, etatDeDepart, reducer } from "../state";
 
 const options = {
   id: "fr-FR" as const,
@@ -212,6 +213,47 @@ describe("la reprise après plusieurs jours sans leçon", () => {
 /* La date de la dernière leçon survit à la sauvegarde : sans elle, chaque
    rechargement croirait à une reprise à froid. */
 describe("la date de la dernière leçon dans la sauvegarde", () => {
+  const JOUR = 86_400_000;
+  const maintenant = Date.UTC(2026, 0, 30);
+
+  /* #60 : ce test injectait lui-même `derniereLecon` dans `valider`. Il ne
+     prouvait que la relecture d'une valeur que PERSONNE n'écrivait — vert
+     pendant que la révision du retour était morte en production. Il part
+     maintenant d'une leçon réellement terminée. */
+  it("est écrite par la leçon qu’on vient de finir", () => {
+    const fin = maintenant;
+    const apres = reducer(etatDeDepart(), {
+      type: "leconTerminee",
+      bilan: { etoiles: 3, propres: ["e"], aRevoir: [], items: ["et"], fin },
+    });
+    expect(valider(aSauvegarder(apres)).derniereLecon).toBe(fin);
+  });
+
+  /* Le bout en bout de §7.4, sans DOM : la leçon d'aujourd'hui date la
+     sauvegarde, et c'est cette date-là qui, quinze jours plus tard, fait
+     commencer la leçon du retour par une révision. */
+  it("fait réviser la leçon du retour quinze jours plus tard", () => {
+    const finie = reducer(etatDeDepart(), {
+      type: "leconTerminee",
+      bilan: { etoiles: 3, propres: [], aRevoir: [], items: [], fin: maintenant },
+    });
+    const { derniereLecon } = valider(aSauvegarder(finie));
+    const retour = creerSession({
+      ...options,
+      etape: 4,
+      derniereLecon,
+      maintenant: maintenant + (JOURS_AVANT_REVISION + 1) * JOUR,
+    });
+    const texte = retour
+      .items()
+      .map((i) => i.texte)
+      .join("")
+      .toLowerCase();
+    for (const c of nouvellesTouches("decouverte", "fr-FR", 4)) {
+      expect(texte.includes(c), `« ${c} » servi avant la révision`).toBe(false);
+    }
+  });
+
   it("se relit telle quelle", () => {
     expect(
       valider({ ...DEFAUTS, derniereLecon: 1_700_000_000_000 }).derniereLecon,

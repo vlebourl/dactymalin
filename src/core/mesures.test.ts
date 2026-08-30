@@ -252,6 +252,7 @@ describe('accroche dans l’état de l’app', () => {
     aRevoir: [],
     items: [],
     mesures,
+    fin: 1_700_000_000_000,
   });
 
   it('une leçon finie range son rapport dans la série de SON parcours, à SON étape', () => {
@@ -326,6 +327,7 @@ describe('la chaîne complète, de la frappe à la série du parcours', () => {
           aRevoir: l.aRevoir,
           items: l.valides,
           mesures: l.rapport,
+          fin: 1_700_000_000_000,
         },
       },
     );
