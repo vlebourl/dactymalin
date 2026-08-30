@@ -46,6 +46,20 @@ export function creerAuth(base: Base, env: Env) {
     account: {
       accountLinking: {
         /**
+         * `enabled: true` autorise le rattachement EXPLICITE — celui qu'un
+         * parent déjà connecté demande depuis l'espace parent (#32). À
+         * `false`, celui-là aussi était refusé, et le parent qui avait
+         * commencé par une méthode restait enfermé dedans.
+         *
+         * Ce drapeau ne rouvre PAS la liaison automatique. C'est
+         * `requireLocalEmailVerified` qui la gouverne, et il reste à sa valeur
+         * par défaut (`true`) : nos comptes mot de passe ont
+         * `emailVerified = false`, donc une connexion Google ne les rejoint
+         * jamais toute seule. Ne pas le poser à `false` — ce serait rouvrir
+         * exactement ce que le paragraphe ci-dessous décrit.
+         */
+        enabled: true,
+        /**
          * AUCUNE liaison automatique.
          *
          * La raison n'est pas le confort : la vérification d'adresse est
@@ -60,11 +74,9 @@ export function creerAuth(base: Base, env: Env) {
          * « deux comptes distincts » : `user.email` est UNIQUE en base, donc
          * une adresse ne peut pas ouvrir un second compte. Elle est refusée.
          * Google ramène alors le parent sur le portail avec
-         * `?error=account_not_linked`, et l'écran lui dit de se connecter avec
-         * son mot de passe. Le refus est le comportement voulu ; ce qui ne
-         * l'était pas, c'était de le laisser muet.
+         * `?error=account_not_linked`, et l'écran lui dit quoi faire — depuis
+         * #32, il lui dit de rattacher Google depuis l'espace parent.
          */
-        enabled: false,
       },
     },
     emailAndPassword: {

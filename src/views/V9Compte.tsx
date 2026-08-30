@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { messageDEchecCompte, messageDEchecListe, messageDEchecProfil } from '../core/erreurs-compte';
+import {
+  messageDEchecCompte,
+  messageDEchecListe,
+  messageDEchecProfil,
+  messageDEchecRattachement,
+} from '../core/erreurs-compte';
 import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
 import {
   chargerIndex,
@@ -11,12 +16,15 @@ import {
 import {
   compteCourant,
   creerListeDistante,
+  googleDisponible,
   creerProfilDistant,
   listesDistantes,
   modifierListeDistante,
   supprimerListeDistante,
   deconnecter,
   enAttente,
+  methodesDeConnexion,
+  rattacherGoogle,
   supprimerLeCompte,
   profilsDistants,
   renommerProfilDistant,
@@ -367,6 +375,83 @@ function MotsEcartes({ mots }: { mots: string[] }) {
 }
 
 /**
+ * Par quoi ce compte peut s'ouvrir, et comment en ajouter une (#32).
+ *
+ * Le rattachement se fait ICI, une fois connecté — et c'est cela qui le rend
+ * sûr. Lier automatiquement à la connexion permettrait à un inconnu de créer un
+ * compte avec une adresse Gmail qu'il ne possède pas, puis d'y RECEVOIR son
+ * titulaire légitime. Ici, il faut déjà être dans le compte.
+ */
+function MethodesDeConnexion({ google }: { google: boolean }) {
+  const [methodes, setMethodes] = useState<string[] | null>(null);
+  const [echec, setEchec] = useState<string | null>(null);
+  const [occupe, setOccupe] = useState(false);
+
+  useEffect(() => {
+    void methodesDeConnexion()
+      .then(setMethodes)
+      .catch(() => setMethodes([]));
+  }, []);
+
+  /* Tant qu'on ne sait pas, on n'affiche rien : annoncer « Google : absent »
+     avant d'avoir demandé ferait proposer un rattachement déjà fait. */
+  if (methodes === null) return null;
+
+  const avecMotDePasse = methodes.includes('credential');
+  const avecGoogle = methodes.includes('google');
+
+  const rattacher = async () => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      await rattacherGoogle();
+    } catch (erreur) {
+      setEchec(messageDEchecRattachement(erreur));
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <>
+      <h2 className={v.titrePetit}>Comment on se connecte</h2>
+      <ul className={v.listeProfils}>
+        <li>
+          <b>Mot de passe</b>{' '}
+          <span className={v.promessePalier}>
+            {avecMotDePasse ? '— en place' : '— pas encore'}
+          </span>
+        </li>
+        <li>
+          <b>Google</b>{' '}
+          {avecGoogle ? (
+            <span className={v.promessePalier}>— rattaché</span>
+          ) : google ? (
+            <>
+              <span className={v.promessePalier}>— pas encore </span>
+              <button className={v.petitBouton} disabled={occupe} onClick={() => void rattacher()}>
+                Rattacher Google
+              </button>
+            </>
+          ) : (
+            <span className={v.promessePalier}>— indisponible sur ce serveur</span>
+          )}
+        </li>
+      </ul>
+      <p className={v.promessePalier}>
+        Rattacher Google demande le compte Google de cette même adresse. Ensuite, l'un ou l'autre
+        ouvre le compte — c'est le même.
+      </p>
+      {echec && (
+        <p className={v.erreurCompte} role="alert">
+          {echec}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
  * La bibliothèque du foyer (#9). Le parent SEUL écrit ici : un enfant qui
  * apprend à taper ne saisit pas vingt mots, et l'accueil est l'écran qui dit
  * « appuie ici pour jouer », pas un formulaire.
@@ -480,6 +565,13 @@ export function V9Compte() {
   const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
   const [echecCompte, setEchecCompte] = useState<string | null>(null);
+  /* Le serveur sait-il se servir de Google ? Sans lui, on n'offre pas un
+     rattachement qui mènerait à une erreur. */
+  const [googleDispo, setGoogleDispo] = useState(false);
+
+  useEffect(() => {
+    void googleDisponible().then(setGoogleDispo);
+  }, []);
 
   const adopterListe = (liste: ProfilDistant[]) => {
     setProfils(liste);
@@ -638,6 +730,8 @@ export function V9Compte() {
                 Ajouter un enfant
               </button>
             </p>
+
+            <MethodesDeConnexion google={googleDispo} />
 
             <Bibliotheque />
 

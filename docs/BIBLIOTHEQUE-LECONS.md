@@ -26,18 +26,47 @@ d'apprentissage, ou l'une des listes. Il ne saisit rien.
 | Obligatoire ? | Oui, pour lancer l'app. C'était facultatif jusqu'ici. |
 | Google SSO | **Ajouté** à l'email/mot de passe, pas substitué. |
 | Migration de base | **Aucune** : `account` porte déjà `provider_id`, `issuer`, `id_token`, `access_token`, `scope` (`server/src/db/schema.ts:31-50`). |
-| Liaison de comptes | **Désactivée.** Google et mot de passe sur la même adresse = deux comptes distincts. |
+| Liaison de comptes | **Automatique : jamais. Explicite : depuis l'espace parent, une fois connecté.** Une même adresse ne donne pas deux comptes — `user.email` est unique, donc la seconde méthode est REFUSÉE tant qu'on ne l'a pas rattachée soi-même. |
 | Suppression de compte | `DELETE /api/compte`, livrée dès l'étape 1. |
 
 ### Pourquoi pas de liaison automatique
 
-`requireEmailVerification` est à `false` (`server/src/auth.ts:30`). Avec la
-liaison automatique, n'importe qui crée un compte mot de passe avec une adresse
-Gmail qu'il ne possède pas ; le login Google du propriétaire légitime atterrit
-alors **dans le compte de l'attaquant**. Le bon état final est
-« liaison + vérification d'email », mais la vérification exige un envoi de
-courriels (SMTP, domaine, délivrabilité) qui n'existe pas. Deux comptes
-distincts, donc, et une friction assumée.
+`requireEmailVerification` est à `false` (`server/src/auth.ts`). Avec la liaison
+automatique, n'importe qui crée un compte mot de passe avec une adresse Gmail
+qu'il ne possède pas ; le login Google du propriétaire légitime atterrit alors
+**dans le compte de l'attaquant**. Le bon état final est « liaison +
+vérification d'email », mais la vérification exige un envoi de courriels (SMTP,
+domaine, délivrabilité) qui n'existe pas.
+
+**Correction du 2026-08-30.** Ce paragraphe disait « deux comptes distincts,
+avec deux bibliothèques ». C'était faux, et livrer #7 l'a montré : `user.email`
+est **unique** en base (`schema.ts`). Une adresse n'ouvre donc jamais un second
+compte — elle est **refusée**, dans un sens comme dans l'autre. La propriété de
+sécurité visée était bien tenue ; c'est sa description qui était fausse, et le
+runbook en avait hérité une étape de vérification qui aurait échoué à chaque
+passage.
+
+### Rattacher, plutôt que lier tout seul
+
+Décidé le 2026-08-30, après #7, et livré par #32.
+
+Le refus est correct mais laissait le parent sans issue : commencé par une
+méthode, il ne pouvait pas passer à l'autre. Il peut désormais **rattacher** la
+seconde depuis l'espace parent, **une fois connecté** — et c'est ce « une fois
+connecté » qui fait toute la sûreté : l'attaquant ne rattache pas ce à quoi il
+n'a pas déjà accès.
+
+Le réglage qui sépare les deux, à ne jamais confondre :
+
+| Réglage | Valeur | Ce qu'il gouverne |
+|---|---|---|
+| `accountLinking.enabled` | `true` | autorise le rattachement **explicite**. À `false`, même celui-ci est refusé. |
+| `accountLinking.requireLocalEmailVerified` | **laissé par défaut (`true`)** | interdit la liaison **implicite** à la connexion. Nos comptes mot de passe ont `emailVerified = false` : c'est LUI qui ferme la prise de compte décrite plus haut. |
+
+Le passer à `false` rouvrirait exactement la faille que toute cette section
+existe pour fermer. Better Auth exige par ailleurs que l'adresse du compte
+Google corresponde à celle du compte ouvert : on ne rattache pas l'identité
+d'un tiers.
 
 ### Pourquoi la suppression de compte maintenant
 
