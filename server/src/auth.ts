@@ -25,12 +25,15 @@ export function creerAuth(base: Base, env: Env) {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL ?? `http://localhost:${env.PORT}`,
     basePath: '/api/auth',
-    /* En production, le front et l'API partagent l'origine : rien à ajouter.
+    /* Toutes les origines d'où le navigateur a le droit d'appeler cette API.
+       « Le front et l'API partagent l'origine » ne suffit PAS quand plusieurs
+       domaines servent la même application : celui qui n'est pas déclaré ici
+       reçoit un 403 « Invalid origin » sur toute connexion, y compris la
+       création de compte. `FRONTEND_URL` en accepte donc plusieurs.
        En développement, Vite sert sur :3000 et proxifie vers :3001 — l'origine
-       du navigateur diffère alors de baseURL, et Better Auth refusait tout
-       avec « Invalid origin ». */
+       du navigateur diffère alors de baseURL, et Better Auth refusait tout. */
     trustedOrigins: [
-      ...(env.FRONTEND_URL ? [env.FRONTEND_URL] : []),
+      ...(env.FRONTEND_URL ?? []),
       ...(env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']),
     ],
     ...(googleDisponible(env)
