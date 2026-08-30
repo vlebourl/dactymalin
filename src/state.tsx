@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type
 import type { IdDisposition } from './core/layouts';
 import type { Liste } from './core/listes';
 import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
-import { listesDistantes, pousser, viderLaFile } from './core/sync';
+import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
 import { PALIER_MAX } from './core/paliers';
@@ -186,12 +186,24 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
   };
 }
 
+/**
+ * Revient-on d'un rattachement de méthode de connexion (#32) ? Google ramène le
+ * parent à la racine ; sans cette lecture il atterrirait sur l'accueil de
+ * l'enfant, sans savoir si son geste a abouti.
+ */
+function retourDeRattachement(): boolean {
+  if (typeof location === 'undefined') return false;
+  return new URLSearchParams(location.search).has(MARQUEUR_RATTACHEMENT);
+}
+
 export function etatDeDepart(cle?: string): EtatApp {
   const sauve = charger(cle);
   return {
     ...sauve,
-    // Au tout premier lancement, on passe par le choix du clavier (cahier 4.1).
-    vue: sauve.dispositionChoisieALaMain ? 'V1' : 'V2',
+    /* Au tout premier lancement, on passe par le choix du clavier (cahier 4.1)
+       — sauf si l'on revient de chez Google : le parent a demandé quelque
+       chose, il doit en voir le résultat là où il l'a demandé. */
+    vue: retourDeRattachement() ? 'V9' : sauve.dispositionChoisieALaMain ? 'V1' : 'V2',
     blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),

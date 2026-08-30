@@ -4,6 +4,7 @@ import {
   messageDEchecListe,
   messageDEchecProfil,
   messageDEchecRattachement,
+  motifDeRefus,
 } from '../core/erreurs-compte';
 import { motsDeLaSaisie, NOM_LISTE_MAX, type Liste } from '../core/listes';
 import {
@@ -23,6 +24,7 @@ import {
   supprimerListeDistante,
   deconnecter,
   enAttente,
+  MARQUEUR_RATTACHEMENT,
   methodesDeConnexion,
   rattacherGoogle,
   supprimerLeCompte,
@@ -382,16 +384,53 @@ function MotsEcartes({ mots }: { mots: string[] }) {
  * compte avec une adresse Gmail qu'il ne possède pas, puis d'y RECEVOIR son
  * titulaire légitime. Ici, il faut déjà être dans le compte.
  */
-function MethodesDeConnexion({ google }: { google: boolean }) {
+function MethodesDeConnexion({ google }: { google: boolean | null }) {
   const [methodes, setMethodes] = useState<string[] | null>(null);
+  const [illisible, setIllisible] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
+  /* Le verdict du rattachement dont on revient, lu une fois puis effacé de
+     l'adresse : un rechargement ne doit pas ressusciter un message compris.
+     
+     Dans un EFFET, et surtout pas dans l'initialisateur d'un état : nettoyer
+     l'adresse est un effet de bord, et React double-invoque volontairement ces
+     initialisateurs pour révéler ce genre de faute. Le premier appel effaçait
+     le paramètre, le second ne trouvait plus rien — et le message n'arrivait
+     jamais. */
+  const [retour, setRetour] = useState<{ reussi: boolean; motif: string | null } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const etat = params.get(MARQUEUR_RATTACHEMENT);
+    if (!etat) return;
+    setRetour({ reussi: etat === 'fait', motif: params.get('error') });
+    params.delete(MARQUEUR_RATTACHEMENT);
+    params.delete('error');
+    params.delete('error_description');
+    const reste = params.toString();
+    history.replaceState(null, '', location.pathname + (reste ? `?${reste}` : ''));
+  }, []);
 
   useEffect(() => {
     void methodesDeConnexion()
       .then(setMethodes)
-      .catch(() => setMethodes([]));
+      /* On ne REMPLACE PAS par une liste vide : afficher « mot de passe : pas
+         encore » à un compte qui en a un est un mensonge, et il pousserait le
+         parent à croire son compte cassé. On dit qu'on n'a pas pu lire. */
+      .catch(() => setIllisible(true));
   }, []);
+
+  if (illisible) {
+    return (
+      <>
+        <h2 className={v.titrePetit}>Comment on se connecte</h2>
+        <p className={v.erreurCompte} role="alert">
+          Impossible de lire les méthodes de connexion de ce compte pour l’instant. Rouvrez cet
+          écran une fois le réseau revenu.
+        </p>
+      </>
+    );
+  }
 
   /* Tant qu'on ne sait pas, on n'affiche rien : annoncer « Google : absent »
      avant d'avoir demandé ferait proposer un rattachement déjà fait. */
@@ -415,26 +454,46 @@ function MethodesDeConnexion({ google }: { google: boolean }) {
   return (
     <>
       <h2 className={v.titrePetit}>Comment on se connecte</h2>
+      {retour && (
+        <p
+          className={retour.reussi ? v.promessePalier : v.erreurCompte}
+          role={retour.reussi ? 'status' : 'alert'}
+        >
+          {retour.reussi
+            ? 'Google est rattaché à ce compte. Vous pouvez désormais ouvrir le compte par l’une ou l’autre méthode.'
+            : messageDEchecRattachement({ statut: 400, code: motifDeRefus(retour.motif) })}
+        </p>
+      )}
       <ul className={v.listeProfils}>
         <li>
           <b>Mot de passe</b>{' '}
           <span className={v.promessePalier}>
-            {avecMotDePasse ? '— en place' : '— pas encore'}
+            {avecMotDePasse
+              ? '— en place'
+              : /* Ajouter un mot de passe à un compte ouvert par Google n'est
+                   pas offert : Better Auth 1.7 n'expose que le CHANGEMENT de
+                   mot de passe, qui exige l'ancien. Mieux vaut le dire que
+                   laisser un bouton qui ne marcherait pas. */
+                '— pas encore, et pas encore possible depuis cet écran'}
           </span>
         </li>
         <li>
           <b>Google</b>{' '}
           {avecGoogle ? (
             <span className={v.promessePalier}>— rattaché</span>
-          ) : google ? (
+          ) : google === true ? (
             <>
               <span className={v.promessePalier}>— pas encore </span>
               <button className={v.petitBouton} disabled={occupe} onClick={() => void rattacher()}>
                 Rattacher Google
               </button>
             </>
-          ) : (
+          ) : google === false ? (
             <span className={v.promessePalier}>— indisponible sur ce serveur</span>
+          ) : (
+            /* On ne sait pas encore : ne rien affirmer plutôt que d'annoncer
+               « indisponible » le temps d'une requête. */
+            <span className={v.promessePalier}>— …</span>
           )}
         </li>
       </ul>
@@ -567,7 +626,7 @@ export function V9Compte() {
   const [echecCompte, setEchecCompte] = useState<string | null>(null);
   /* Le serveur sait-il se servir de Google ? Sans lui, on n'offre pas un
      rattachement qui mènerait à une erreur. */
-  const [googleDispo, setGoogleDispo] = useState(false);
+  const [googleDispo, setGoogleDispo] = useState<boolean | null>(null);
 
   useEffect(() => {
     void googleDisponible().then(setGoogleDispo);
