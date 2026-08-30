@@ -629,3 +629,38 @@ describe('stockage plein : la séance ne disparaît pas en silence', () => {
     expect(enAttente()).toBe(0);
   });
 });
+
+/* ------------------------------------------------------------------ #54 */
+
+describe('sauvegarde locale illisible : le serveur n’est jamais appauvri', () => {
+  it('une clé tronquée sans backup ne fait pas pousser les DÉFAUTS', async () => {
+    const riche = valider({
+      ...DEFAUTS,
+      disposition: 'fr-CH',
+      parcours: 'dactylo',
+      palier: 6,
+      reglages: { sons: false, texteEspace: true, animationsDouces: false },
+    });
+    /* Écriture interrompue : la clé principale existe, mais elle est illisible
+       — et aucun backup n'a été écrit (le premier `sauver` n'en écrit pas). */
+    localStorage.setItem(cleDe('d1'), '{"version":1,"disposi');
+    /* `CLE_MAJ` est une clé SÉPARÉE : elle, elle a survécu, et elle est
+       récente. C'est elle qui faisait passer les défauts pour un choix. */
+    localStorage.setItem(CLE_MAJ, JSON.stringify({ d1: '2026-08-29T10:00:00.000Z' }));
+    const s = serveur([
+      { id: 'd1', prenom: 'Timo', etat: riche, majLe: '2026-08-02T10:00:00.000Z' },
+    ]);
+
+    await synchroniserProfils();
+
+    expect(s.puts).toHaveLength(0);
+    const ici = charger(cleDe('d1'));
+    expect(ici.disposition).toBe('fr-CH');
+    expect(ici.parcours).toBe('dactylo');
+    expect(ici.palier).toBe(6);
+    expect(ici.reglages).toEqual(riche.reglages);
+    /* L'horodatage datait une sauvegarde qui n'existe plus : il ne doit pas
+       survivre pour dater « récents » les défauts d'une prochaine fusion. */
+    expect(JSON.parse(localStorage.getItem(CLE_MAJ)!).d1).toBeUndefined();
+  });
+});
