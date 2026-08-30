@@ -1,18 +1,18 @@
-import type { IdDisposition } from './layouts';
+import type { IdDisposition } from "./layouts";
 import {
   MEMOIRE_LECONS,
   type ComptesTouche,
   type LeconMesuree,
   type Mesures,
   type Serie,
-} from './mesures';
-import type { Maitrise } from './progression';
-import { PALIER_MAX } from './paliers';
-import { ETAPE_MAX, type IdParcours } from './parcours';
+} from "./mesures";
+import type { Maitrise } from "./progression";
+import { PALIER_MAX } from "./paliers";
+import { ETAPE_MAX, type IdParcours } from "./parcours";
 
-export const CLE = 'tapeavecmoi.v1';
+export const CLE = "tapeavecmoi.v1";
 /** Dernière progression VALIDE : une corruption ne remet jamais à zéro. */
-export const CLE_SECOURS = 'tapeavecmoi.v1.backup';
+export const CLE_SECOURS = "tapeavecmoi.v1.backup";
 
 export type Reglages = {
   sons: boolean;
@@ -72,6 +72,15 @@ export type Sauvegarde = {
   reglages: Reglages;
   progressions?: Progressions;
   /**
+   * Quand la DERNIÈRE leçon a été close, en millisecondes epoch. Elle sert au
+   * seul cas d'une interruption de plusieurs JOURS (§7.4) : une séance
+   * abandonnée ou un rechargement de page se comptent en minutes et ne la
+   * déplacent pas. Optionnelle comme `mesures` — une sauvegarde d'avant, ou
+   * d'un enfant qui n'a encore rien joué, n'en porte pas, et c'est la bonne
+   * réponse : il n'y a alors aucune pause à rattraper.
+   */
+  derniereLecon?: number;
+  /**
    * Ce que l'app OBSERVE, étiqueté par parcours et jamais montré à l'enfant
    * (§4.7, voir `mesures.ts`). Optionnel comme `progressions` : une sauvegarde
    * d'avant l'instrumentation n'en porte pas, et n'en est pas moins saine.
@@ -80,16 +89,22 @@ export type Sauvegarde = {
 };
 
 /** Les deux parcours en VALEURS : `parcours.ts` n'en expose que le type. */
-const PARCOURS: IdParcours[] = ['decouverte', 'dactylo'];
-const DISPOSITIONS: IdDisposition[] = ['fr-FR', 'fr-CH'];
+const PARCOURS: IdParcours[] = ["decouverte", "dactylo"];
+const DISPOSITIONS: IdDisposition[] = ["fr-FR", "fr-CH"];
 
-export const cleProgression = (p: IdParcours, d: IdDisposition): CleProgression => `${p}:${d}`;
+export const cleProgression = (
+  p: IdParcours,
+  d: IdDisposition,
+): CleProgression => `${p}:${d}`;
 
 const CLES_PROGRESSION = new Set<string>(
   PARCOURS.flatMap((p) => DISPOSITIONS.map((d) => cleProgression(p, d))),
 );
 
-export const PROGRESSION_INITIALE: Progression = { etape: 1, leconsSurEtape: 0 };
+export const PROGRESSION_INITIALE: Progression = {
+  etape: 1,
+  leconsSurEtape: 0,
+};
 /** Même borne que `blocsSurPalier` : rejouer une étape n'a pas de plafond. */
 export const LECONS_MAX = 999;
 
@@ -100,15 +115,22 @@ export const LECONS_MAX = 999;
  */
 export function plusAvancee(a: Progression, b: Progression): Progression {
   if (a.etape !== b.etape) return a.etape > b.etape ? a : b;
-  return { etape: a.etape, leconsSurEtape: Math.max(a.leconsSurEtape, b.leconsSurEtape) };
+  return {
+    etape: a.etape,
+    leconsSurEtape: Math.max(a.leconsSurEtape, b.leconsSurEtape),
+  };
 }
 
 export function progressionDe(
-  s: Pick<Sauvegarde, 'progressions'>,
+  s: Pick<Sauvegarde, "progressions">,
   parcours: IdParcours,
   disposition: IdDisposition,
 ): Progression {
-  return s.progressions?.[cleProgression(parcours, disposition)] ?? { ...PROGRESSION_INITIALE };
+  return (
+    s.progressions?.[cleProgression(parcours, disposition)] ?? {
+      ...PROGRESSION_INITIALE,
+    }
+  );
 }
 
 /**
@@ -124,7 +146,10 @@ export function avecProgression(
 ): Sauvegarde {
   return valider({
     ...s,
-    progressions: { ...s.progressions, [cleProgression(parcours, disposition)]: p },
+    progressions: {
+      ...s.progressions,
+      [cleProgression(parcours, disposition)]: p,
+    },
   });
 }
 
@@ -138,13 +163,16 @@ const TOUCHES_MAX = 200;
 const COMPTE_MAX = 10_000_000;
 /** 24 h : une leçon dure 10-15 min, tout le reste est un onglet oublié. */
 const LECON_MS_MAX = 86_400_000;
+/** 1ᵉʳ janvier 2100 : au-delà, l'horloge de l'appareil est fausse ou le champ
+    est abîmé, et une date future ferait taire la révision pour toujours. */
+const DATE_MAX = 4_102_444_800_000;
 
 export const DEFAUTS: Sauvegarde = {
   version: 1,
   modele: MODELE,
-  parcours: 'decouverte',
-  progressions: { 'decouverte:fr-FR': { ...PROGRESSION_INITIALE } },
-  disposition: 'fr-FR',
+  parcours: "decouverte",
+  progressions: { "decouverte:fr-FR": { ...PROGRESSION_INITIALE } },
+  disposition: "fr-FR",
   dispositionChoisieALaMain: false,
   palier: 1,
   blocsSurPalier: 0,
@@ -163,7 +191,7 @@ export const DEFAUTS: Sauvegarde = {
 export function motsValides(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   const sortie = v
-    .filter((m): m is string => typeof m === 'string')
+    .filter((m): m is string => typeof m === "string")
     .map((m) => m.trim())
     .filter((m) => m.length >= 1 && m.length <= 30);
   return [...new Set(sortie)].slice(0, 100);
@@ -177,7 +205,8 @@ export function motsValides(v: unknown): string[] {
  */
 export function blocDeDepart(maitrise: Maitrise): number {
   let max = 0;
-  for (const blocs of Object.values(maitrise)) for (const b of blocs) if (b > max) max = b;
+  for (const blocs of Object.values(maitrise))
+    for (const b of blocs) if (b > max) max = b;
   return Math.min(max + 1, BLOC_MAX);
 }
 
@@ -191,10 +220,13 @@ export function blocDeDepart(maitrise: Maitrise): number {
  * n'affiche. On perd la mesure, jamais l'acquis.
  */
 function comptesTouchesValides(v: unknown): Record<string, ComptesTouche> {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
   const sortie: Record<string, ComptesTouche> = {};
-  for (const [touche, c] of Object.entries(v as Record<string, unknown>).slice(0, TOUCHES_MAX)) {
-    if (touche.length !== 1 || !c || typeof c !== 'object') continue;
+  for (const [touche, c] of Object.entries(v as Record<string, unknown>).slice(
+    0,
+    TOUCHES_MAX,
+  )) {
+    if (touche.length !== 1 || !c || typeof c !== "object") continue;
     const o = c as Record<string, unknown>;
     const total = entierBorne(o.total, 0, COMPTE_MAX, -1);
     const propres = entierBorne(o.propres, 0, total < 0 ? 0 : total, -1);
@@ -208,52 +240,63 @@ function leconsValides(v: unknown): LeconMesuree[] {
   if (!Array.isArray(v)) return [];
   const sortie: LeconMesuree[] = [];
   for (const l of v.slice(-MEMOIRE_LECONS)) {
-    if (!l || typeof l !== 'object') continue;
+    if (!l || typeof l !== "object") continue;
     const o = l as Record<string, unknown>;
     const etape = entierBorne(o.etape, 1, ETAPE_MAX, 0);
     const ms = entierBorne(o.ms, 0, LECON_MS_MAX, -1);
     const lettres = entierBorne(o.lettres, 0, COMPTE_MAX, -1);
     const fautes = entierBorne(o.fautes, 0, COMPTE_MAX, -1);
     const barreau3 = entierBorne(o.barreau3, 0, COMPTE_MAX, -1);
-    if (etape === 0 || ms < 0 || lettres < 0 || fautes < 0 || barreau3 < 0) continue;
+    if (etape === 0 || ms < 0 || lettres < 0 || fautes < 0 || barreau3 < 0)
+      continue;
     sortie.push({ etape, ms, lettres, fautes, barreau3 });
   }
   return sortie;
 }
 
 export function mesuresValides(v: unknown): Mesures {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
   const sortie: Mesures = {};
   for (const [cle, serie] of Object.entries(v as Record<string, unknown>)) {
     /* Une clé qui n'est pas un parcours connu ne devient PAS une série : c'est
        exactement ainsi que deux séries finiraient par n'en faire qu'une. */
     if (!estParcours(cle)) continue;
-    if (!serie || typeof serie !== 'object' || Array.isArray(serie)) continue;
+    if (!serie || typeof serie !== "object" || Array.isArray(serie)) continue;
     const o = serie as Record<string, unknown>;
-    sortie[cle] = { touches: comptesTouchesValides(o.touches), lecons: leconsValides(o.lecons) };
+    sortie[cle] = {
+      touches: comptesTouchesValides(o.touches),
+      lecons: leconsValides(o.lecons),
+    };
   }
   return sortie;
 }
 
-const estDisposition = (v: unknown): v is IdDisposition => v === 'fr-FR' || v === 'fr-CH';
+const estDisposition = (v: unknown): v is IdDisposition =>
+  v === "fr-FR" || v === "fr-CH";
 
 /* Un parcours inconnu retombe sur Découverte plutôt que d'invalider la
    sauvegarde entière : le refuser renverrait au backup une progression saine
    à cause d'une simple préférence. */
-const estParcours = (v: unknown): v is IdParcours => PARCOURS.includes(v as IdParcours);
+const estParcours = (v: unknown): v is IdParcours =>
+  PARCOURS.includes(v as IdParcours);
 
-const bool = (v: unknown, defaut: boolean) => (typeof v === 'boolean' ? v : defaut);
+const bool = (v: unknown, defaut: boolean) =>
+  typeof v === "boolean" ? v : defaut;
 
 const entierBorne = (v: unknown, min: number, max: number, defaut: number) =>
-  typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max ? v : defaut;
+  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max
+    ? v
+    : defaut;
 
 function maitriseValide(v: unknown): Maitrise {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
   const sortie: Maitrise = {};
   for (const [cle, val] of Object.entries(v as Record<string, unknown>)) {
     if (cle.length !== 1) continue;
     if (!Array.isArray(val)) continue;
-    const blocs = val.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+    const blocs = val.filter(
+      (n): n is number => typeof n === "number" && Number.isFinite(n),
+    );
     if (blocs.length) sortie[cle] = blocs;
   }
   return sortie;
@@ -261,7 +304,7 @@ function maitriseValide(v: unknown): Maitrise {
 
 /** Une progression relue avec méfiance : hors domaine → rien, jamais de crash. */
 function progressionValide(v: unknown): Progression | null {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   const etape = entierBorne(o.etape, 1, ETAPE_MAX, 0);
   const lecons = entierBorne(o.leconsSurEtape, 0, LECONS_MAX, -1);
@@ -270,7 +313,7 @@ function progressionValide(v: unknown): Progression | null {
 }
 
 function progressionsValides(v: unknown): Progressions {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
   const sortie: Progressions = {};
   for (const [cle, val] of Object.entries(v as Record<string, unknown>)) {
     if (!CLES_PROGRESSION.has(cle)) continue;
@@ -302,7 +345,7 @@ export function progressionsNormalisees(s: {
   progressions?: unknown;
 }): Progressions {
   const stockees = progressionsValides(s.progressions);
-  const cle = cleProgression('decouverte', s.disposition);
+  const cle = cleProgression("decouverte", s.disposition);
   return {
     ...stockees,
     [cle]: plusAvancee(stockees[cle] ?? PROGRESSION_INITIALE, {
@@ -318,36 +361,45 @@ export function progressionsNormalisees(s: {
  * remplacerait par des défauts. Les leçons ne suivent que tant que l'étape
  * tient dans le miroir — sinon elles compteraient pour une autre étape.
  */
-export function miroirLegacy(p: Progression): { palier: number; blocsSurPalier: number } {
+export function miroirLegacy(p: Progression): {
+  palier: number;
+  blocsSurPalier: number;
+} {
   const palier = Math.min(p.etape, PALIER_MAX);
   return { palier, blocsSurPalier: p.etape === palier ? p.leconsSurEtape : 0 };
 }
 
 /** Gardes manuelles : champ absent ou hors domaine → valeur par défaut, jamais de crash. */
 export function valider(brut: unknown): Sauvegarde {
-  if (!brut || typeof brut !== 'object') return { ...DEFAUTS };
+  if (!brut || typeof brut !== "object") return { ...DEFAUTS };
   const o = brut as Record<string, unknown>;
   const r = (o.reglages ?? {}) as Record<string, unknown>;
   const maitrise = maitriseValide(o.maitrise);
   const mesures = mesuresValides(o.mesures);
-  const disposition = estDisposition(o.disposition) ? o.disposition : DEFAUTS.disposition;
+  const disposition = estDisposition(o.disposition)
+    ? o.disposition
+    : DEFAUTS.disposition;
+  const derniereLecon = entierBorne(o.derniereLecon, 0, DATE_MAX, -1);
   const progressions = progressionsNormalisees({
     disposition,
     palier: entierBorne(o.palier, 1, PALIER_MAX, DEFAUTS.palier),
     blocsSurPalier: entierBorne(o.blocsSurPalier, 0, LECONS_MAX, 0),
     progressions: o.progressions,
   });
-  const miroir = miroirLegacy(progressionDe({ progressions }, 'decouverte', disposition));
+  const miroir = miroirLegacy(
+    progressionDe({ progressions }, "decouverte", disposition),
+  );
   return {
     version: 1,
     modele: MODELE,
-    parcours: estParcours(o.parcours) ? o.parcours : 'decouverte',
+    parcours: estParcours(o.parcours) ? o.parcours : "decouverte",
     disposition,
     dispositionChoisieALaMain: bool(o.dispositionChoisieALaMain, false),
     palier: miroir.palier,
     blocsSurPalier: miroir.blocsSurPalier,
     bloc: entierBorne(o.bloc, 1, BLOC_MAX, blocDeDepart(maitrise)),
     maitrise,
+    ...(derniereLecon >= 0 ? { derniereLecon } : {}),
     /* ABSENT tant qu'il n'y a rien à dire, et ce n'est pas cosmétique : deux
        appareils comparent leurs états par EMPREINTE (`sync.empreinte`), et un
        `mesures: {}` posé d'un seul côté leur ferait échanger indéfiniment un
@@ -371,20 +423,20 @@ export function valider(brut: unknown): Sauvegarde {
  * sur chaque champ, avec les MÊMES bornes que `valider()`.
  */
 export function estIntact(brut: unknown): boolean {
-  if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return false;
+  if (!brut || typeof brut !== "object" || Array.isArray(brut)) return false;
   const o = brut as Record<string, unknown>;
   const entier = (v: unknown, min: number, max: number) =>
-    typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+    typeof v === "number" && Number.isInteger(v) && v >= min && v <= max;
   if (o.version !== 1) return false;
   if (!estDisposition(o.disposition)) return false;
-  if (typeof o.dispositionChoisieALaMain !== 'boolean') return false;
+  if (typeof o.dispositionChoisieALaMain !== "boolean") return false;
   if (!entier(o.palier, 1, PALIER_MAX)) return false;
   if (!entier(o.blocsSurPalier, 0, 999)) return false;
   /* `bloc` est un champ AJOUTÉ : absent = sauvegarde d'une version antérieure,
      encore parfaitement saine (le repli reconstruit le compteur). Présent, il
      doit être valide, sinon le backup a plus de valeur que ce fichier-là. */
   if (o.bloc !== undefined && !entier(o.bloc, 1, BLOC_MAX)) return false;
-  if (typeof o.guideDoigtVu !== 'boolean') return false;
+  if (typeof o.guideDoigtVu !== "boolean") return false;
   /* `motsPerso` — l'ancienne liste unique — n'est PLUS contrôlé (#12). Une
      sauvegarde d'avant son retrait le porte encore : le champ est ignoré, pas
      rejeté. Le contrôler encore ferait renvoyer au backup une progression
@@ -397,7 +449,7 @@ export function estIntact(brut: unknown): boolean {
   if (o.modele !== undefined && !entier(o.modele, 1, 1000)) return false;
   if (o.progressions !== undefined) {
     const p = o.progressions;
-    if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
+    if (!p || typeof p !== "object" || Array.isArray(p)) return false;
     for (const [cle, val] of Object.entries(p as Record<string, unknown>)) {
       /* Une clé inconnue est TOLÉRÉE (un parcours futur), une progression
          illisible ne l'est pas : c'est la marque d'un fichier abîmé. */
@@ -405,24 +457,38 @@ export function estIntact(brut: unknown): boolean {
       if (!progressionValide(val)) return false;
     }
   }
-  if (!o.maitrise || typeof o.maitrise !== 'object' || Array.isArray(o.maitrise)) return false;
-  for (const [cle, val] of Object.entries(o.maitrise as Record<string, unknown>)) {
+  if (
+    !o.maitrise ||
+    typeof o.maitrise !== "object" ||
+    Array.isArray(o.maitrise)
+  )
+    return false;
+  for (const [cle, val] of Object.entries(
+    o.maitrise as Record<string, unknown>,
+  )) {
     if (cle.length !== 1) return false;
     if (!Array.isArray(val)) return false;
-    if (!val.every((n) => typeof n === 'number' && Number.isFinite(n))) return false;
+    if (!val.every((n) => typeof n === "number" && Number.isFinite(n)))
+      return false;
   }
   const r = o.reglages;
-  if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
+  if (!r || typeof r !== "object" || Array.isArray(r)) return false;
   const reg = r as Record<string, unknown>;
-  return (['sons', 'texteEspace', 'animationsDouces'] as const).every(
-    (c) => typeof reg[c] === 'boolean',
+  return (["sons", "texteEspace", "animationsDouces"] as const).every(
+    (c) => typeof reg[c] === "boolean",
   );
 }
 
 /** Union de deux jeux de progressions : le plus avancé gagne, couple par couple. */
-export function fusionnerProgressions(a: Progressions, b: Progressions): Progressions {
+export function fusionnerProgressions(
+  a: Progressions,
+  b: Progressions,
+): Progressions {
   const sortie: Progressions = {};
-  for (const cle of new Set([...Object.keys(a), ...Object.keys(b)]) as Set<CleProgression>) {
+  for (const cle of new Set([
+    ...Object.keys(a),
+    ...Object.keys(b),
+  ]) as Set<CleProgression>) {
     const ici = a[cle];
     const la = b[cle];
     sortie[cle] = ici && la ? plusAvancee(ici, la) : (ici ?? la);
@@ -440,8 +506,15 @@ function fusionnerAvecStocke(etat: Sauvegarde, precedent: unknown): Sauvegarde {
   const neuf = valider(etat);
   if (!estIntact(precedent)) return neuf;
   const avant = valider(precedent);
-  const progressions = fusionnerProgressions(neuf.progressions ?? {}, avant.progressions ?? {});
-  return valider({ ...neuf, progressions, mesures: garderLesMesures(neuf, avant) });
+  const progressions = fusionnerProgressions(
+    neuf.progressions ?? {},
+    avant.progressions ?? {},
+  );
+  return valider({
+    ...neuf,
+    progressions,
+    mesures: garderLesMesures(neuf, avant),
+  });
 }
 
 /**
@@ -457,9 +530,13 @@ function fusionnerAvecStocke(etat: Sauvegarde, precedent: unknown): Sauvegarde {
  */
 function garderLesMesures(neuf: Sauvegarde, avant: Sauvegarde): Mesures {
   const sortie: Mesures = { ...avant.mesures };
-  for (const [cle, serie] of Object.entries(neuf.mesures ?? {}) as [IdParcours, Serie][]) {
+  for (const [cle, serie] of Object.entries(neuf.mesures ?? {}) as [
+    IdParcours,
+    Serie,
+  ][]) {
     const stockee = sortie[cle];
-    if (!stockee || serie.lecons.length >= stockee.lecons.length) sortie[cle] = serie;
+    if (!stockee || serie.lecons.length >= stockee.lecons.length)
+      sortie[cle] = serie;
   }
   return sortie;
 }
@@ -491,7 +568,8 @@ export function sauver(etat: Sauvegarde, cle: string = CLE): void {
      emporter avec lui l'écriture de la clé principale (elle, seule, porte la
      progression du moment). */
   try {
-    if (estIntact(precedent)) localStorage.setItem(`${cle}.backup`, JSON.stringify(precedent));
+    if (estIntact(precedent))
+      localStorage.setItem(`${cle}.backup`, JSON.stringify(precedent));
   } catch {
     /* backup au mieux : son échec n'est jamais fatal */
   }
@@ -501,7 +579,10 @@ export function sauver(etat: Sauvegarde, cle: string = CLE): void {
        quel effacerait à chaque fin de leçon la progression de l'autre
        parcours. On repose donc ce qui était déjà là, sous la règle habituelle
        « le plus avancé gagne ». */
-    localStorage.setItem(cle, JSON.stringify(fusionnerAvecStocke(etat, precedent)));
+    localStorage.setItem(
+      cle,
+      JSON.stringify(fusionnerAvecStocke(etat, precedent)),
+    );
   } catch {
     /* quota plein ou navigation privée : la leçon continue sans persistance */
   }
