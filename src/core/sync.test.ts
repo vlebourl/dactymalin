@@ -17,7 +17,15 @@ import {
   viderLaFile,
 } from './sync';
 import { CLE_PROFILS, chargerIndex, cleDe, remplacerIndex } from './profils';
-import { CLE, DEFAUTS, charger, sauver, type Sauvegarde } from './storage';
+import {
+  CLE,
+  DEFAUTS,
+  charger,
+  progressionDe,
+  sauver,
+  valider,
+  type Sauvegarde,
+} from './storage';
 
 /** Faux stockage : `core/` doit rester testable en env node (cf. profils.test.ts). */
 class FauxStockage {
@@ -215,16 +223,18 @@ describe('les profils viennent du compte', () => {
 });
 
 describe('réconciliation : l’appareil local ne gagne plus par principe', () => {
-  const local: Sauvegarde = {
+  /* États passés par `valider` : c'est sous cette forme-là — miroir legacy ET
+     progression par parcours — qu'ils circulent réellement entre appareils. */
+  const local: Sauvegarde = valider({
     ...DEFAUTS,
     palier: 3,
     reglages: { sons: true, texteEspace: false, animationsDouces: true },
-  };
-  const distant: Sauvegarde = {
+  });
+  const distant: Sauvegarde = valider({
     ...DEFAUTS,
     palier: 3,
     reglages: { sons: false, texteEspace: true, animationsDouces: false },
-  };
+  });
 
   it('les préférences du serveur gagnent quand elles sont plus récentes', async () => {
     sauver(local, cleDe('d1'));
@@ -246,6 +256,27 @@ describe('réconciliation : l’appareil local ne gagne plus par principe', () =
     expect(charger(cleDe('d1')).reglages).toEqual(local.reglages);
     /* et la fusion repart vers le serveur : l'autre appareil la verra */
     expect(s.puts).toHaveLength(1);
+  });
+
+  it('une progression v1 venue du serveur est migrée ici, et repartira migrée', async () => {
+    /* Ce que le serveur porte pour un enfant qui jouait avant la mise à jour :
+       ni modèle, ni progressions — un palier, et c'est tout. */
+    const v1 = { ...DEFAUTS, palier: 4, blocsSurPalier: 2, modele: undefined, progressions: undefined };
+    sauver(v1, cleDe('d1'));
+    localStorage.setItem(CLE_MAJ, JSON.stringify({ d1: '2026-08-01T10:00:00.000Z' }));
+    const s = serveur([
+      { id: 'd1', prenom: 'Timo', etat: v1, majLe: '2026-08-02T10:00:00.000Z' },
+    ]);
+
+    await synchroniserProfils();
+    expect(progressionDe(charger(cleDe('d1')), 'decouverte', 'fr-FR')).toEqual({
+      etape: 4,
+      leconsSurEtape: 2,
+    });
+    /* La migration remonte au compte, UNE fois : les autres appareils la
+       trouveront déjà faite. */
+    expect(s.puts).toHaveLength(1);
+    expect(progressionDe(s.puts[0].etat, 'decouverte', 'fr-FR').etape).toBe(4);
   });
 
   it('rien à dire de neuf : aucun envoi inutile', async () => {

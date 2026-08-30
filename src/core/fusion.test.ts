@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { fusionner, fusionnerMaitrise } from './fusion';
-import { DEFAUTS, type Sauvegarde } from './storage';
+import {
+  avecProgression,
+  DEFAUTS,
+  progressionDe,
+  valider,
+  type Sauvegarde,
+} from './storage';
 
 const etat = (p: Partial<Sauvegarde>): Sauvegarde => ({ ...DEFAUTS, ...p });
 const A = (e: Partial<Sauvegarde>, t = 1000) => ({ etat: etat(e), majLe: t });
@@ -70,5 +76,76 @@ describe('fusion de deux progressions du même enfant', () => {
 describe('fusion des maîtrises', () => {
   it('trie les numéros de bloc', () => {
     expect(fusionnerMaitrise({ e: [5, 1] }, { e: [3] })).toEqual({ e: [1, 3, 5] });
+  });
+});
+
+describe('fusion des progressions par parcours et disposition', () => {
+  it('unit les couples : chacun garde le plus avancé', () => {
+    const salon = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-FR', {
+      etape: 4,
+      leconsSurEtape: 1,
+    });
+    const tablette = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-FR', {
+      etape: 2,
+      leconsSurEtape: 6,
+    });
+    const r = fusionner({ etat: salon, majLe: 1000 }, { etat: tablette, majLe: 9000 });
+    expect(progressionDe(r, 'dactylo', 'fr-FR')).toEqual({ etape: 4, leconsSurEtape: 1 });
+  });
+
+  it('à étape égale, garde le plus grand nombre de leçons faites', () => {
+    const a = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-CH', { etape: 3, leconsSurEtape: 1 });
+    const b = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-CH', { etape: 3, leconsSurEtape: 5 });
+    const r = fusionner({ etat: a, majLe: 1000 }, { etat: b, majLe: 2000 });
+    expect(progressionDe(r, 'dactylo', 'fr-CH')).toEqual({ etape: 3, leconsSurEtape: 5 });
+  });
+
+  it('un parcours joué sur un seul appareil arrive intact sur l\'autre', () => {
+    const joue = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-FR', {
+      etape: 5,
+      leconsSurEtape: 2,
+    });
+    const r = fusionner({ etat: joue, majLe: 1000 }, A({}, 9000));
+    expect(progressionDe(r, 'dactylo', 'fr-FR')).toEqual({ etape: 5, leconsSurEtape: 2 });
+  });
+
+  it('reprend le palier d\'un appareil resté à l\'ancien modèle', () => {
+    /* Cet état-là n'a AUCUNE progression : c'est tout ce qu'un ancien bundle
+       sait écrire. Son palier est pourtant la progression Découverte. */
+    const ancien: Sauvegarde = { ...DEFAUTS, palier: 6, blocsSurPalier: 2, progressions: undefined };
+    const r = fusionner({ etat: ancien, majLe: 9000 }, A({}, 1000));
+    expect(progressionDe(r, 'decouverte', 'fr-FR')).toEqual({ etape: 6, leconsSurEtape: 2 });
+  });
+
+  it('le miroir ne verse jamais une avance dans l\'autre disposition', () => {
+    const frFR = avecProgression(valider(DEFAUTS), 'decouverte', 'fr-FR', {
+      etape: 5,
+      leconsSurEtape: 0,
+    });
+    const frCH = avecProgression(
+      valider({ ...DEFAUTS, disposition: 'fr-CH' }),
+      'decouverte',
+      'fr-CH',
+      { etape: 1, leconsSurEtape: 3 },
+    );
+    /* fr-CH est le choix le plus RÉCENT : c'est lui que le miroir doit
+       refléter, sinon l'enfant se retrouverait à l'étape 5 d'un clavier où il
+       n'a jamais joué. */
+    const r = fusionner({ etat: frFR, majLe: 1000 }, { etat: frCH, majLe: 9000 });
+    expect(r.disposition).toBe('fr-CH');
+    expect(r.palier).toBe(1);
+    expect(progressionDe(r, 'decouverte', 'fr-FR').etape).toBe(5);
+    expect(progressionDe(r, 'decouverte', 'fr-CH')).toEqual({ etape: 1, leconsSurEtape: 3 });
+  });
+
+  it('reste idempotente et commutative avec les progressions', () => {
+    const a = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-FR', { etape: 3, leconsSurEtape: 1 });
+    const b = avecProgression(valider(DEFAUTS), 'decouverte', 'fr-FR', {
+      etape: 4,
+      leconsSurEtape: 2,
+    });
+    const une = fusionner({ etat: a, majLe: 1000 }, { etat: b, majLe: 2000 });
+    expect(fusionner({ etat: b, majLe: 2000 }, { etat: a, majLe: 1000 })).toEqual(une);
+    expect(fusionner({ etat: une, majLe: 3000 }, { etat: une, majLe: 3000 })).toEqual(une);
   });
 });
