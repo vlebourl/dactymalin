@@ -41,6 +41,7 @@ C'est la règle qui a arbitré cette révision.
 | 16 | **Les phrases n'existent qu'à partir de Maj et du point.** Les groupes nominaux sont admis dès l'espace. | v1 §4.7 (phrases hors MVP) | P3 : *le lion dort* est une phrase écrite faux ; *un chat* est vrai. |
 | 17 | **La proposition d'arrêt passe à la fin de la leçon.** | v1 §4.2 (4ᵉ bloc consécutif) | La leçon est désormais la séance entière. |
 | 18 | **Le clavier reste d'un seul tenant.** La frontière se lit dans la teinte des touches et dans les deux mains latérales, jamais dans un écart physique ; l'étiquette « la frontière » est retirée. | v2 P4, V3, V4 §5, §7.7 | Le code livré fait ce choix depuis le 2026-08-28 et un test le verrouille (`tests/e2e/corrections-2026-08-28.spec.ts`). Ratifié le 2026-08-30 : l'état livré convient, c'est le cahier qui est amendé. |
+| 19 | **L'espace parent est gardé par une question réservée aux adultes** — un produit à deux chiffres × un chiffre. | v2 §5/V7 (deux boutons ouvraient V9 sans garde) | #63 y met la vitesse et la précision, que §1 interdit de montrer à l'enfant, à côté de la suppression du compte déjà présente. Un ralentisseur, pas un coffre-fort : la console du navigateur reste ouverte à qui la connaît. |
 
 **Ce qui reste ouvert et n'est pas tranché ici** : le rendu en portrait sur
 téléphone, et le contenu exact de l'étape 10 (paragraphes).

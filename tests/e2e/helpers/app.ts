@@ -127,6 +127,11 @@ export async function ouvrir(
      chaque test attendrait douze minutes pour voir l'écran de fin. */
   await page.addInitScript((ms) => {
     (globalThis as { __dureeLeconMs?: number }).__dureeLeconMs = ms as number;
+    /* L'espace parent est gardé par une question réservée aux adultes. Les
+       parcours qui VISENT cet espace n'ont pas à refaire une multiplication à
+       chaque ouverture ; la porte elle-même est exercée par sa propre spec,
+       qui n'appelle pas ce harnais. */
+    (globalThis as { __porteAdulteOuverte?: boolean }).__porteAdulteOuverte = true;
   }, dureeLeconMs);
   await page.addInitScript(
     ([cle, disposition, niveau, avecSons, quelParcours, dejaFaites]) => {
