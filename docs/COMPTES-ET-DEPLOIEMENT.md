@@ -76,7 +76,9 @@ Copie du modèle ecoride, vérifié le 2026-08-28 :
 
 - **Build pack** : Dockerfile multi-stage (build Vite + serveur), port 3000,
   healthcheck `GET /api/health`.
-- **Domaine** : `typing.tiarkaerell.com`, TLS par le proxy Coolify.
+- **Domaines** : `dacty.tiarkaerell.com` (canonique) et `typing.tiarkaerell.com`,
+  tous deux vivants, TLS par le proxy Coolify. Les deux sont déclarés dans
+  `FRONTEND_URL` : une origine oubliée vaut un 403 sur toute connexion (#66).
 - **Déclencheur** : GitHub Actions. Un push sur `main` de
   `vlebourl/dactymalin` lance `.github/workflows/deploy.yml` sur le runner
   auto-hébergé `homelab-runner`, qui appelle l'API Coolify en localhost. Même
