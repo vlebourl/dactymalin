@@ -1,4 +1,8 @@
-import lexique from '../data/lexique-v3.json';
+// L'attribut d'import est OBLIGATOIRE : le serveur charge ce module sous Node
+// pur, où un import JSON sans attribut est une erreur d'exécution. Vite et
+// Vitest s'en accommodaient, la suite Playwright non — elle démarre un vrai
+// serveur, et la suite entière avortait avant le premier test.
+import lexique from '../data/lexique-v3.json' with { type: 'json' };
 
 /**
  * Ce que l'enfant peut taper, filtré par les touches ouvertes.

@@ -1,4 +1,8 @@
-import donnees from '../data/parcours.json';
+// L'attribut d'import est OBLIGATOIRE : le serveur charge ce module sous Node
+// pur, où un import JSON sans attribut est une erreur d'exécution. Vite et
+// Vitest s'en accommodaient, la suite Playwright non — elle démarre un vrai
+// serveur, et la suite entière avortait avant le premier test.
+import donnees from '../data/parcours.json' with { type: 'json' };
 import { mainDe, type IdDisposition } from './layouts';
 
 /**
