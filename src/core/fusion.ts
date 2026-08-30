@@ -1,4 +1,11 @@
-import type { Sauvegarde } from './storage';
+import {
+  fusionnerProgressions,
+  miroirLegacy,
+  MODELE,
+  progressionDe,
+  progressionsNormalisees,
+  type Sauvegarde,
+} from './storage';
 import type { Maitrise } from './progression';
 
 /**
@@ -14,22 +21,35 @@ export function fusionner(
   b: { etat: Sauvegarde; majLe: number },
 ): Sauvegarde {
   const [ancien, recent] = a.majLe <= b.majLe ? [a, b] : [b, a];
-  const avance = a.etat.palier >= b.etat.palier ? a.etat : b.etat;
+  const disposition = recent.etat.disposition;
+
+  /* Chaque côté est d'abord ramené au modèle courant : un appareil resté à
+     l'ancien bundle n'envoie sa progression que par `palier`, et l'oublier
+     ici la perdrait au premier démarrage de l'autre appareil. */
+  const progressions = fusionnerProgressions(
+    progressionsNormalisees(a.etat),
+    progressionsNormalisees(b.etat),
+  );
+
+  /* Le miroir des anciens clients suit la progression Découverte de la
+     disposition RETENUE, et non le plus grand des deux paliers : celui-ci
+     pourrait venir de l'autre disposition, et le relire y verserait une
+     avance qui n'y a jamais été faite. */
+  const miroir = miroirLegacy(progressionDe({ progressions }, 'decouverte', disposition));
 
   return {
     version: 1,
+    modele: MODELE,
     /* Réglages et clavier : préférences, pas progression — le plus RÉCENT
        gagne, c'est le dernier choix de la famille. */
-    disposition: recent.etat.disposition,
+    disposition,
     dispositionChoisieALaMain:
       recent.etat.dispositionChoisieALaMain || ancien.etat.dispositionChoisieALaMain,
     reglages: recent.etat.reglages,
     /* Acquis : ils ne se perdent pas. */
-    palier: Math.max(a.etat.palier, b.etat.palier),
-    blocsSurPalier:
-      a.etat.palier === b.etat.palier
-        ? Math.max(a.etat.blocsSurPalier, b.etat.blocsSurPalier)
-        : avance.blocsSurPalier,
+    progressions,
+    palier: miroir.palier,
+    blocsSurPalier: miroir.blocsSurPalier,
     // compteur monotone : il ne redescend jamais
     bloc: Math.max(a.etat.bloc, b.etat.bloc),
     maitrise: fusionnerMaitrise(a.etat.maitrise, b.etat.maitrise),

@@ -1,6 +1,7 @@
 import type { IdDisposition } from './layouts';
 import type { Maitrise } from './progression';
 import { PALIER_MAX } from './paliers';
+import { ETAPE_MAX, type IdParcours } from './parcours';
 
 export const CLE = 'tapeavecmoi.v1';
 /** Dernière progression VALIDE : une corruption ne remet jamais à zéro. */
@@ -12,10 +13,41 @@ export type Reglages = {
   animationsDouces: boolean;
 };
 
+/**
+ * Où en est l'enfant dans UN parcours, sur UNE disposition. Les deux parcours
+ * sont indépendants et parallèles (cahier §4.2) : leurs progressions sont
+ * persistées séparément. La disposition les sépare aussi — une même étape n'y
+ * ouvre pas les mêmes touches (§4.5).
+ */
+export type Progression = { etape: number; leconsSurEtape: number };
+export type CleProgression = `${IdParcours}:${IdDisposition}`;
+export type Progressions = Partial<Record<CleProgression, Progression>>;
+
+/**
+ * Version du MODÈLE de progression, distincte de `version`.
+ *
+ * `version` reste à 1, et ce n'est pas un oubli : c'est le contrat de lecture
+ * des clients DÉJÀ DÉPLOYÉS. Leur `estIntact` refuse tout ce qui ne porte pas
+ * `version === 1`, et ce refus n'est pas anodin — l'appareil retombe sur sa
+ * sauvegarde de secours puis sur les défauts, et le serveur, s'il est resté
+ * lui aussi sur l'ancien code, répond 400, ce que la file d'envoi jette
+ * DÉFINITIVEMENT (`sync.vidange`). Bref : annoncer le nouveau modèle en
+ * bombant `version` aurait effacé la progression qu'il sert à protéger.
+ *
+ * Le nouveau modèle est donc ADDITIF. Ce qu'un ancien client ignore lui reste
+ * invisible ; ce qu'il connaît reste vrai.
+ */
+export const MODELE = 2;
+
 export type Sauvegarde = {
   version: 1;
+  /** Optionnel : un producteur d'état resté sur l'ancien modèle n'en écrit
+      pas, et `valider`/`sauver` le reposent sans rien perdre. */
+  modele?: typeof MODELE;
   disposition: IdDisposition;
   dispositionChoisieALaMain: boolean;
+  /** MIROIR de `progressions['decouverte:<disposition>']`, borné au dernier
+      palier que les anciens clients savent lire. */
   palier: number;
   blocsSurPalier: number;
   /** n° du PROCHAIN bloc, monotone : sert à répartir les occurrences */
@@ -23,13 +55,65 @@ export type Sauvegarde = {
   maitrise: Maitrise;
   guideDoigtVu: boolean;
   reglages: Reglages;
+  progressions?: Progressions;
 };
+
+/** Les deux parcours en VALEURS : `parcours.ts` n'en expose que le type. */
+const PARCOURS: IdParcours[] = ['decouverte', 'dactylo'];
+const DISPOSITIONS: IdDisposition[] = ['fr-FR', 'fr-CH'];
+
+export const cleProgression = (p: IdParcours, d: IdDisposition): CleProgression => `${p}:${d}`;
+
+const CLES_PROGRESSION = new Set<string>(
+  PARCOURS.flatMap((p) => DISPOSITIONS.map((d) => cleProgression(p, d))),
+);
+
+export const PROGRESSION_INITIALE: Progression = { etape: 1, leconsSurEtape: 0 };
+/** Même borne que `blocsSurPalier` : rejouer une étape n'a pas de plafond. */
+export const LECONS_MAX = 999;
+
+/**
+ * La plus AVANCÉE de deux progressions du même couple. Même règle que la
+ * fusion multi-appareil : l'étape décide d'abord, les leçons ne départagent
+ * qu'à étape égale — les leçons d'une étape dépassée ne disent plus rien.
+ */
+export function plusAvancee(a: Progression, b: Progression): Progression {
+  if (a.etape !== b.etape) return a.etape > b.etape ? a : b;
+  return { etape: a.etape, leconsSurEtape: Math.max(a.leconsSurEtape, b.leconsSurEtape) };
+}
+
+export function progressionDe(
+  s: Pick<Sauvegarde, 'progressions'>,
+  parcours: IdParcours,
+  disposition: IdDisposition,
+): Progression {
+  return s.progressions?.[cleProgression(parcours, disposition)] ?? { ...PROGRESSION_INITIALE };
+}
+
+/**
+ * Écrit une progression, miroir compris. Elle ne REDESCEND jamais : rejouer
+ * une étape déjà finie (§4.4) est un choix de l'enfant, pas une perte
+ * d'acquis, et un appareil en retard ne doit pas pouvoir défaire une avance.
+ */
+export function avecProgression(
+  s: Sauvegarde,
+  parcours: IdParcours,
+  disposition: IdDisposition,
+  p: Progression,
+): Sauvegarde {
+  return valider({
+    ...s,
+    progressions: { ...s.progressions, [cleProgression(parcours, disposition)]: p },
+  });
+}
 
 /** Borne haute du compteur de blocs : au-delà, la valeur relue est aberrante. */
 export const BLOC_MAX = 1_000_000;
 
 export const DEFAUTS: Sauvegarde = {
   version: 1,
+  modele: MODELE,
+  progressions: { 'decouverte:fr-FR': { ...PROGRESSION_INITIALE } },
   disposition: 'fr-FR',
   dispositionChoisieALaMain: false,
   palier: 1,
@@ -86,21 +170,95 @@ function maitriseValide(v: unknown): Maitrise {
   return sortie;
 }
 
+/** Une progression relue avec méfiance : hors domaine → rien, jamais de crash. */
+function progressionValide(v: unknown): Progression | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const etape = entierBorne(o.etape, 1, ETAPE_MAX, 0);
+  const lecons = entierBorne(o.leconsSurEtape, 0, LECONS_MAX, -1);
+  if (etape === 0 || lecons === -1) return null;
+  return { etape, leconsSurEtape: lecons };
+}
+
+function progressionsValides(v: unknown): Progressions {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const sortie: Progressions = {};
+  for (const [cle, val] of Object.entries(v as Record<string, unknown>)) {
+    if (!CLES_PROGRESSION.has(cle)) continue;
+    const p = progressionValide(val);
+    if (p) sortie[cle as CleProgression] = p;
+  }
+  return sortie;
+}
+
+/**
+ * LA MIGRATION, et elle est monotone dans les DEUX SENS.
+ *
+ * Une sauvegarde v1 ne porte que `palier` / `blocsSurPalier` : c'est la
+ * progression Découverte de la disposition jouée, et rien d'autre — l'enfant
+ * n'a jamais eu accès à Dactylo. On la verse donc dans le couple
+ * `decouverte:<disposition>`, sans jamais écraser une progression déjà
+ * enregistrée : c'est ce qui rend l'opération rejouable à l'identique.
+ *
+ * Le miroir vaut aussi dans l'autre sens, et c'est ce qui sauve les familles à
+ * plusieurs appareils pendant le déploiement : une avance faite sur un
+ * appareil resté à l'ancien bundle n'arrive QUE par `palier`, et elle est
+ * reprise ici. La règle « le plus avancé gagne » est la même que celle de la
+ * fusion multi-appareil : personne ne perd, personne ne recule.
+ */
+export function progressionsNormalisees(s: {
+  disposition: IdDisposition;
+  palier: number;
+  blocsSurPalier: number;
+  progressions?: unknown;
+}): Progressions {
+  const stockees = progressionsValides(s.progressions);
+  const cle = cleProgression('decouverte', s.disposition);
+  return {
+    ...stockees,
+    [cle]: plusAvancee(stockees[cle] ?? PROGRESSION_INITIALE, {
+      etape: s.palier,
+      leconsSurEtape: s.blocsSurPalier,
+    }),
+  };
+}
+
+/**
+ * Le miroir que lisent les clients d'avant. Il est BORNÉ à `PALIER_MAX` : au
+ * delà, leur contrôle d'intégrité déclarerait la sauvegarde corrompue et la
+ * remplacerait par des défauts. Les leçons ne suivent que tant que l'étape
+ * tient dans le miroir — sinon elles compteraient pour une autre étape.
+ */
+export function miroirLegacy(p: Progression): { palier: number; blocsSurPalier: number } {
+  const palier = Math.min(p.etape, PALIER_MAX);
+  return { palier, blocsSurPalier: p.etape === palier ? p.leconsSurEtape : 0 };
+}
+
 /** Gardes manuelles : champ absent ou hors domaine → valeur par défaut, jamais de crash. */
 export function valider(brut: unknown): Sauvegarde {
   if (!brut || typeof brut !== 'object') return { ...DEFAUTS };
   const o = brut as Record<string, unknown>;
   const r = (o.reglages ?? {}) as Record<string, unknown>;
   const maitrise = maitriseValide(o.maitrise);
+  const disposition = estDisposition(o.disposition) ? o.disposition : DEFAUTS.disposition;
+  const progressions = progressionsNormalisees({
+    disposition,
+    palier: entierBorne(o.palier, 1, PALIER_MAX, DEFAUTS.palier),
+    blocsSurPalier: entierBorne(o.blocsSurPalier, 0, LECONS_MAX, 0),
+    progressions: o.progressions,
+  });
+  const miroir = miroirLegacy(progressionDe({ progressions }, 'decouverte', disposition));
   return {
     version: 1,
-    disposition: estDisposition(o.disposition) ? o.disposition : DEFAUTS.disposition,
+    modele: MODELE,
+    disposition,
     dispositionChoisieALaMain: bool(o.dispositionChoisieALaMain, false),
-    palier: entierBorne(o.palier, 1, PALIER_MAX, DEFAUTS.palier),
-    blocsSurPalier: entierBorne(o.blocsSurPalier, 0, 999, 0),
+    palier: miroir.palier,
+    blocsSurPalier: miroir.blocsSurPalier,
     bloc: entierBorne(o.bloc, 1, BLOC_MAX, blocDeDepart(maitrise)),
     maitrise,
     guideDoigtVu: bool(o.guideDoigtVu, false),
+    progressions,
     reglages: {
       sons: bool(r.sons, true),
       texteEspace: bool(r.texteEspace, false),
@@ -135,6 +293,22 @@ export function estIntact(brut: unknown): boolean {
      sauvegarde d'avant son retrait le porte encore : le champ est ignoré, pas
      rejeté. Le contrôler encore ferait renvoyer au backup une progression
      parfaitement saine à cause d'un champ que plus personne ne lit. */
+  /* `modele` et `progressions` sont AJOUTÉS : absents, la sauvegarde est celle
+     d'un client d'avant, parfaitement saine — la migration la reprendra.
+     Un `modele` PLUS RÉCENT que le nôtre est accepté lui aussi : ses champs
+     connus restent lisibles, et le refuser renverrait au backup, voire aux
+     défauts, une progression réelle venue d'un appareil mieux à jour. */
+  if (o.modele !== undefined && !entier(o.modele, 1, 1000)) return false;
+  if (o.progressions !== undefined) {
+    const p = o.progressions;
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
+    for (const [cle, val] of Object.entries(p as Record<string, unknown>)) {
+      /* Une clé inconnue est TOLÉRÉE (un parcours futur), une progression
+         illisible ne l'est pas : c'est la marque d'un fichier abîmé. */
+      if (!CLES_PROGRESSION.has(cle)) continue;
+      if (!progressionValide(val)) return false;
+    }
+  }
   if (!o.maitrise || typeof o.maitrise !== 'object' || Array.isArray(o.maitrise)) return false;
   for (const [cle, val] of Object.entries(o.maitrise as Record<string, unknown>)) {
     if (cle.length !== 1) return false;
@@ -147,6 +321,33 @@ export function estIntact(brut: unknown): boolean {
   return (['sons', 'texteEspace', 'animationsDouces'] as const).every(
     (c) => typeof reg[c] === 'boolean',
   );
+}
+
+/** Union de deux jeux de progressions : le plus avancé gagne, couple par couple. */
+export function fusionnerProgressions(a: Progressions, b: Progressions): Progressions {
+  const sortie: Progressions = {};
+  for (const cle of new Set([...Object.keys(a), ...Object.keys(b)]) as Set<CleProgression>) {
+    const ici = a[cle];
+    const la = b[cle];
+    sortie[cle] = ici && la ? plusAvancee(ici, la) : (ici ?? la);
+  }
+  return sortie;
+}
+
+/**
+ * L'état à écrire, réuni à ce que la clé portait déjà. Ce n'est PAS une
+ * précaution de style : tant que la boucle de jeu produit un état au modèle 1,
+ * l'écrire tel quel effacerait à chaque checkpoint tout ce que ce modèle
+ * ignore.
+ */
+function fusionnerAvecStocke(etat: Sauvegarde, precedent: unknown): Sauvegarde {
+  const neuf = valider(etat);
+  if (!estIntact(precedent)) return neuf;
+  const progressions = fusionnerProgressions(
+    neuf.progressions ?? {},
+    valider(precedent).progressions ?? {},
+  );
+  return valider({ ...neuf, progressions });
 }
 
 function lireCle(cle: string): unknown {
@@ -171,17 +372,22 @@ export function charger(cle: string = CLE): Sauvegarde {
 
 /** Checkpoint : appelé en fin d'item ou de bloc, jamais à chaque frappe. */
 export function sauver(etat: Sauvegarde, cle: string = CLE): void {
+  const precedent = lireCle(cle);
   /* Deux écritures ISOLÉES : un QuotaExceededError sur le backup ne doit pas
      emporter avec lui l'écriture de la clé principale (elle, seule, porte la
      progression du moment). */
   try {
-    const precedent = lireCle(cle);
     if (estIntact(precedent)) localStorage.setItem(`${cle}.backup`, JSON.stringify(precedent));
   } catch {
     /* backup au mieux : son échec n'est jamais fatal */
   }
   try {
-    localStorage.setItem(cle, JSON.stringify(etat));
+    /* L'état écrit ne porte que ce que son producteur connaît : celui qui est
+       resté au modèle 1 n'a jamais entendu parler de Dactylo, et l'écrire tel
+       quel effacerait à chaque fin de leçon la progression de l'autre
+       parcours. On repose donc ce qui était déjà là, sous la règle habituelle
+       « le plus avancé gagne ». */
+    localStorage.setItem(cle, JSON.stringify(fusionnerAvecStocke(etat, precedent)));
   } catch {
     /* quota plein ou navigation privée : la leçon continue sans persistance */
   }
