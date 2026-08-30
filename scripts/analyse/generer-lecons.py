@@ -188,10 +188,30 @@ def construire(lex):
 
 
 # ------------------------------------------------------------- parcours
+# Ce que les étapes sans lettres ouvrent RÉELLEMENT. Les laisser vides faisait
+# disparaître les majuscules, les nombres et les phrases pour un enfant déjà
+# arrivé là : une étape sans touche n'est pas une étape en attente, c'est une
+# régression.
+TOUCHES_SPECIALES = {
+    "majuscule": ["."],          # la capitale vient du modificateur, pas d'un caractère
+    "chiffres": list("0123456789"),
+    "ponctuation": [",", ";", ":", "!", "?"],
+    "contenu": [],               # celle-ci n'ouvre rien : c'est le contenu qui s'allonge
+}
+
+
 def carte_doigts(app, disp):
-    return {t["car"]: CODE_DOIGT[t["code"]]
-            for t in app["dispositions"][disp]["directes"]
-            if t["code"] in CODE_DOIGT}
+    """Caractère → doigt, frappe directe ET frappe shiftée.
+
+    Le point et les chiffres exigent Maj en AZERTY : les chercher dans les
+    seules touches directes revenait à ne jamais leur trouver de doigt."""
+    d = app["dispositions"][disp]
+    carte = {}
+    for source in ("directes", "majOnly"):
+        for t in d.get(source, []):
+            if t["code"] in CODE_DOIGT:
+                carte.setdefault(t["car"], CODE_DOIGT[t["code"]])
+    return carte
 
 
 def etapes_de(parcours, disp, carte):
@@ -202,8 +222,10 @@ def etapes_de(parcours, disp, carte):
         if n in speciales:
             genre = speciales[n]
             titre, promesse = TITRES[genre]
+            nouvelles = [c for c in TOUCHES_SPECIALES[genre] if c in carte]
             e = {"n": n, "genre": genre, "titre": titre,
-                 "promesse": promesse, "nouvelles": [], "doigts": {},
+                 "promesse": promesse, "nouvelles": nouvelles,
+                 "doigts": {c: carte[c] for c in nouvelles},
                  # une étape spéciale n'ouvre pas de doigt, mais elle doit
                  # porter l'état courant : sinon l'app le perd entre deux
                  # étapes de lettres

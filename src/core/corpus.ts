@@ -116,10 +116,9 @@ export function motsNouveaux(id: IdDisposition, numero: number): string[] {
   return motsDisponibles(id, numero).filter((m) => !avant.has(m));
 }
 
-export function syllabesDisponibles(id: IdDisposition, numero: number): string[] {
-  const ensemble = ensembleTouches(id, numero);
-  return SYLLABES.filter((s) => estTypable(s, ensemble));
-}
+/* `syllabesDisponibles` a disparu (#36) : le générateur ne sert plus de
+   syllabe de remplissage, et personne d'autre ne l'appelait. La liste
+   `SYLLABES` reste le temps que `corpus.ts` vive — elle part avec lui (#48). */
 
 /** Chiffres ouverts au palier `numero`, dans l'ordre croissant. */
 export function chiffresDisponibles(id: IdDisposition, numero: number): string[] {
