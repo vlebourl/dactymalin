@@ -591,7 +591,21 @@ sur un critère de passage ; sans critère de passage, il n'y a plus de mur.
 
 **Rejouer une étape.** L'enfant peut relancer une étape déjà finie, depuis la
 carte, une étape nommée à la fois. Ce n'est jamais proposé par l'app, jamais
-présenté comme une reprise, et ce n'est pas un mode dans lequel on entre.
+présenté comme une reprise, et ce n'est pas un mode dans lequel on entre. Une
+étape rejouée ne compte **ni dans le quota de l'étape courante, ni dans le
+passage à la suivante** — sans quoi refaire une étape ancienne ferait progresser
+sur un contenu déjà acquis. Ce qui a été tapé est enregistré quand même, sous le
+numéro de l'étape réellement jouée.
+
+**Terminer un parcours.** Le parcours est fini à la septième leçon de la
+dixième étape. Cet état est **dérivé** de `etape` et `leconsSurEtape`, jamais
+stocké à part, et `etape` ne passe pas à 11 : onze ne désigne aucun contenu. La
+fin est annoncée une fois, en fin de leçon, comme un fait de calendrier —
+soixante-dix leçons faites — et jamais comme une performance : ni vitesse, ni
+précision, ni « parfait ». Ensuite, plus aucune étape n'est « en cours » : les
+dix sont finies et rejouables, l'accueil propose de choisir une étape au lieu
+de relancer, et rien ne redémarre tout seul. Il n'y a pas de mode libre, pas de
+huitième leçon de l'étape 10, et finir un parcours ne change rien à l'autre.
 
 ### 4.5 Les étapes
 

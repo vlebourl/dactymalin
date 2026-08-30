@@ -149,6 +149,22 @@ export function etapeFinie(leconsFaites: number): boolean {
   return leconsFaites >= LECONS_PAR_ETAPE;
 }
 
+/**
+ * Le parcours est fini : dixième étape, septième leçon.
+ *
+ * DÉRIVÉ, jamais stocké. Les deux compteurs portent déjà l'information ; un
+ * booléen persisté en plus aurait exigé sa validation, sa migration et sa règle
+ * de fusion multi-appareil — trois occasions de se désynchroniser de ce qu'il
+ * est censé décrire.
+ *
+ * `etape` ne passe PAS à 11 : onze ne désigne aucun contenu, et il faudrait
+ * apprendre cette fausse étape à `ensembleTouches`, aux mesures, à la carte et
+ * à la sauvegarde.
+ */
+export function parcoursFini(etape: number, leconsFaites: number): boolean {
+  return etape >= ETAPE_MAX && etapeFinie(leconsFaites);
+}
+
 /** Les dix étapes sont numérotées pareil dans les deux parcours et sur les deux
     dispositions : la suite ne dépend donc que du numéro. */
 export function etapeSuivante(n: number): number | undefined {

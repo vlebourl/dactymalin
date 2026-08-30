@@ -17,7 +17,7 @@ import {
 import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
-import { etapeFinie, ETAPE_MAX, type IdParcours } from './core/parcours';
+import { etapeFinie, ETAPE_MAX, LECONS_PAR_ETAPE, parcoursFini, type IdParcours } from './core/parcours';
 import { encouragementSuivant } from './core/encouragements';
 import { enregistrer, type RapportLecon } from './core/mesures';
 
@@ -69,6 +69,9 @@ export type EtatApp = Omit<Sauvegarde, 'palier' | 'blocsSurPalier' | 'bloc'> & {
   titreEncouragement: string;
   /** palier que ce bloc vient d'ouvrir, pour l'illumination de V5 */
   etapeOuverte: number | null;
+  /** Le parcours vient d'être terminé À L'INSTANT : V5 le fête une fois.
+      Transitoire — un rechargement ne doit pas rejouer la célébration. */
+  parcoursTermineMaintenant: boolean;
   /** Étape que l'enfant a choisi de rejouer, ou `null` pour son étape courante.
       Jamais persistée : c'est un choix du moment, pas un acquis. */
   etapeRejouee: number | null;
@@ -128,6 +131,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         vue: 'V4',
         premierLancement: false,
         etapeOuverte: null,
+    parcoursTermineMaintenant: false,
         /* Appuyer sur une carte impose SA liste ; « On commence ! » passe
            `null` et revient au parcours ; « On continue ! » n'envoie rien et
            rejoue ce qui était en cours. */
@@ -147,6 +151,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         etapeRejouee: action.etape,
         listeJouee: null,
         etapeOuverte: null,
+    parcoursTermineMaintenant: false,
       };
 
     case 'listes':
@@ -194,6 +199,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
            ouvertes. */
         aReinjecter: [],
         etapeOuverte: null,
+    parcoursTermineMaintenant: false,
       };
     }
 
@@ -219,6 +225,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
           itemsDuBloc: action.bilan.items,
           touchesNouvelles: [],
           etapeOuverte: null,
+    parcoursTermineMaintenant: false,
         };
       }
       let maitrise = etat.maitrise;
@@ -251,15 +258,31 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
           })
         : etat.mesures;
       const franchi = !rejoue && etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;
+      /* À la DIXIÈME étape il n'y a pas d'étape suivante à ouvrir, et le
+         compteur montait donc à 8, 9, 10 sans fin : le parcours ne se
+         terminait jamais, et la carte, qui ne dit « finie » que d'une étape
+         dépassée, laissait l'étape 10 éternellement courante et jamais
+         rejouable. On plafonne, et le plafond EST la fin. */
+      const leconsRetenues = rejoue
+        ? etat.leconsSurEtape
+        : franchi
+          ? 0
+          : etat.etape >= ETAPE_MAX
+            ? Math.min(leconsSurEtape, LECONS_PAR_ETAPE)
+            : leconsSurEtape;
+      const termineMaintenant =
+        parcoursFini(etat.etape, leconsRetenues) &&
+        !parcoursFini(etat.etape, etat.leconsSurEtape);
       return {
         ...etat,
         vue: 'V5',
         maitrise,
         mesures,
         lecon: Math.min(etat.lecon + 1, BLOC_MAX),
-        leconsSurEtape: rejoue ? etat.leconsSurEtape : franchi ? 0 : leconsSurEtape,
+        leconsSurEtape: leconsRetenues,
         etape: franchi ? etat.etape + 1 : etat.etape,
         etapeOuverte: franchi ? etat.etape + 1 : null,
+        parcoursTermineMaintenant: termineMaintenant,
         etoilesDuBloc: action.bilan.etoiles,
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
         aReinjecter: action.bilan.aRevoir,
@@ -343,6 +366,7 @@ export function etatDeDepart(cle?: string): EtatApp {
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),
     etapeOuverte: null,
+    parcoursTermineMaintenant: false,
     aReinjecter: [],
     itemsDuBloc: [],
     touchesNouvelles: [],

@@ -1,6 +1,6 @@
 import { toucheDirecte, toucheMaj } from '../core/layouts';
 import { Cadenas } from '../ui/Key';
-import { ensembleTouches, etapes, nouvellesTouches } from '../core/parcours';
+import { ensembleTouches, etapes, nouvellesTouches, parcoursFini } from '../core/parcours';
 import { useApp, useEnvoi } from '../state';
 import { Keyboard } from '../ui/Keyboard';
 import v from './vues.module.css';
@@ -10,19 +10,24 @@ export function V6Carte() {
   const app = useApp();
   const envoi = useEnvoi();
   const id = app.disposition;
+  const fini = parcoursFini(app.etape, app.leconsSurEtape);
 
   const acquises = new Set<string>();
-  for (let p = 1; p < app.etape; p++) {
+  /* Parcours fini : la dixième étape est acquise elle aussi, elle n'est plus
+     « en cours ». */
+  for (let p = 1; p < app.etape + (fini ? 1 : 0); p++) {
     for (const c of nouvellesTouches(app.parcours, id, p)) {
       const code = (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code;
       if (code) acquises.add(code);
     }
   }
-  const enCours = new Set<string>(
-    nouvellesTouches(app.parcours, id, app.etape)
-      .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
-      .filter((c): c is string => !!c),
-  );
+  const enCours = fini
+    ? new Set<string>()
+    : new Set<string>(
+        nouvellesTouches(app.parcours, id, app.etape)
+          .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
+          .filter((c): c is string => !!c),
+      );
 
   return (
     <div className={v.ecran}>
@@ -39,6 +44,8 @@ export function V6Carte() {
           Ma carte du clavier
         </h1>
 
+        {fini && <p className={v.promessePalier}>Choisis une étape à rejouer.</p>}
+
         <Keyboard
           id={id}
           ensemble={ensembleTouches(app.parcours, id, app.etape)}
@@ -50,12 +57,16 @@ export function V6Carte() {
 
         <div className={v.listePaliers}>
           {etapes(app.parcours, id).map((p) => {
-            const passe = p.n < app.etape;
-            const courant = p.n === app.etape;
+            /* Une fois le parcours fini, les dix étapes sont derrière : aucune
+               n'est plus « courante », et toutes se rejouent — l'étape 10
+               comprise, qui restait sinon éternellement en cours puisque la
+               carte ne disait « finie » que d'une étape DÉPASSÉE. */
+            const passe = fini || p.n < app.etape;
+            const courant = !fini && p.n === app.etape;
             /* Plus aucune étape n'est verrouillée « pour toujours » : les dix
                sont réelles et atteignables. Ce qui reste devant est simplement
                à venir. */
-            const aVenir = p.n > app.etape;
+            const aVenir = !fini && p.n > app.etape;
             return (
               <div
                 key={p.n}
