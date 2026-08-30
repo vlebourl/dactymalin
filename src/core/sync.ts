@@ -110,6 +110,42 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 /* ------------------------------------------------------------------ compte */
 
+/**
+ * Ce que le serveur sait faire. Le portail le demande AVANT de dessiner :
+ * proposer « Continuer avec Google » là où le fournisseur n'est pas configuré
+ * mènerait à une erreur, et l'enfant n'a personne pour la lui expliquer.
+ *
+ * En cas de silence du serveur, on répond « non » : mieux vaut un chemin de
+ * moins qu'un bouton mort.
+ */
+export const googleDisponible = (): Promise<boolean> =>
+  json<{ google: boolean }>('/api/config')
+    .then((c) => c.google)
+    .catch(() => false);
+
+/**
+ * Part vers Google. Ce n'est PAS une simple adresse à mettre dans un lien : il
+ * n'existe pas de `GET /sign-in/google`. Better Auth attend un POST sur
+ * `/sign-in/social`, avec le fournisseur en corps, et répond l'adresse chez
+ * Google vers laquelle envoyer le navigateur — c'est elle qui porte l'état
+ * anti-rejeu de la requête.
+ *
+ * Vérifié dans les types du paquet, pas dans une documentation : les chemins
+ * réellement montés y sont `/sign-in/email`, `/sign-in/social`, et rien qui
+ * porte le nom d'un fournisseur.
+ */
+export const CHEMIN_GOOGLE = '/api/auth/sign-in/social';
+
+export const partirVersGoogle = async (): Promise<void> => {
+  const { url } = await json<{ url: string }>(CHEMIN_GOOGLE, {
+    method: 'POST',
+    /* On revient à la racine : c'est le portail qui décidera, session en main,
+       s'il faut montrer « Qui joue ? » ou l'accueil. */
+    body: JSON.stringify({ provider: 'google', callbackURL: '/', errorCallbackURL: '/' }),
+  });
+  location.href = url;
+};
+
 /** Le compte de la dernière session connue sur cet appareil, ou `null`. */
 export const compteEnCache = (): Compte | null => lire<Compte | null>(CLE_COMPTE, null);
 
