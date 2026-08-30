@@ -19,7 +19,7 @@ import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
 import { useKeyInput } from '../hooks/useKeyInput';
-import { avancementPalier, PLAFOND_BLOCS } from '../core/progression';
+import { avancementEtape } from '../core/progression';
 import { nomProfilActif } from '../core/profils';
 import { useApp, useEnvoi, type BilanBloc } from '../state';
 import { MainSchematique } from '../ui/MainSchematique';
@@ -242,16 +242,11 @@ export function V4Lecon() {
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
-  const avance = avancementPalier(id, app.palier, app.maitrise, app.blocsSurPalier);
-  /* On nomme le chemin qui commande RÉELLEMENT la barre, sinon le texte et la
-     jauge racontent deux histoires différentes. */
-  const detailLecon =
-    avance.chemin === 'dernier'
-      ? 'dernière leçon'
-      : avance.chemin === 'touches'
-        ? `${avance.maitrisees} touches sur ${avance.total}`
-        : `${app.blocsSurPalier} blocs finis sur ${PLAFOND_BLOCS}`;
-  const etiquetteLecon = `Leçon ${app.palier} sur ${PALIER_MAX} — ${detailLecon}`;
+  /* « {n} blocs finis sur 6 » a disparu : il montrait à l'enfant le plafond de
+     secours que le produit devait garder silencieux — et ce plafond n'existe
+     plus. Reste un décompte lisible d'avance, dans les mots de l'enfant. */
+  const avance = avancementEtape(app.blocsSurPalier);
+  const etiquetteLecon = `Étape ${app.palier} · Leçon ${Math.min(avance.leconsFaites + 1, avance.total)} sur ${avance.total}`;
   const clavierMasque = e.masque && !e.fini;
 
   return (
@@ -277,7 +272,7 @@ export function V4Lecon() {
             >
               <span className={v.jaugeLeconPleine} style={{ width: `${avance.part * 100}%` }} />
             </span>
-            <span className={v.detailLecon}>{detailLecon}</span>
+            <span className={v.detailLecon}>{`Leçon ${Math.min(avance.leconsFaites + 1, avance.total)} sur ${avance.total}`}</span>
           </p>
           <p className={v.bandeauTouches}>
             Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>

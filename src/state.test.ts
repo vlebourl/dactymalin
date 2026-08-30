@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
 import { BLOC_MAX, blocDeDepart, CLE, DEFAUTS, sauver, valider } from './core/storage';
 import { estMaitrisee } from './core/progression';
-import { PLAFOND_BLOCS } from './core/progression';
+import { LECONS_PAR_ETAPE } from './core/parcours';
 
 /** Faux localStorage : le reducer doit rester testable en env node. */
 class FauxStockage {
@@ -122,9 +122,9 @@ describe('changement de disposition', () => {
     expect(apres.maitrise).toEqual({ e: [1, 2, 3] });
   });
 
-  it('changer de clavier ne peut plus ouvrir le palier au bloc suivant', () => {
+  it("changer de clavier ne peut plus ouvrir l'étape à la leçon suivante", () => {
     let etat = depart();
-    etat = { ...etat, blocsSurPalier: PLAFOND_BLOCS - 1 };
+    etat = { ...etat, blocsSurPalier: LECONS_PAR_ETAPE - 1 };
     etat = reducer(etat, { type: 'disposition', id: 'fr-CH', manuel: true });
     etat = reducer(etat, { type: 'blocTermine', bilan: bilan([]) });
     expect(etat.palier).toBe(3);
@@ -132,19 +132,22 @@ describe('changement de disposition', () => {
   });
 });
 
-describe('plafond anti-mur', () => {
-  it("ouvre le palier suivant après 6 blocs, même sans rien maîtriser", () => {
-    const etat = jouer(etatDeDepart(), [], PLAFOND_BLOCS);
+/* Le plafond anti-mur a disparu (#38) : il n'existait que pour forcer une porte
+   qui n'existe plus. Ce qui ouvre l'étape suivante est le quota, lisible
+   d'avance — sept leçons, et rien d'autre. */
+describe("quota de sept leçons par étape", () => {
+  it("ouvre l'étape suivante à la septième leçon, quoi qu'il se soit passé", () => {
+    const etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE);
     expect(etat.palier).toBe(2);
   });
 
   it("ne l'ouvre pas avant", () => {
-    const etat = jouer(etatDeDepart(), [], PLAFOND_BLOCS - 1);
+    const etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE - 1);
     expect(etat.palier).toBe(1);
   });
 
-  it('remet le compteur à zéro au franchissement', () => {
-    const etat = jouer(etatDeDepart(), [], PLAFOND_BLOCS);
+  it('remet le compteur de leçons à zéro au passage', () => {
+    const etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE);
     expect(etat.blocsSurPalier).toBe(0);
   });
 });
