@@ -12,6 +12,7 @@ import {
   CLE_MAJ,
   deconnecter,
   enAttente,
+  oublierFileMemoire,
   pousser,
   synchroniserProfils,
   viderLaFile,
@@ -86,6 +87,9 @@ function serveur(distants: Distant[]) {
 }
 
 beforeEach(() => {
+  /* Nouveau stockage = nouvelle session : la file de repli en mémoire (#55)
+     ne doit pas franchir la frontière d'un test. */
+  oublierFileMemoire();
   globalThis.localStorage = new FauxStockage() as unknown as Storage;
   globalThis.sessionStorage = new FauxStockage() as unknown as Storage;
 });
@@ -587,5 +591,120 @@ describe('déconnexion', () => {
     expect(localStorage.getItem(CLE_FILE)).toBeNull();
     expect(localStorage.getItem(CLE_MAJ)).toBeNull();
     expect(enAttente()).toBe(0);
+  });
+});
+
+/* ------------------------------------------------------------------ #55 */
+
+/** Un stockage qui refuse TOUTE écriture : quota saturé, Safari privé. */
+class StockagePlein extends FauxStockage {
+  setItem = () => {
+    throw new DOMException('quota', 'QuotaExceededError');
+  };
+}
+
+describe('stockage plein : la séance ne disparaît pas en silence', () => {
+  beforeEach(() => {
+    globalThis.localStorage = new StockagePlein() as unknown as Storage;
+  });
+
+  it('l’envoi part quand même : il n’est pas perdu avec la file', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(s.puts.map((p) => p.etat.palier)).toEqual([3]);
+    expect(enAttente()).toBe(0);
+  });
+
+  it('hors ligne ET stockage plein : la progression reste COMPTÉE en attente', async () => {
+    /* Le pire des cas : rien ne peut être persisté, rien ne peut partir. Le
+       seul indicateur que la famille possède ne doit pas annoncer zéro. */
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    s.couper();
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(enAttente()).toBe(1);
+
+    s.rebrancher();
+    await viderLaFile();
+    expect(s.puts.map((p) => p.etat.palier)).toEqual([3]);
+    expect(enAttente()).toBe(0);
+  });
+});
+
+/* ------------------------------------------------------------------ #54 */
+
+describe('sauvegarde locale illisible : le serveur n’est jamais appauvri', () => {
+  it('une clé tronquée sans backup ne fait pas pousser les DÉFAUTS', async () => {
+    const riche = valider({
+      ...DEFAUTS,
+      disposition: 'fr-CH',
+      parcours: 'dactylo',
+      palier: 6,
+      reglages: { sons: false, texteEspace: true, animationsDouces: false },
+    });
+    /* Écriture interrompue : la clé principale existe, mais elle est illisible
+       — et aucun backup n'a été écrit (le premier `sauver` n'en écrit pas). */
+    localStorage.setItem(cleDe('d1'), '{"version":1,"disposi');
+    /* `CLE_MAJ` est une clé SÉPARÉE : elle, elle a survécu, et elle est
+       récente. C'est elle qui faisait passer les défauts pour un choix. */
+    localStorage.setItem(CLE_MAJ, JSON.stringify({ d1: '2026-08-29T10:00:00.000Z' }));
+    const s = serveur([
+      { id: 'd1', prenom: 'Timo', etat: riche, majLe: '2026-08-02T10:00:00.000Z' },
+    ]);
+
+    await synchroniserProfils();
+
+    expect(s.puts).toHaveLength(0);
+    const ici = charger(cleDe('d1'));
+    expect(ici.disposition).toBe('fr-CH');
+    expect(ici.parcours).toBe('dactylo');
+    expect(ici.palier).toBe(6);
+    expect(ici.reglages).toEqual(riche.reglages);
+    /* L'horodatage datait une sauvegarde qui n'existe plus : il ne doit pas
+       survivre pour dater « récents » les défauts d'une prochaine fusion. */
+    expect(JSON.parse(localStorage.getItem(CLE_MAJ)!).d1).toBeUndefined();
+  });
+});
+
+/* ------------------------------------------------------------------ #53 */
+
+describe('un profil en difficulté ne coûte rien aux suivants', () => {
+  it('une exception sur le premier profil n’interrompt pas la synchronisation', async () => {
+    /* Entrée pathologique venue du serveur : `empreinte` la parcourt sans
+       fin et déborde la pile. L'exception ne doit pas franchir l'itération. */
+    const cyclique = { ...valider({ ...DEFAUTS, palier: 3 }) } as Record<string, unknown>;
+    cyclique.moi = cyclique;
+
+    sauver(valider({ ...DEFAUTS, palier: 2 }), cleDe('d1'));
+    sauver(valider({ ...DEFAUTS, palier: 7 }), cleDe('d2'));
+    localStorage.setItem(
+      CLE_MAJ,
+      JSON.stringify({ d1: '2026-08-01T10:00:00.000Z', d2: '2026-08-01T10:00:00.000Z' }),
+    );
+
+    const puts: { id: string; etat: Sauvegarde }[] = [];
+    const distants = [
+      { id: 'd1', prenom: 'Timo', etat: cyclique, majLe: '2026-08-02T10:00:00.000Z' },
+      { id: 'd2', prenom: 'Zoé', etat: null, majLe: null },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const progression = url.match(/^\/api\/profils\/(.+)\/progression$/);
+        if (progression && init?.method === 'PUT') {
+          puts.push({ id: progression[1], ...JSON.parse(String(init.body)) });
+          return rep({ majLe: 'ok' });
+        }
+        /* Pas de `JSON.stringify` ici : le corps est cyclique, c'est le sujet. */
+        if (url === '/api/profils') {
+          return { ok: true, json: async () => ({ profils: distants }) } as unknown as Response;
+        }
+        return rep({ ok: true });
+      }),
+    );
+
+    await synchroniserProfils();
+
+    expect(puts.map((p) => p.id)).toEqual(['d2']);
+    expect(puts[0].etat.palier).toBe(7);
   });
 });
