@@ -47,15 +47,13 @@ export function V4Lecon() {
         ? composerBlocDeListe(app.listeJouee.mots, id)
         : composerBloc({
             id,
-            // Un seul parcours est jouable tant que le sélecteur n'existe pas
-            // (#42) : la progression enregistrée est celle de Découverte.
-            parcours: 'decouverte',
+            parcours: app.parcours,
             etape: app.palier,
             aReinjecter: app.aReinjecter,
           }),
     // un nouveau bloc à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.palier, app.bloc, app.listeJouee],
+    [id, app.parcours, app.palier, app.bloc, app.listeJouee],
   );
 
   // Latence de départ 0 : en débutant elle y reste plafonnée (P6).
@@ -98,9 +96,8 @@ export function V4Lecon() {
      parcours suivi (index de la main en Découverte, doigt définitif en
      Dactylo). `parcours.doigtDe` en décide seul — la leçon ne le recalcule
      pas.
-     ponytail: le parcours n'est pas encore dans l'état de l'application ; il y
-     entre avec la migration des paliers (#34), cette constante disparaît alors. */
-  const parcours: IdParcours = 'decouverte';
+     Le parcours vient de l'état : c'est le parent qui l'a choisi en V7 (#42). */
+  const parcours: IdParcours = app.parcours;
   const doigt: Doigt =
     attendu === ' '
       ? mainCible === 'gauche'

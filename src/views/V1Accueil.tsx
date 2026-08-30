@@ -1,6 +1,7 @@
 import { disposition } from '../core/layouts';
 import { estJouable } from '../core/listes';
 import { ensembleTouches } from '../core/paliers';
+import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
@@ -87,6 +88,14 @@ export function V1Accueil() {
             ))}
           </ul>
         )}
+
+        {/* Le parcours en cours, DIT : le parent l'a choisi dans les réglages,
+            et sans cette ligne rien à l'écran ne permet de savoir lequel des
+            deux tourne. Pas de bouton ici — ce choix n'est pas celui de
+            l'enfant. */}
+        <p className={v.ligneClavier}>
+          Ton parcours : <b>{NOM_PARCOURS[app.parcours]}</b>
+        </p>
 
         <p className={v.ligneClavier}>
           Ton clavier : <b>{d.nom}</b>

@@ -41,6 +41,14 @@ export const MODELE = 2;
 
 export type Sauvegarde = {
   version: 1;
+  /**
+   * Le parcours que le PARENT a choisi (#42). Optionnel comme `modele` : une
+   * sauvegarde écrite avant le sélecteur n'en porte pas, et Découverte est
+   * alors la bonne réponse — c'est le seul parcours qui ait jamais été
+   * jouable. C'est une PRÉFÉRENCE, pas un acquis : elle ne se fusionne pas,
+   * le dernier choix de la famille gagne (`fusion.fusionner`).
+   */
+  parcours?: IdParcours;
   /** Optionnel : un producteur d'état resté sur l'ancien modèle n'en écrit
       pas, et `valider`/`sauver` le reposent sans rien perdre. */
   modele?: typeof MODELE;
@@ -113,6 +121,7 @@ export const BLOC_MAX = 1_000_000;
 export const DEFAUTS: Sauvegarde = {
   version: 1,
   modele: MODELE,
+  parcours: 'decouverte',
   progressions: { 'decouverte:fr-FR': { ...PROGRESSION_INITIALE } },
   disposition: 'fr-FR',
   dispositionChoisieALaMain: false,
@@ -152,6 +161,11 @@ export function blocDeDepart(maitrise: Maitrise): number {
 }
 
 const estDisposition = (v: unknown): v is IdDisposition => v === 'fr-FR' || v === 'fr-CH';
+
+/* Un parcours inconnu retombe sur Découverte plutôt que d'invalider la
+   sauvegarde entière : le refuser renverrait au backup une progression saine
+   à cause d'une simple préférence. */
+const estParcours = (v: unknown): v is IdParcours => PARCOURS.includes(v as IdParcours);
 
 const bool = (v: unknown, defaut: boolean) => (typeof v === 'boolean' ? v : defaut);
 
@@ -251,6 +265,7 @@ export function valider(brut: unknown): Sauvegarde {
   return {
     version: 1,
     modele: MODELE,
+    parcours: estParcours(o.parcours) ? o.parcours : 'decouverte',
     disposition,
     dispositionChoisieALaMain: bool(o.dispositionChoisieALaMain, false),
     palier: miroir.palier,

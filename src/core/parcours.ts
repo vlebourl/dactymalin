@@ -15,6 +15,12 @@ import { mainDe, type IdDisposition } from './layouts';
 
 export type IdParcours = 'decouverte' | 'dactylo';
 
+/** Ce que le parent lit dans les réglages, et l'enfant sur l'accueil (#42). */
+export const NOM_PARCOURS: Record<IdParcours, string> = {
+  decouverte: 'Découverte',
+  dactylo: 'Dactylo',
+};
+
 export type GenreEtape = 'lettres' | 'majuscule' | 'chiffres' | 'ponctuation' | 'contenu';
 
 /**
