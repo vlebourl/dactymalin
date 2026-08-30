@@ -50,9 +50,16 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
         return corps.innerText;
       })
     ).toLowerCase();
-    for (const interdit of ['wpm', 'score', 'précision', 'vitesse', '%', 'erreur']) {
+    /* `erreur` a quitté la liste : le lexique gradué contient le mot, et un
+       enfant peut légitimement avoir « erreurs » à taper. Ce qui est interdit
+       est un COMPTEUR d'erreurs, pas le mot — la garde le cherche donc sous sa
+       forme comptée. */
+    for (const interdit of ['wpm', 'score', 'précision', 'vitesse', '%']) {
       expect(texte).not.toContain(interdit);
     }
+    expect(texte).not.toMatch(/\d+\s*(erreur|faute)/);
+    // « bloc » est du vocabulaire d'implémentation : il ne se montre pas (§4.4)
+    expect(texte).not.toContain('bloc');
   });
 
   test('Tab garde la main : les boutons restent atteignables au clavier', async ({ page }) => {

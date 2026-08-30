@@ -12,9 +12,9 @@ import {
 } from '../core/layouts';
 import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj } from '../core/maj';
-import { ensembleTouches, libellesEnsemble, PALIER_MAX, PALIER_MAX_DEBUTANT } from '../core/paliers';
+import { PALIER_MAX_DEBUTANT } from '../core/paliers';
 import { CONSIGNES, imageMain, type Doigt } from '../core/doigts';
-import { doigtDe, type IdParcours } from '../core/parcours';
+import { doigtDe, ensembleTouches, ETAPE_MAX, type IdParcours } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
@@ -62,7 +62,7 @@ export function V4Lecon() {
   /* Une liste peut employer des lettres pas encore enseignées — le clavier les
      allume quand même : savoir où poser ses doigts n'attend pas le programme. */
   const ensemble = useMemo(() => {
-    const base = ensembleTouches(id, app.palier);
+    const base = ensembleTouches(app.parcours, id, app.palier);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
   }, [id, app.palier, app.listeJouee, items]);
@@ -235,7 +235,12 @@ export function V4Lecon() {
   /* Le bandeau annonce l'ensemble CUMULÉ, pas les seules nouveautés du palier :
      c'est lui la référence de ce qui peut être proposé (P5). Les capitales
      accentuées sont exclues à la source (`libellesEnsemble`). */
-  const touchesLecon = libellesEnsemble(id, app.palier);
+  /* Le bandeau annonçait encore le jeu de touches de la table v1 pendant que
+     le générateur servait celui de la v2 : l'enfant lisait `e f j n s t u` et
+     tapait des mots faits d'autres lettres. */
+  const touchesLecon = [...ensembleTouches(app.parcours, id, app.palier)]
+    .filter((c) => c !== ' ')
+    .map((c) => c.toUpperCase());
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
@@ -259,7 +264,7 @@ export function V4Lecon() {
               en était, ni qu'il venait d'avancer. */}
           <p className={v.bandeauLecon}>
             <strong>
-              Leçon {app.palier} sur {PALIER_MAX}
+              Étape {app.palier} sur {ETAPE_MAX}
             </strong>
             <span
               className={v.jaugeLecon}
@@ -275,11 +280,11 @@ export function V4Lecon() {
             Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>
           </p>
           <div className={v.ligneBloc}>
-            <span className={v.detailLecon}>Bloc {app.blocsSurPalier + 1} de cette leçon</span>
+
             <div
               className={v.avancement}
               role="img"
-              aria-label={`Bloc ${app.blocsSurPalier + 1} de cette leçon : ${e.i} sur ${e.items.length}`}
+              aria-label={`Avancement de la leçon : ${e.i} sur ${e.items.length}`}
             >
               {e.items.map((it, k) => (
                 <span
