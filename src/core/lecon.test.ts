@@ -188,3 +188,47 @@ describe('célébration et perte de focus', () => {
     expect(e.i).toBe(1); // elle se termine ensuite normalement
   });
 });
+
+
+/* #61 : `noterFrappe` n'était appelé nulle part. La leçon se jouait sans que
+   rien ne la compte — vitesse, précision et barreau 3 restaient vides à
+   jamais, et les garde-fous §7.1 et §7.5 étaient inapplicables. Rien de ce
+   qui suit n'atteint l'écran de l'enfant (P1) : la vue ne fait que le
+   transmettre. */
+describe('ce que la leçon observe (§4.7)', () => {
+  it('compte les lettres écrites, les fautes, et la propreté de chaque touche', () => {
+    let e = depart('et');
+    e = reducer(e, frappe('x', 10, 'e')); // faute : rien ne s'écrit (P3)
+    e = reducer(e, frappe('e', 20, 'e'));
+    e = reducer(e, frappe('t', 30, 't'));
+    expect(e.rapport.lettres).toBe(2);
+    expect(e.rapport.fautes).toBe(1);
+    // le « e » a été raté une fois : il compte, mais pas comme propre
+    expect(e.rapport.touches.e).toEqual({ propres: 0, total: 1 });
+    expect(e.rapport.touches.t).toEqual({ propres: 1, total: 1 });
+  });
+
+  it('compte les positions où le dernier barreau d’aide s’est déclenché', () => {
+    let e = depart('et');
+    e = reducer(e, frappe('x', 10, 'e'));
+    e = reducer(e, frappe('x', 20, 'e')); // 2ᵉ erreur ⇒ barreau 3, terminal
+    expect(e.barreau).toBe(3);
+    e = reducer(e, frappe('e', 30, 'e'));
+    e = reducer(e, frappe('t', 40, 't'));
+    expect(e.rapport.barreau3).toBe(1);
+  });
+
+  /* La quasi-réussite n'est ni une erreur ni une réussite pour le reducer : la
+     précision mesurée doit dire la même chose que la leçon vécue. */
+  it('ne compte la quasi-réussite ni en lettre ni en faute', () => {
+    let e = depart('Et');
+    e = reducer(e, frappe('E', 10, 'E', { majMauvaisCote: true }));
+    expect(e.rapport).toEqual(depart('Et').rapport);
+  });
+
+  it('la leçon close porte sa durée : la vitesse a un dénominateur', () => {
+    const e = taper(depart('et'), 'et');
+    expect(e.fini).toBe(true);
+    expect(e.rapport.ms).toBeGreaterThan(0);
+  });
+});

@@ -12,6 +12,7 @@ import {
   type EtatAide,
 } from './aide';
 import type { Item } from './generator';
+import { leconVierge, noterFrappe, type RapportLecon } from './mesures';
 import type { IdDisposition } from './layouts';
 import { verdictMaj } from './maj';
 
@@ -74,6 +75,17 @@ export type EtatLecon = {
    * mot ferait disparaître l'écran sous les doigts de l'enfant.
    */
   finLe: number | null;
+  /**
+   * Ce que la leçon OBSERVE, frappe après frappe (§4.7). Il vit ici et pas dans
+   * la vue pour deux raisons : le reducer est déjà la seule autorité du verdict,
+   * du barreau atteint et de la propreté — les recalculer ailleurs les ferait
+   * diverger — et aucune vue n'a le droit d'importer `mesures.ts` (P1).
+   * L'étape reste à 0 : c'est l'état de l'app qui l'étiquette, lui seul sait
+   * dans quelle série la leçon tombe.
+   */
+  rapport: RapportLecon;
+  /** Début de la leçon, pour en connaître la durée une fois close. */
+  debut: number;
   /** Dernier instant connu, rafraîchi à chaque tic. Sert à dire quelle part de
       la leçon est écoulée sans que l'écran ait à tenir sa propre horloge. */
   maintenant: number;
@@ -148,6 +160,8 @@ export function creerEtat(
     satureCourant: false,
     finLe: dureeMs === undefined ? null : maintenant + dureeMs,
     maintenant,
+    rapport: leconVierge(0),
+    debut: maintenant,
   };
 }
 
@@ -227,6 +241,9 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       /* ---- piège Maj : la bonne touche, sans le modificateur — ou avec la
          MAUVAISE Maj (homolatérale). État de QUASI-RÉUSSITE : ni erreur, ni
          escalade d'aide ; la cible reste allumée et la Maj s'invite à côté. */
+      /* La quasi-réussite ne compte NI en lettre ni en faute : le reducer ne la
+         traite ni comme une erreur ni comme une réussite, et la précision
+         mesurée doit dire la même chose que la leçon vécue. */
       if (verdict === 'quasi') return { ...e, majManquante: true, fausse: null };
 
       // ---- frappe fausse : RIEN ne s'écrit, le curseur ne bouge pas (P3)
@@ -240,6 +257,11 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
           ...surBarreau(e, barreau),
           fausse: a.code,
           depuisFausse: a.maintenant,
+          rapport: noterFrappe(e.rapport, {
+            touche: a.attendu,
+            juste: false,
+            premierCoup: false,
+          }),
         };
       }
 
@@ -250,7 +272,20 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       const propres =
         propre && a.attendu !== ' ' ? [...e.propres, a.attendu.toLowerCase()] : e.propres;
       const curseur = e.curseur + 1;
-      const base = { ...e, propres, fausse: null, majManquante: false };
+      const base = {
+        ...e,
+        propres,
+        fausse: null,
+        majManquante: false,
+        /* `aide.atteint` est le barreau atteint SUR CE CARACTÈRE : c'est bien la
+           position qu'observe §7.5, pas l'item entier. */
+        rapport: noterFrappe(e.rapport, {
+          touche: a.attendu,
+          juste: true,
+          premierCoup: propre,
+          barreau3: e.aide.atteint === 3,
+        }),
+      };
 
       if (curseur >= texte.length) {
         return {
@@ -282,7 +317,15 @@ export function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
      servir. On ne coupe JAMAIS un exercice en cours — c'est ici, entre deux
      items, que l'échéance est lue. */
   const tempsEcoule = e.finLe !== null && maintenant >= e.finLe;
-  if (tempsEcoule || i >= e.items.length) return { ...e, celebration: null, fini: true };
+  /* La leçon close porte sa durée : c'est le dénominateur de la vitesse, et il
+     n'existe qu'ici — personne d'autre ne sait quand la leçon a commencé. */
+  if (tempsEcoule || i >= e.items.length)
+    return {
+      ...e,
+      celebration: null,
+      fini: true,
+      rapport: { ...e.rapport, ms: maintenant - e.debut },
+    };
   return {
     ...e,
     i,

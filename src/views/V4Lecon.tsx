@@ -237,6 +237,9 @@ export function V4Lecon() {
       propres: e.propres,
       aRevoir: e.aRevoir,
       items: e.valides,
+      /* Ce que la leçon a observé, tel que le reducer l'a compté. La vue ne le
+         lit pas et ne le montre pas : elle le fait suivre, rien de plus (P1). */
+      mesures: e.rapport,
     };
     envoi({ type: 'leconTerminee', bilan });
   }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps
