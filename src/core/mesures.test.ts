@@ -18,6 +18,8 @@ import {
   type RapportLecon,
 } from './mesures';
 import { LECONS_PAR_ETAPE } from './parcours';
+import { creerEtat, reducer as reducerLecon, type ActionLecon } from './lecon';
+import type { Item } from './generator';
 import { CLE, charger, estIntact, sauver, valider } from './storage';
 import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from '../state';
 
@@ -282,11 +284,77 @@ describe('accroche dans l’état de l’app', () => {
   });
 });
 
+/* #61 : tout ce module était testé, et RIEN ne l'appelait. Ce test-ci part des
+   frappes et va jusqu'à la série du parcours — c'est le seul qui tombe si la
+   chaîne se débranche à nouveau, en quelque point que ce soit. */
+describe('la chaîne complète, de la frappe à la série du parcours', () => {
+  const frappe = (caractere: string, maintenant: number, attendu: string): ActionLecon => ({
+    type: 'frappe',
+    caractere,
+    code: `Key${caractere.toUpperCase()}`,
+    attendu,
+    maintenant,
+    debutant: true,
+    id: 'fr-FR',
+    coherente: null,
+  });
+
+  it('une leçon jouée sort une vitesse, une précision et une fréquence de barreau 3', () => {
+    const items = [
+      { texte: 'et', genre: 'mot' },
+      { texte: 'te', genre: 'mot' },
+    ] as Item[];
+    let l = creerEtat(items, 0, 0);
+    // deux erreurs sur la première position : le dernier barreau se déclenche
+    l = reducerLecon(l, frappe('x', 10, 'e'));
+    l = reducerLecon(l, frappe('x', 20, 'e'));
+    l = reducerLecon(l, frappe('e', 30, 'e'));
+    l = reducerLecon(l, frappe('t', 40, 't'));
+    l = reducerLecon(l, { type: 'tic', maintenant: 900 }); // fin de célébration
+    l = reducerLecon(l, frappe('t', 910, 't'));
+    l = reducerLecon(l, frappe('e', 920, 'e'));
+    l = reducerLecon(l, { type: 'tic', maintenant: 1800 });
+    expect(l.fini).toBe(true);
+
+    const apres = reducer(
+      { ...etatDeDepart(), parcours: 'dactylo', etape: 3, listeJouee: null },
+      {
+        type: 'leconTerminee',
+        bilan: {
+          etoiles: l.etoiles,
+          propres: l.propres,
+          aRevoir: l.aRevoir,
+          items: l.valides,
+          mesures: l.rapport,
+        },
+      },
+    );
+    const serie = serieDe(apres.mesures ?? {}, 'dactylo');
+    expect(serie.lecons).toHaveLength(1);
+    expect(vitesse(serie.lecons[0])).toBeGreaterThan(0);
+    // quatre lettres écrites, deux fautes : la précision est connue, et < 1
+    expect(precision(serie.lecons[0])).toBeCloseTo(4 / 6);
+    expect(frequenceBarreau3(serie)).toBeGreaterThan(0);
+    // et la série est bien celle du parcours joué, à l'étape de l'état
+    expect(serie.lecons[0].etape).toBe(3);
+    expect(apres.mesures?.decouverte).toBeUndefined();
+  });
+});
+
 describe('rien de tout cela n’atteint l’enfant', () => {
   /* Le garde-fou est structurel : aucune vue n'importe le module. Le jour où
      une carte de fin de leçon voudrait afficher « 23 mots/minute », ce test
      tombe avant la revue. */
-  const AUTORISES = new Set(['src/state.tsx', 'src/core/storage.ts', 'src/core/mesures.ts']);
+  /* `lecon.ts` compte les frappes (#61) : c'est le reducer de la leçon, pas un
+     écran, et il est le seul à connaître le verdict, le barreau atteint et la
+     propreté d'une position. Ce qu'il produit ne fait que TRAVERSER la vue,
+     qui ne le lit pas — ce que le reste de ce test continue de vérifier. */
+  const AUTORISES = new Set([
+    'src/state.tsx',
+    'src/core/storage.ts',
+    'src/core/mesures.ts',
+    'src/core/lecon.ts',
+  ]);
 
   function fichiers(dossier: string): string[] {
     return readdirSync(dossier).flatMap((nom) => {
