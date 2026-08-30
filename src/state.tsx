@@ -58,6 +58,9 @@ export type EtatApp = Sauvegarde & {
   titreEncouragement: string;
   /** palier que ce bloc vient d'ouvrir, pour l'illumination de V5 */
   palierOuvert: number | null;
+  /** Étape que l'enfant a choisi de rejouer, ou `null` pour son étape courante.
+      Jamais persistée : c'est un choix du moment, pas un acquis. */
+  etapeRejouee: number | null;
   aReinjecter: string[];
   /** items validés dans le bloc qui vient de se terminer (gain lexical de V5) */
   itemsDuBloc: string[];
@@ -91,6 +94,10 @@ export type Action =
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
   | { type: 'parcours'; parcours: IdParcours }
+  /* Rejouer une étape DÉJÀ FINIE, à l'initiative de l'enfant. C'est un choix,
+     jamais un verdict : rien n'est retiré, rien n'est compté, et l'app ne le
+     propose pas d'elle-même. */
+  | { type: 'rejouerEtape'; etape: number }
   | { type: 'guideDoigtVu' }
   | { type: 'blocTermine'; bilan: BilanBloc }
   | { type: 'verrMaj'; actif: boolean };
@@ -115,6 +122,21 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
            `null` et revient au parcours ; « On continue ! » n'envoie rien et
            rejoue ce qui était en cours. */
         listeJouee: action.liste !== undefined ? action.liste : etat.listeJouee,
+        /* « On commence ! » revient au parcours, donc à l'étape courante : une
+           étape rejouée ne survit pas au retour à l'accueil. */
+        etapeRejouee: action.liste !== undefined ? null : etat.etapeRejouee,
+      };
+
+    /* Une étape rejouée ne touche NI la progression, NI les leçons faites : on
+       la joue « à côté », et la séance suivante repart d'où l'enfant en était.
+       Sans cela, rejouer serait une régression déguisée. */
+    case 'rejouerEtape':
+      return {
+        ...etat,
+        vue: 'V4',
+        etapeRejouee: action.etape,
+        listeJouee: null,
+        palierOuvert: null,
       };
 
     case 'listes':
@@ -297,6 +319,7 @@ export function etatDeDepart(cle?: string): EtatApp {
     parcours,
     palier: progression.etape,
     blocsSurPalier: progression.leconsSurEtape,
+    etapeRejouee: null,
     /* Au tout premier lancement, on passe par le choix du clavier (cahier 4.1)
        — sauf si l'on revient de chez Google : le parent a demandé quelque
        chose, il doit en voir le résultat là où il l'a demandé. */

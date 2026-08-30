@@ -57,6 +57,11 @@ export function V4Lecon() {
   /* Une LISTE de la maison garde son lot fixe : elle a une fin — les mots que
      la famille a écrits — et s'arrêter au chrono la couperait au milieu.
      Le PARCOURS, lui, dure un temps : son flux se recharge. */
+  /* L'étape RÉELLEMENT jouée : celle que l'enfant a choisi de rejouer, sinon la
+     sienne. Rejouer ne fait pas avancer la progression — c'est un choix, pas un
+     rattrapage. */
+  const etapeJouee = app.etapeRejouee ?? app.palier;
+
   const session = useMemo(
     () =>
       app.listeJouee
@@ -64,12 +69,12 @@ export function V4Lecon() {
         : creerSession({
             id,
             parcours: app.parcours,
-            etape: app.palier,
+            etape: etapeJouee,
             aReinjecter: app.aReinjecter,
           }),
     // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.parcours, app.palier, app.bloc, app.listeJouee],
+    [id, app.parcours, etapeJouee, app.bloc, app.listeJouee],
   );
 
   const items = useMemo(
@@ -96,7 +101,7 @@ export function V4Lecon() {
   /* Une liste peut employer des lettres pas encore enseignées — le clavier les
      allume quand même : savoir où poser ses doigts n'attend pas le programme. */
   const ensemble = useMemo(() => {
-    const base = ensembleTouches(app.parcours, id, app.palier);
+    const base = ensembleTouches(app.parcours, id, etapeJouee);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
   }, [id, app.palier, app.listeJouee, items]);
@@ -272,7 +277,7 @@ export function V4Lecon() {
   /* Le bandeau annonçait encore le jeu de touches de la table v1 pendant que
      le générateur servait celui de la v2 : l'enfant lisait `e f j n s t u` et
      tapait des mots faits d'autres lettres. */
-  const touchesLecon = [...ensembleTouches(app.parcours, id, app.palier)]
+  const touchesLecon = [...ensembleTouches(app.parcours, id, etapeJouee)]
     .filter((c) => c !== ' ')
     .map((c) => c.toUpperCase());
 
@@ -308,7 +313,7 @@ export function V4Lecon() {
               en était, ni qu'il venait d'avancer. */}
           <p className={v.bandeauLecon}>
             <strong>
-              Étape {app.palier} sur {ETAPE_MAX}
+              Étape {etapeJouee} sur {ETAPE_MAX}
             </strong>
             <span
               className={v.jaugeLecon}
