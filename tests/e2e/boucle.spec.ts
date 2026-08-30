@@ -3,14 +3,18 @@ import { motCourant, ouvrir } from './helpers/app';
 import { taper } from './helpers/keyboard';
 
 test.describe('boucle V1 → V4 → V5 → V4', () => {
-  test('un bloc entier se joue au clavier et rend la main sur V5', async ({ page }) => {
+  /* « Un bloc entier » n'existe plus : la leçon dure un TEMPS, et son nombre
+     d'exercices dépend de la vitesse de l'enfant. Ce que le test doit tenir,
+     c'est que la boucle se ferme — la leçon finit d'elle-même, l'écran de fin
+     annonce ce qui a été joué, et « Encore » ramène à une leçon. */
+  test('une leçon se joue au clavier et rend la main sur V5', async ({ page }) => {
     test.slow();
     await ouvrir(page, 'fr-FR');
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
     const joues: string[] = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 60; i++) {
       if ((await page.locator('body').getAttribute('data-vue')) === 'V5') break;
       const mot = await motCourant(page);
       if (!mot) break;
@@ -26,8 +30,9 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
       );
     }
 
-    expect(joues.length).toBeGreaterThanOrEqual(8);
-    expect(joues.length).toBeLessThanOrEqual(12);
+    /* Aucune borne sur le nombre d'exercices : c'est tout l'objet du
+       changement. On exige seulement que la leçon ait vraiment eu lieu. */
+    expect(joues.length).toBeGreaterThan(0);
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V5');
 
     // Le gain lexical est tiré du bloc réellement joué, pas d'une phrase figée.

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
-import { creerEtat, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
-import { composerBloc, composerBlocDeListe, pouceDeLEspace } from '../core/generator';
+import { creerEtat, dureeLecon, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
+import { composerBlocDeListe, pouceDeLEspace } from '../core/generator';
+import { creerSession } from '../core/session';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -30,6 +31,11 @@ import v from './vues.module.css';
  * pédagogique. On lui rend la main — mais seulement pour une activation au
  * pointeur (`detail > 0`), pour ne pas casser la navigation au clavier.
  */
+/** Douze pastilles fixes : elles disent la part de la leçon écoulée, jamais un
+    nombre d'exercices — qui n'est ni connu d'avance ni le même d'un enfant à
+    l'autre. */
+const PASTILLES_LECON = 12;
+
 function rendreLeClavier(ev: MouseEvent<HTMLButtonElement>): void {
   if (ev.detail > 0) ev.currentTarget.blur();
 }
@@ -48,23 +54,44 @@ export function V4Lecon() {
      les phrases, tard en Découverte. La vue ne le sait pas, le parcours si. */
   const etapeMajuscule = etapes(app.parcours, id).find((e) => e.genre === 'majuscule')?.n;
 
-  const items = useMemo(
+  /* Une LISTE de la maison garde son lot fixe : elle a une fin — les mots que
+     la famille a écrits — et s'arrêter au chrono la couperait au milieu.
+     Le PARCOURS, lui, dure un temps : son flux se recharge. */
+  const session = useMemo(
     () =>
       app.listeJouee
-        ? composerBlocDeListe(app.listeJouee.mots, id)
-        : composerBloc({
+        ? null
+        : creerSession({
             id,
             parcours: app.parcours,
             etape: app.palier,
             aReinjecter: app.aReinjecter,
           }),
-    // un nouveau bloc à chaque entrée dans la vue
+    // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, app.parcours, app.palier, app.bloc, app.listeJouee],
   );
 
-  // Latence de départ 0 : en débutant elle y reste plafonnée (P6).
-  const [e, envoyer] = useReducer(reducer, undefined, () => creerEtat(items, performance.now(), 0));
+  const items = useMemo(
+    () => (app.listeJouee ? composerBlocDeListe(app.listeJouee.mots, id) : session!.items()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, app.listeJouee, id],
+  );
+
+  // Latence de départ 0 : en Découverte elle y reste plafonnée (P6).
+  const [e, envoyer] = useReducer(reducer, undefined, () =>
+    creerEtat(items, performance.now(), 0, session ? dureeLecon() : undefined),
+  );
+
+  /* On rallonge la file AVANT qu'elle ne se vide : une file épuisée finirait la
+     leçon au milieu, alors que c'est le chrono qui doit décider. */
+  useEffect(() => {
+    if (!session || e.fini) return;
+    if (!session.aRecharger(e.i)) return;
+    const avant = session.items().length;
+    session.recharger();
+    envoyer({ type: 'ajouter', items: session.items().slice(avant) });
+  }, [session, e.i, e.fini]);
 
   /* Une liste peut employer des lettres pas encore enseignées — le clavier les
      allume quand même : savoir où poser ses doigts n'attend pas le programme. */
@@ -249,6 +276,16 @@ export function V4Lecon() {
     .filter((c) => c !== ' ')
     .map((c) => c.toUpperCase());
 
+  /* Ce que les pastilles montrent : la part de la leçon écoulée. Le temps est
+     lu au tic du reducer, qui est déjà la seule horloge de l'écran. */
+  const partEcoulee =
+    e.finLe === null
+      ? // une liste de la maison a une fin connue : on suit les items
+        e.items.length === 0
+        ? 0
+        : e.i / e.items.length
+      : Math.min(1, Math.max(0, 1 - (e.finLe - e.maintenant) / dureeLecon()));
+
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
   /* « {n} blocs finis sur 6 » a disparu : il montrait à l'enfant le plafond de
@@ -288,17 +325,18 @@ export function V4Lecon() {
           </p>
           <div className={v.ligneBloc}>
 
-            <div
-              className={v.avancement}
-              role="img"
-              aria-label={`Avancement de la leçon : ${e.i} sur ${e.items.length}`}
-            >
-              {e.items.map((it, k) => (
+            {/* Les pastilles suivent le TEMPS, pas les exercices. Une pastille
+                par exercice supposait de connaître le total d'avance — ce qui
+                n'a plus de sens dans une leçon qui dure douze minutes et dont
+                le nombre d'exercices dépend de la vitesse de l'enfant. Elles
+                restent une image : aucun chiffre, aucune durée écrite. */}
+            <div className={v.avancement} role="img" aria-label="Avancement de la leçon">
+              {Array.from({ length: PASTILLES_LECON }, (_, k) => (
                 <span
-                  key={it.texte}
+                  key={k}
                   className={[
                     v.pastilleAvancement,
-                    k < e.i || (k === e.i && enCelebration) ? v.pastilleAvancementPleine : '',
+                    k < Math.round(partEcoulee * PASTILLES_LECON) ? v.pastilleAvancementPleine : '',
                   ].join(' ')}
                 />
               ))}

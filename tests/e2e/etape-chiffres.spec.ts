@@ -12,7 +12,7 @@ import { toucheDe } from '../../src/core/layouts';
  */
 test.describe('étape des chiffres : le piège de la Majuscule', () => {
   test.beforeEach(async ({ page }) => {
-    await ouvrir(page, 'fr-FR', 8);
+    await ouvrir(page, 'fr-FR', 8, false, 'Joueur 1', 'decouverte', 0, 120_000);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
   });
