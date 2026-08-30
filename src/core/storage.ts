@@ -1,4 +1,11 @@
 import type { IdDisposition } from './layouts';
+import {
+  MEMOIRE_LECONS,
+  type ComptesTouche,
+  type LeconMesuree,
+  type Mesures,
+  type Serie,
+} from './mesures';
 import type { Maitrise } from './progression';
 import { PALIER_MAX } from './paliers';
 import { ETAPE_MAX, type IdParcours } from './parcours';
@@ -64,6 +71,12 @@ export type Sauvegarde = {
   guideDoigtVu: boolean;
   reglages: Reglages;
   progressions?: Progressions;
+  /**
+   * Ce que l'app OBSERVE, étiqueté par parcours et jamais montré à l'enfant
+   * (§4.7, voir `mesures.ts`). Optionnel comme `progressions` : une sauvegarde
+   * d'avant l'instrumentation n'en porte pas, et n'en est pas moins saine.
+   */
+  mesures?: Mesures;
 };
 
 /** Les deux parcours en VALEURS : `parcours.ts` n'en expose que le type. */
@@ -118,6 +131,14 @@ export function avecProgression(
 /** Borne haute du compteur de blocs : au-delà, la valeur relue est aberrante. */
 export const BLOC_MAX = 1_000_000;
 
+/* Bornes des MESURES relues. Elles ne protègent pas d'un tricheur — il n'y a
+   rien à gagner à gonfler un compteur que personne ne voit — mais d'un fichier
+   abîmé qui ferait grossir la sauvegarde sans fin. */
+const TOUCHES_MAX = 200;
+const COMPTE_MAX = 10_000_000;
+/** 24 h : une leçon dure 10-15 min, tout le reste est un onglet oublié. */
+const LECON_MS_MAX = 86_400_000;
+
 export const DEFAUTS: Sauvegarde = {
   version: 1,
   modele: MODELE,
@@ -158,6 +179,60 @@ export function blocDeDepart(maitrise: Maitrise): number {
   let max = 0;
   for (const blocs of Object.values(maitrise)) for (const b of blocs) if (b > max) max = b;
   return Math.min(max + 1, BLOC_MAX);
+}
+
+/**
+ * Les mesures relues avec méfiance, et JETÉES au moindre doute.
+ *
+ * C'est la différence avec la progression : ce qui est observé n'est qu'une
+ * observation. Une série abîmée ne vaut pas de déclarer la sauvegarde corrompue
+ * — cela renverrait l'enfant à son backup, voire aux défauts, et lui ferait
+ * perdre des étapes réellement jouées pour une statistique que personne
+ * n'affiche. On perd la mesure, jamais l'acquis.
+ */
+function comptesTouchesValides(v: unknown): Record<string, ComptesTouche> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const sortie: Record<string, ComptesTouche> = {};
+  for (const [touche, c] of Object.entries(v as Record<string, unknown>).slice(0, TOUCHES_MAX)) {
+    if (touche.length !== 1 || !c || typeof c !== 'object') continue;
+    const o = c as Record<string, unknown>;
+    const total = entierBorne(o.total, 0, COMPTE_MAX, -1);
+    const propres = entierBorne(o.propres, 0, total < 0 ? 0 : total, -1);
+    if (total < 0 || propres < 0) continue;
+    sortie[touche] = { propres, total };
+  }
+  return sortie;
+}
+
+function leconsValides(v: unknown): LeconMesuree[] {
+  if (!Array.isArray(v)) return [];
+  const sortie: LeconMesuree[] = [];
+  for (const l of v.slice(-MEMOIRE_LECONS)) {
+    if (!l || typeof l !== 'object') continue;
+    const o = l as Record<string, unknown>;
+    const etape = entierBorne(o.etape, 1, ETAPE_MAX, 0);
+    const ms = entierBorne(o.ms, 0, LECON_MS_MAX, -1);
+    const lettres = entierBorne(o.lettres, 0, COMPTE_MAX, -1);
+    const fautes = entierBorne(o.fautes, 0, COMPTE_MAX, -1);
+    const barreau3 = entierBorne(o.barreau3, 0, COMPTE_MAX, -1);
+    if (etape === 0 || ms < 0 || lettres < 0 || fautes < 0 || barreau3 < 0) continue;
+    sortie.push({ etape, ms, lettres, fautes, barreau3 });
+  }
+  return sortie;
+}
+
+export function mesuresValides(v: unknown): Mesures {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const sortie: Mesures = {};
+  for (const [cle, serie] of Object.entries(v as Record<string, unknown>)) {
+    /* Une clé qui n'est pas un parcours connu ne devient PAS une série : c'est
+       exactement ainsi que deux séries finiraient par n'en faire qu'une. */
+    if (!estParcours(cle)) continue;
+    if (!serie || typeof serie !== 'object' || Array.isArray(serie)) continue;
+    const o = serie as Record<string, unknown>;
+    sortie[cle] = { touches: comptesTouchesValides(o.touches), lecons: leconsValides(o.lecons) };
+  }
+  return sortie;
 }
 
 const estDisposition = (v: unknown): v is IdDisposition => v === 'fr-FR' || v === 'fr-CH';
@@ -254,6 +329,7 @@ export function valider(brut: unknown): Sauvegarde {
   const o = brut as Record<string, unknown>;
   const r = (o.reglages ?? {}) as Record<string, unknown>;
   const maitrise = maitriseValide(o.maitrise);
+  const mesures = mesuresValides(o.mesures);
   const disposition = estDisposition(o.disposition) ? o.disposition : DEFAUTS.disposition;
   const progressions = progressionsNormalisees({
     disposition,
@@ -272,6 +348,11 @@ export function valider(brut: unknown): Sauvegarde {
     blocsSurPalier: miroir.blocsSurPalier,
     bloc: entierBorne(o.bloc, 1, BLOC_MAX, blocDeDepart(maitrise)),
     maitrise,
+    /* ABSENT tant qu'il n'y a rien à dire, et ce n'est pas cosmétique : deux
+       appareils comparent leurs états par EMPREINTE (`sync.empreinte`), et un
+       `mesures: {}` posé d'un seul côté leur ferait échanger indéfiniment un
+       état pourtant identique. */
+    ...(Object.keys(mesures).length ? { mesures } : {}),
     guideDoigtVu: bool(o.guideDoigtVu, false),
     progressions,
     reglages: {
@@ -358,11 +439,29 @@ export function fusionnerProgressions(a: Progressions, b: Progressions): Progres
 function fusionnerAvecStocke(etat: Sauvegarde, precedent: unknown): Sauvegarde {
   const neuf = valider(etat);
   if (!estIntact(precedent)) return neuf;
-  const progressions = fusionnerProgressions(
-    neuf.progressions ?? {},
-    valider(precedent).progressions ?? {},
-  );
-  return valider({ ...neuf, progressions });
+  const avant = valider(precedent);
+  const progressions = fusionnerProgressions(neuf.progressions ?? {}, avant.progressions ?? {});
+  return valider({ ...neuf, progressions, mesures: garderLesMesures(neuf, avant) });
+}
+
+/**
+ * Même raison que pour les progressions, et même remède : un producteur d'état
+ * qui ne connaît pas les mesures ne doit pas les effacer en écrivant. Il en
+ * existe un aujourd'hui — `fusion.fusionner` reconstruit la sauvegarde champ
+ * par champ, et le retour du serveur passe par lui à chaque réconciliation.
+ * Sans ceci, l'observation d'un enfant disparaîtrait à sa première synchro.
+ *
+ * La règle est PAR PARCOURS, jamais entre parcours : la série la mieux fournie
+ * gagne. Ce n'est pas une fusion multi-appareil — celle-là appartient à
+ * `fusion.ts` — c'est le refus de perdre ce qu'on avait déjà.
+ */
+function garderLesMesures(neuf: Sauvegarde, avant: Sauvegarde): Mesures {
+  const sortie: Mesures = { ...avant.mesures };
+  for (const [cle, serie] of Object.entries(neuf.mesures ?? {}) as [IdParcours, Serie][]) {
+    const stockee = sortie[cle];
+    if (!stockee || serie.lecons.length >= stockee.lecons.length) sortie[cle] = serie;
+  }
+  return sortie;
 }
 
 function lireCle(cle: string): unknown {
