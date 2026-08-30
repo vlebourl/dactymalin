@@ -40,6 +40,12 @@ export type BilanBloc = {
    * que la leçon se termine et que la progression s'enregistre.
    */
   mesures?: RapportLecon;
+  /**
+   * Instant EPOCH où la leçon s'est close. C'est lui, et rien d'autre, qui
+   * date la dernière leçon dans la sauvegarde : sans lui, la révision du
+   * retour (§7.4) ne se déclenchait jamais ailleurs que dans ses tests.
+   */
+  fin: number;
 };
 
 /**
@@ -215,6 +221,10 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         return {
           ...etat,
           vue: 'V5',
+          /* Une liste ne compte pas dans le parcours, mais l'enfant a bien tapé
+             aujourd'hui : le faire réviser demain comme après quinze jours
+             d'absence serait faux. */
+          derniereLecon: action.bilan.fin,
           lecon: Math.min(etat.lecon + 1, BLOC_MAX),
           blocsConsecutifs: etat.blocsConsecutifs + 1,
           etoilesDuBloc: action.bilan.etoiles,
@@ -253,6 +263,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         vue: 'V5',
         maitrise,
         mesures,
+        derniereLecon: action.bilan.fin,
         lecon: Math.min(etat.lecon + 1, BLOC_MAX),
         leconsSurEtape: franchi ? 0 : leconsSurEtape,
         etape: franchi ? etat.etape + 1 : etat.etape,
@@ -305,6 +316,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
     bloc: etat.lecon,
     maitrise: etat.maitrise,
     mesures: etat.mesures,
+    derniereLecon: etat.derniereLecon,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,
     progressions,

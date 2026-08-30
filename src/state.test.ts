@@ -30,11 +30,15 @@ beforeEach(() => {
   globalThis.localStorage = new FauxStockage() as unknown as Storage;
 });
 
-const bilan = (propres: string[]): BilanBloc => ({
+/** Une leçon close à une date fixe : les tests qui datent la leçon la posent. */
+export const FIN_LECON = 1_700_000_000_000;
+
+const bilan = (propres: string[], fin = FIN_LECON): BilanBloc => ({
   etoiles: propres.length,
   propres,
   aRevoir: [],
   items: [],
+  fin,
 });
 
 /** Joue `n` blocs identiques et rend l'état final. */
