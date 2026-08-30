@@ -1,6 +1,6 @@
 import { toucheDirecte, toucheMaj } from '../core/layouts';
 import { Cadenas } from '../ui/Key';
-import { ensembleTouches, nouvellesTouches, PALIERS } from '../core/paliers';
+import { ensembleTouches, etapes, nouvellesTouches } from '../core/parcours';
 import { useApp, useEnvoi } from '../state';
 import { Keyboard } from '../ui/Keyboard';
 import v from './vues.module.css';
@@ -13,13 +13,13 @@ export function V6Carte() {
 
   const acquises = new Set<string>();
   for (let p = 1; p < app.palier; p++) {
-    for (const c of nouvellesTouches(id, p)) {
+    for (const c of nouvellesTouches(app.parcours, id, p)) {
       const code = (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code;
       if (code) acquises.add(code);
     }
   }
   const enCours = new Set<string>(
-    nouvellesTouches(id, app.palier)
+    nouvellesTouches(app.parcours, id, app.palier)
       .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
       .filter((c): c is string => !!c),
   );
@@ -41,7 +41,7 @@ export function V6Carte() {
 
         <Keyboard
           id={id}
-          ensemble={ensembleTouches(id, app.palier)}
+          ensemble={ensembleTouches(app.parcours, id, app.palier)}
           acquises={acquises}
           illuminees={enCours}
           taille="clamp(13px, 2.7vw, 38px)"
@@ -49,27 +49,35 @@ export function V6Carte() {
         />
 
         <div className={v.listePaliers}>
-          {PALIERS.map((p) => {
-            const passe = p.numero < app.palier;
-            const courant = p.numero === app.palier;
+          {etapes(app.parcours, id).map((p) => {
+            const passe = p.n < app.palier;
+            const courant = p.n === app.palier;
+            /* Plus aucune étape n'est verrouillée « pour toujours » : les dix
+               sont réelles et atteignables. Ce qui reste devant est simplement
+               à venir. */
+            const aVenir = p.n > app.palier;
             return (
               <div
-                key={p.numero}
+                key={p.n}
                 className={[
                   v.lignePalier,
                   courant ? v.lignePalierCourant : '',
-                  p.verrouille ? v.lignePalierVerrouille : '',
+                  aVenir ? v.lignePalierVerrouille : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
               >
                 <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center' }}>
-                  {p.verrouille ? <Cadenas taille={15} classe="" /> : passe ? <Etoile /> : courant ? <Fleche /> : <Point />}
+                  {passe ? <Etoile /> : courant ? <Fleche /> : aVenir ? <Cadenas taille={15} classe="" /> : <Point />}
                 </span>
                 <span>
-                  <span className={v.nomPalier}>{p.titre}</span>
+                  <span className={v.nomPalier}>
+                    Étape {p.n} — {p.titre ?? p.nouvelles.join(' ')}
+                  </span>
                   <br />
-                  <span className={v.promessePalier}>{p.promesse}</span>
+                  <span className={v.promessePalier}>
+                    {p.exemples.length > 0 ? p.exemples.join(', ') : (p.promesse ?? '')}
+                  </span>
                 </span>
               </div>
             );

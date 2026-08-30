@@ -1,5 +1,5 @@
 import { disposition, estProposable, type IdDisposition, type Main, type Touche } from '../core/layouts';
-import { ensembleTouches, PALIER_MAX } from '../core/paliers';
+import { toutesLesTouches } from '../core/parcours';
 import { Key, type EtatTouche } from './Key';
 import s from './ui.module.css';
 
@@ -61,7 +61,7 @@ function verrouilleeDe(t: Touche, ensemble: Set<string>, final: Set<string>): bo
 export function Keyboard(o: OptionsClavier) {
   const d = disposition(o.id);
   const taille = typeof o.taille === 'number' ? `${o.taille}px` : (o.taille ?? '46px');
-  const final = ensembleTouches(o.id, PALIER_MAX);
+  const final = toutesLesTouches(o.id);
 
   /**
    * UNE rangée = UNE ligne continue, comme sur le vrai clavier. Les touches de

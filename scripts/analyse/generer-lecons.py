@@ -182,6 +182,10 @@ def construire(lex):
             for v in verbes:
                 phrases.append((f"{det} {mot} {v}.", e["poids"] * 0.3))
 
+    # Tout est trié par fréquence décroissante : les exemples annoncés à
+    # l'enfant sont alors les mots qu'il connaît, pas les premiers de l'alphabet
+    # — « administration » sortait avant « ami ».
+    mots.sort(key=lambda t: -t[1])
     groupes.sort(key=lambda t: -t[1])
     phrases.sort(key=lambda t: -t[1])
     return mots, groupes[:6000], phrases[:3000]
@@ -256,7 +260,11 @@ def etapes_de(parcours, disp, carte):
                 raise SystemExit(f"{parcours}/{disp} étape {n} : touches dont le "
                                  f"doigt n'est pas ouvert : {hors}")
         out.append({
-            "n": n, "genre": "lettres", "titre": None, "promesse": None,
+            "n": n, "genre": "lettres",
+            # La carte nomme une étape par ce qu'elle OUVRE, jamais par une
+            # rangée de clavier (cahier V6).
+            "titre": " ".join(nouvelles),
+            "promesse": None,
             "nouvelles": nouvelles,
             "doigts": {c: carte[c] for c in nouvelles},
             "doigtsOuverts": list(ouverts) if parcours == "dactylo" else None,
@@ -265,6 +273,10 @@ def etapes_de(parcours, disp, carte):
 
 
 def typables(textes, autorises):
+    """Les textes entièrement écrivables avec ces caractères.
+
+    Une majuscule exige sa minuscule ouverte, et le point suffit à décider si
+    une phrase est jouable : l'étape qui ouvre Majuscule ouvre le point."""
     ok = set(autorises) | {" "}
     return [t for t, _ in textes if set(t.lower()) <= ok]
 
@@ -294,7 +306,17 @@ def main(dossier, racine):
             et = etapes_de(p, disp, carte)
             cumul = []
             for e in et:
+                connus = (set(typables(mots, cumul)) | set(typables(groupes, cumul))
+                          | set(typables(phrases, cumul)))
                 cumul += e["nouvelles"]
+                # Les phrases comptent aussi : l'étape Majuscule n'ouvre aucune
+                # lettre, mais elle débloque tout le corpus de phrases.
+                dispo = (typables(mots, cumul) + typables(groupes, cumul)
+                         + typables(phrases, cumul))
+                # Ce que CETTE étape vient d'ouvrir. C'est le gain lexical que
+                # la carte et la fin de leçon annoncent — le remplaçant du score
+                # interdit : « tu peux maintenant écrire sur, dur, jus ».
+                e["exemples"] = [m for m in dispo if m not in connus][:3]
                 if e["genre"] != "lettres":
                     e["items"] = None
                     continue

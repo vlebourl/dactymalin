@@ -57,6 +57,10 @@ export type Etape = {
   /** Présent à l'étape Majuscule de Dactylo, où l'auriculaire entre comme
       porteur du modificateur et non comme frappeur de lettres. */
   doigtsModificateur?: Doigt[];
+  /** Ce que CETTE étape vient de débloquer, les trois plus fréquents. C'est le
+      gain lexical annoncé sur la carte et en fin de leçon — le remplaçant du
+      score interdit. Vide quand l'étape n'ouvre pas de mot (les chiffres). */
+  exemples: string[];
 };
 
 type TableParcours = Record<
@@ -95,6 +99,17 @@ export function ensembleTouches(parcours: IdParcours, id: IdDisposition, n: numb
     for (const c of e.nouvelles) out.add(c);
   }
   return out;
+}
+
+/**
+ * Toutes les touches qu'un parcours finit par enseigner.
+ *
+ * Les deux parcours ouvrent les MÊMES caractères, dans un ordre différent : le
+ * clavier peut donc griser « ce qui ne sera jamais enseigné » sans savoir quel
+ * parcours l'enfant suit.
+ */
+export function toutesLesTouches(id: IdDisposition): Set<string> {
+  return ensembleTouches('decouverte', id, ETAPE_MAX);
 }
 
 export function doigtsOuverts(parcours: IdParcours, id: IdDisposition, n: number): Doigt[] | null {
