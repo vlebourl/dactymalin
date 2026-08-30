@@ -11,7 +11,7 @@ import {
   valider,
 } from './core/storage';
 import { estMaitrisee } from './core/progression';
-import { LECONS_PAR_ETAPE } from './core/parcours';
+import { ETAPE_MAX, LECONS_PAR_ETAPE, parcoursFini } from './core/parcours';
 
 /** Faux localStorage : le reducer doit rester testable en env node. */
 class FauxStockage {
@@ -300,5 +300,54 @@ describe("rejouer une étape déjà faite", () => {
     const etat = jouer(aLEtape5(), ['e'], 1);
     expect(etat.etape).toBe(6);
     expect(etat.leconsSurEtape).toBe(0);
+  });
+});
+
+/* LA FIN DU PARCOURS (#60).
+ *
+ * À la dixième étape le franchissement exigeait `etape < ETAPE_MAX`, donc la
+ * septième leçon ne produisait aucun état de fin : le compteur montait à 8, 9,
+ * 10 indéfiniment. Et la carte ne dit « finie » que d'une étape DÉPASSÉE —
+ * l'étape 10 restait donc éternellement courante et n'était jamais rejouable.
+ * Un enfant qui finissait le parcours n'en voyait aucun signe. */
+describe('terminer le parcours', () => {
+  const auBout = (): EtatApp => ({
+    ...etatDeDepart(),
+    etape: ETAPE_MAX,
+    leconsSurEtape: LECONS_PAR_ETAPE - 1,
+    premierLancement: false,
+  });
+
+  it('la septième leçon de la dixième étape termine le parcours', () => {
+    const etat = jouer(auBout(), [], 1);
+    expect(parcoursFini(etat.etape, etat.leconsSurEtape)).toBe(true);
+  });
+
+  it("ne fabrique pas d'onzième étape", () => {
+    const etat = jouer(auBout(), [], 1);
+    expect(etat.etape).toBe(ETAPE_MAX);
+  });
+
+  /* Le compteur montait sans fin, ce qui rendait « fini » indistinguable de
+     « fini il y a trois semaines ». */
+  it('plafonne le compteur de leçons au lieu de le laisser filer', () => {
+    const etat = jouer(auBout(), [], 5);
+    expect(etat.leconsSurEtape).toBe(LECONS_PAR_ETAPE);
+  });
+
+  /* La célébration est fêtée UNE fois : un rechargement ne la rejoue pas. */
+  it('ne fête la fin qu’à la leçon qui la produit', () => {
+    const fin = reducer(auBout(), { type: 'leconTerminee', bilan: bilan([]) });
+    expect(fin.parcoursTermineMaintenant).toBe(true);
+    /* Quitter V5 éteint le drapeau : un rechargement ne rejoue pas la fête. */
+    expect(reducer(fin, { type: 'commencer' }).parcoursTermineMaintenant).toBe(false);
+    /* Et la leçon SUIVANTE, déjà au-delà, ne la rallume pas. */
+    const apres = reducer(jouer(auBout(), [], 1), { type: 'leconTerminee', bilan: bilan([]) });
+    expect(apres.parcoursTermineMaintenant).toBe(false);
+  });
+
+  it("n'est pas fini avant la septième leçon", () => {
+    const etat = { ...auBout(), leconsSurEtape: LECONS_PAR_ETAPE - 2 };
+    expect(parcoursFini(etat.etape, jouer(etat, [], 1).leconsSurEtape)).toBe(false);
   });
 });

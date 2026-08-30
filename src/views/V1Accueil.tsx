@@ -1,6 +1,6 @@
 import { disposition } from '../core/layouts';
 import { estJouable } from '../core/listes';
-import { ensembleTouches } from '../core/parcours';
+import { ensembleTouches, parcoursFini } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { useApp, useEnvoi } from '../state';
@@ -62,12 +62,24 @@ export function V1Accueil() {
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
-        <button
-          className={[u.bouton, u.primaire, u.geant].join(' ')}
-          onClick={() => envoi({ type: 'commencer', liste: null })}
-        >
-          On commence !
-        </button>
+        {/* Parcours fini : « On commence ! » lancerait une huitième leçon de
+            l'étape 10, qui n'existe pas. On renvoie au choix, sans rien
+            relancer tout seul. */}
+        {parcoursFini(app.etape, app.leconsSurEtape) ? (
+          <button
+            className={[u.bouton, u.primaire, u.geant].join(' ')}
+            onClick={() => envoi({ type: 'vue', vue: 'V6' })}
+          >
+            Choisir une étape
+          </button>
+        ) : (
+          <button
+            className={[u.bouton, u.primaire, u.geant].join(' ')}
+            onClick={() => envoi({ type: 'commencer', liste: null })}
+          >
+            On commence !
+          </button>
+        )}
 
         {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
             saisit rien : il reconnaît la carte de sa dictée et appuie. */}

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
-import { ensembleTouches, ETAPE_MAX, nouvellesTouches } from '../core/parcours';
+import { ensembleTouches, ETAPE_MAX, NOM_PARCOURS, nouvellesTouches } from '../core/parcours';
 import { nouveaute } from '../core/contenu';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
@@ -53,6 +53,10 @@ export function V5FinDeBloc() {
   /* `palierOuvert` porte le numéro de la nouvelle ÉTAPE. L'appeler « leçon »
      ici contredisait la phrase juste en dessous, qui disait « étape ». */
   const nouvelleEtape = app.etapeOuverte;
+  /* La FIN du parcours, fêtée une seule fois. « Terminé » dit un fait de
+     calendrier — soixante-dix leçons faites — et jamais une performance : ni
+     vitesse, ni précision, ni « parfait ». */
+  const termine = app.parcoursTermineMaintenant;
   /* Ce que la leçon APPORTE, pas tout ce qu'elle contient : `libellesEnsemble`
      rend le cumul depuis le palier 1 et aurait annoncé des touches déjà
      acquises comme des nouveautés. L'espace n'est pas une nouveauté à fêter. */
@@ -64,8 +68,18 @@ export function V5FinDeBloc() {
     <div className={v.ecran}>
       <div className={v.centre}>
         <h1 className={v.titre}>
-          {nouvelleEtape ? `Étape ${nouvelleEtape} débloquée !` : app.titreEncouragement}
+          {termine
+            ? `Tu as terminé le parcours ${NOM_PARCOURS[app.parcours]} !`
+            : nouvelleEtape
+              ? `Étape ${nouvelleEtape} débloquée !`
+              : app.titreEncouragement}
         </h1>
+
+        {termine && (
+          <p className={v.gainLexical}>
+            Tu connais maintenant les {ETAPE_MAX} étapes de ce parcours.
+          </p>
+        )}
 
         <Stars nombre={app.etoilesDuBloc} />
 
@@ -93,10 +107,16 @@ export function V5FinDeBloc() {
 
         <div className={v.deuxBoutons}>
           <button
-            className={[u.bouton, proposePause ? '' : u.primaire].join(' ')}
-            onClick={() => envoi({ type: 'commencer' })}
+            className={[u.bouton, proposePause && !termine ? '' : u.primaire].join(' ')}
+            onClick={() =>
+              termine ? envoi({ type: 'vue', vue: 'V6' }) : envoi({ type: 'commencer' })
+            }
           >
-            {nouvelleEtape ? `Commencer l'étape ${nouvelleEtape}` : 'Encore'}
+            {termine
+              ? 'Choisir une étape à rejouer'
+              : nouvelleEtape
+                ? `Commencer l'étape ${nouvelleEtape}`
+                : 'Encore'}
           </button>
           <button
             className={[u.bouton, proposePause ? u.primaire : ''].join(' ')}
