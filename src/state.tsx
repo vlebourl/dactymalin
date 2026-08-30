@@ -19,6 +19,7 @@ import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
 import { etapeFinie, ETAPE_MAX, type IdParcours } from './core/parcours';
 import { encouragementSuivant } from './core/encouragements';
+import { enregistrer, type RapportLecon } from './core/mesures';
 
 export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V9';
 
@@ -33,6 +34,12 @@ export type BilanBloc = {
   aRevoir: string[];
   /** items réellement validés pendant ce bloc, dans l'ordre */
   items: string[];
+  /**
+   * Ce que la leçon a OBSERVÉ (§4.7), ou rien si la vue ne compte pas encore.
+   * Optionnel à dessein : l'observation ne doit jamais être une condition pour
+   * que la leçon se termine et que la progression s'enregistre.
+   */
+  mesures?: RapportLecon;
 };
 
 export type EtatApp = Sauvegarde & {
@@ -195,11 +202,22 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
          contenu (#39). Le plafond anti-mur disparaît avec lui : sans porte, il
          n'y a plus de mur à forcer. */
       const leconsSurEtape = etat.blocsSurPalier + 1;
+      /* L'étiquette de parcours et l'étape sont posées ICI, pas par la vue :
+         c'est l'état qui sait dans quelle série la leçon doit tomber, et une
+         vue qui se tromperait d'étiquette mélangerait les deux courbes — le
+         seul accident que §4.7 interdit absolument. */
+      const mesures = action.bilan.mesures
+        ? enregistrer(etat.mesures ?? {}, etat.parcours, {
+            ...action.bilan.mesures,
+            etape: etat.palier,
+          })
+        : etat.mesures;
       const franchi = etapeFinie(leconsSurEtape) && etat.palier < ETAPE_MAX;
       return {
         ...etat,
         vue: 'V5',
         maitrise,
+        mesures,
         bloc: Math.min(etat.bloc + 1, BLOC_MAX),
         blocsSurPalier: franchi ? 0 : leconsSurEtape,
         palier: franchi ? etat.palier + 1 : etat.palier,
@@ -251,6 +269,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
        propre, et deux blocs distincts comptaient alors pour un seul. */
     bloc: etat.bloc,
     maitrise: etat.maitrise,
+    mesures: etat.mesures,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,
     progressions,
