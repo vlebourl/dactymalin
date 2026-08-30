@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Hono, type MiddlewareHandler } from 'hono';
-import type { Auth } from './auth';
+import { googleDisponible, type Auth } from './auth';
 import type { Base } from './db/client';
 import { routesCompte } from './routes/compte';
 import { routesListes } from './routes/listes';
@@ -51,6 +51,16 @@ export function creerApp(deps: Deps) {
     const db = deps.pingBase ? ((await deps.pingBase().catch(() => false)) ? 'ok' : 'ko') : 'absente';
     return c.json({ ok: true, status: db === 'ko' ? 'degraded' : 'healthy', version: VERSION, db });
   });
+
+  /**
+   * Ce que l'écran de connexion a besoin de savoir AVANT d'afficher quoi que
+   * ce soit : le bouton Google n'existe que si le serveur sait s'en servir.
+   * Sans cette réponse, le portail devrait deviner — et proposerait un chemin
+   * qui mène à une erreur là où le fournisseur n'est pas configuré.
+   *
+   * Rien de secret n'en sort : un booléen, jamais l'identifiant du client.
+   */
+  app.get('/api/config', (c) => c.json({ google: googleDisponible(deps.env) }));
 
   /* Better Auth sert tout /api/auth : inscription, connexion, session,
      déconnexion. Sans base, la route répond 503 — l'app reste jouable, seuls
