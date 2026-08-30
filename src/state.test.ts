@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
-import { BLOC_MAX, blocDeDepart, CLE, DEFAUTS, sauver, valider } from './core/storage';
+import {
+  BLOC_MAX,
+  blocDeDepart,
+  charger,
+  CLE,
+  DEFAUTS,
+  progressionDe,
+  sauver,
+  valider,
+} from './core/storage';
 import { estMaitrisee } from './core/progression';
 import { LECONS_PAR_ETAPE } from './core/parcours';
 
@@ -190,5 +199,64 @@ describe('borne du compteur de bloc', () => {
 
   it('le repli legacy est borné lui aussi', () => {
     expect(blocDeDepart({ e: [BLOC_MAX] })).toBe(BLOC_MAX);
+  });
+});
+
+/* #42 — le parent choisit le parcours. Les deux progressions sont
+   indépendantes et parallèles (cahier §4.2) : basculer de l'une à l'autre ne
+   doit rien perdre, dans aucun sens. */
+describe('choix du parcours', () => {
+  it('démarre sur Découverte quand rien n\'a jamais été choisi', () => {
+    expect(etatDeDepart().parcours).toBe('decouverte');
+  });
+
+  it('Dactylo se joue directement, à son étape 1, sans avoir fini Découverte', () => {
+    let etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE * 2); // Découverte étape 3
+    expect(etat.palier).toBe(3);
+    etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
+    expect(etat.parcours).toBe('dactylo');
+    expect(etat.palier).toBe(1);
+    expect(etat.blocsSurPalier).toBe(0);
+  });
+
+  it("l'avance faite en Dactylo n'écrase pas celle de Découverte", () => {
+    let etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE * 2); // Découverte étape 3
+    etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
+    etat = jouer(etat, [], LECONS_PAR_ETAPE); // Dactylo étape 2
+    expect(etat.palier).toBe(2);
+    etat = reducer(etat, { type: 'parcours', parcours: 'decouverte' });
+    expect(etat.palier).toBe(3);
+    etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
+    expect(etat.palier).toBe(2);
+  });
+
+  it('les deux progressions et le parcours choisi survivent au rechargement', () => {
+    let etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE); // Découverte étape 2
+    etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
+    etat = jouer(etat, [], LECONS_PAR_ETAPE * 2); // Dactylo étape 3
+    sauver(aSauvegarder(etat));
+
+    const relu = etatDeDepart();
+    expect(relu.parcours).toBe('dactylo');
+    expect(relu.palier).toBe(3);
+    const s = charger();
+    expect(progressionDe(s, 'decouverte', 'fr-FR')).toEqual({ etape: 2, leconsSurEtape: 0 });
+    expect(progressionDe(s, 'dactylo', 'fr-FR')).toEqual({ etape: 3, leconsSurEtape: 0 });
+  });
+
+  /* Le miroir `palier` est le contrat de lecture des clients DÉJÀ DÉPLOYÉS :
+     y verser l'étape de Dactylo leur ferait relire cette avance comme une
+     avance en Découverte, et `progressionsNormalisees` la fusionnerait alors
+     dans le mauvais couple, définitivement. */
+  it('le miroir legacy reste sur Découverte même quand on joue Dactylo', () => {
+    let etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE); // Découverte étape 2
+    etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
+    etat = jouer(etat, [], LECONS_PAR_ETAPE * 3); // Dactylo étape 4
+    expect(aSauvegarder(etat).palier).toBe(2);
+  });
+
+  it('ne fait rien quand on rechoisit le parcours déjà en cours', () => {
+    const etat = jouer(etatDeDepart(), [], 2);
+    expect(reducer(etat, { type: 'parcours', parcours: 'decouverte' })).toBe(etat);
   });
 });

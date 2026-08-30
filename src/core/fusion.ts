@@ -43,6 +43,9 @@ export function fusionner(
     /* Réglages et clavier : préférences, pas progression — le plus RÉCENT
        gagne, c'est le dernier choix de la famille. */
     disposition,
+    /* Le parcours suit la même règle : c'est le parent qui l'a posé, et son
+       geste le plus récent est celui qui vaut. */
+    parcours: recent.etat.parcours ?? ancien.etat.parcours,
     dispositionChoisieALaMain:
       recent.etat.dispositionChoisieALaMain || ancien.etat.dispositionChoisieALaMain,
     reglages: recent.etat.reglages,

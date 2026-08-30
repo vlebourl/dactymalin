@@ -1,11 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import type { Liste } from './core/listes';
-import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
+import {
+  BLOC_MAX,
+  charger,
+  cleProgression,
+  demanderPersistance,
+  miroirLegacy,
+  MODELE,
+  progressionDe,
+  sauver,
+  type Progressions,
+  type Reglages,
+  type Sauvegarde,
+} from './core/storage';
 import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
-import { etapeFinie, ETAPE_MAX } from './core/parcours';
+import { etapeFinie, ETAPE_MAX, type IdParcours } from './core/parcours';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
@@ -25,6 +37,13 @@ export type BilanBloc = {
 };
 
 export type EtatApp = Sauvegarde & {
+  /**
+   * Le parcours JOUÉ, choisi par le parent en V7 (#42). Il n'est plus
+   * optionnel ici : dans l'état de session, il y a toujours un parcours en
+   * cours, et `palier` / `blocsSurPalier` sont l'étape et les leçons DE
+   * CELUI-LÀ — plus forcément celles de Découverte.
+   */
+  parcours: IdParcours;
   vue: Vue;
   raisonVue?: RaisonVue;
   /** blocs enchaînés sans repasser par l'accueil */
@@ -65,6 +84,7 @@ export type Action =
   | { type: 'listes'; listes: Liste[] }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
+  | { type: 'parcours'; parcours: IdParcours }
   | { type: 'guideDoigtVu' }
   | { type: 'blocTermine'; bilan: BilanBloc }
   | { type: 'verrMaj'; actif: boolean };
@@ -112,6 +132,28 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
 
     case 'reglage':
       return { ...etat, reglages: { ...etat.reglages, [action.cle]: action.valeur } };
+
+    /* Les deux parcours sont indépendants et parallèles (cahier §4.2). Basculer
+       n'est donc ni une reprise ni une remise à zéro : on RANGE la progression
+       du parcours qu'on quitte dans son couple, et on SORT celle du parcours
+       qu'on prend. Rien ne s'écrase, dans aucun des deux sens. */
+    case 'parcours': {
+      if (action.parcours === etat.parcours) return etat;
+      const progressions = rangerProgression(etat);
+      const p = progressionDe({ progressions }, action.parcours, etat.disposition);
+      return {
+        ...etat,
+        parcours: action.parcours,
+        progressions,
+        palier: p.etape,
+        blocsSurPalier: p.leconsSurEtape,
+        /* Les items à revoir viennent de la leçon de l'AUTRE parcours : les
+           réinjecter ici ferait taper des touches que celui-ci n'a pas encore
+           ouvertes. */
+        aReinjecter: [],
+        palierOuvert: null,
+      };
+    }
 
     case 'guideDoigtVu':
       return { ...etat, guideDoigtVu: true };
@@ -173,14 +215,34 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
   }
 }
 
+/** La progression en cours, rangée dans le couple (parcours, disposition). */
+function rangerProgression(etat: EtatApp): Progressions {
+  return {
+    ...etat.progressions,
+    [cleProgression(etat.parcours, etat.disposition)]: {
+      etape: etat.palier,
+      leconsSurEtape: etat.blocsSurPalier,
+    },
+  };
+}
+
 /** Ce qui est réellement écrit sur disque, extrait de l'état de session. */
 export function aSauvegarder(etat: EtatApp): Sauvegarde {
+  const progressions = rangerProgression(etat);
+  /* Le miroir legacy reste celui de DÉCOUVERTE, et il est recalculé depuis les
+     progressions plutôt que recopié de `etat.palier`. Y verser l'étape de
+     Dactylo ne serait pas qu'un affichage faux chez les anciens clients :
+     `progressionsNormalisees` refusionne le miroir dans le couple Découverte
+     à chaque relecture, et l'avance changerait de parcours pour de bon. */
+  const miroir = miroirLegacy(progressionDe({ progressions }, 'decouverte', etat.disposition));
   return {
     version: 1,
+    modele: MODELE,
+    parcours: etat.parcours,
     disposition: etat.disposition,
     dispositionChoisieALaMain: etat.dispositionChoisieALaMain,
-    palier: etat.palier,
-    blocsSurPalier: etat.blocsSurPalier,
+    palier: miroir.palier,
+    blocsSurPalier: miroir.blocsSurPalier,
     /* Le compteur de blocs est PERSISTÉ tel quel : le reconstruire depuis la
        seule maîtrise resservait le numéro d'un bloc joué sans aucune frappe
        propre, et deux blocs distincts comptaient alors pour un seul. */
@@ -188,6 +250,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
     maitrise: etat.maitrise,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,
+    progressions,
   };
 }
 
@@ -203,8 +266,15 @@ function retourDeRattachement(): boolean {
 
 export function etatDeDepart(cle?: string): EtatApp {
   const sauve = charger(cle);
+  /* `palier` relu est le MIROIR de Découverte : il ne dit rien du parcours
+     choisi. La progression jouée se lit dans son couple à elle. */
+  const parcours = sauve.parcours ?? 'decouverte';
+  const progression = progressionDe(sauve, parcours, sauve.disposition);
   return {
     ...sauve,
+    parcours,
+    palier: progression.etape,
+    blocsSurPalier: progression.leconsSurEtape,
     /* Au tout premier lancement, on passe par le choix du clavier (cahier 4.1)
        — sauf si l'on revient de chez Google : le parent a demandé quelque
        chose, il doit en voir le résultat là où il l'a demandé. */
