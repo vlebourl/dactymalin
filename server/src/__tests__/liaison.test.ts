@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { creerAuth } from '../auth';
 import { creerBase } from '../db/client';
+import { user } from '../db/schema';
 import { lireEnv } from '../env';
 
 /**
@@ -40,6 +42,7 @@ d('liaison de comptes : ce qui est permis, et ce qui ne l’est jamais', () => {
       enabled?: boolean;
       requireLocalEmailVerified?: boolean;
       allowDifferentEmails?: boolean;
+      trustedProviders?: string[];
     };
 
   it('le rattachement explicite est autorisé', () => {
@@ -56,11 +59,40 @@ d('liaison de comptes : ce qui est permis, et ce qui ne l’est jamais', () => {
     expect(liaison().requireLocalEmailVerified).not.toBe(false);
   });
 
-  /* La garde n'a de sens que parce que nos comptes sont bel et bien non
-     vérifiés. Si un jour un courriel de vérification part, cette combinaison
-     change de nature et il faudra revenir ici. */
-  it('et nos comptes mot de passe sont bien non vérifiés', () => {
-    expect(options().emailAndPassword?.requireEmailVerification).toBe(false);
+  /**
+   * La PRÉMISSE, vérifiée sur un vrai compte et non sur la configuration.
+   *
+   * Tout le garde-fou repose sur un fait : un compte créé par mot de passe a
+   * `emailVerified = false`. Le lire dans les options ne prouverait que notre
+   * intention ; on crée donc un compte et on regarde la ligne en base. Le jour
+   * où un courriel de vérification partira, ce test tombera — et c'est
+   * exactement à ce moment-là qu'il faudra revenir ici.
+   */
+  it('un compte créé par mot de passe a bien une adresse NON vérifiée', async () => {
+    const env = lireEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: URL_TEST,
+      BETTER_AUTH_SECRET: 'x'.repeat(40),
+    } as NodeJS.ProcessEnv);
+    const base = creerBase(URL_TEST!);
+    const auth = creerAuth(base, env);
+
+    const email = `liaison${Date.now()}@exemple.fr`;
+    await auth.api.signUpEmail({
+      body: { email, password: 'motdepasse-solide', name: 'Parent' },
+    });
+
+    const [ligne] = await base
+      .select({ verifiee: user.emailVerified })
+      .from(user)
+      .where(eq(user.email, email));
+    expect(ligne.verifiee).toBe(false);
+  });
+
+  /* Aucun fournisseur n'est déclaré « de confiance » : un fournisseur de
+     confiance court-circuiterait la première clause du garde-fou. */
+  it('aucun fournisseur n’est de confiance', () => {
+    expect(liaison().trustedProviders).toBeUndefined();
   });
 
   /* On ne rattache pas l'identité d'un tiers : l'adresse du compte Google doit

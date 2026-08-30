@@ -137,6 +137,13 @@ export const googleDisponible = (): Promise<boolean> =>
 export const CHEMIN_GOOGLE = '/api/auth/sign-in/social';
 
 /**
+ * Ce qui, dans l'adresse, dit qu'on revient d'un rattachement. Google nous
+ * ramène à la racine ; sans ce marqueur, l'application n'aurait aucun moyen de
+ * savoir qu'il faut rouvrir l'espace parent et dire ce qui s'est passé.
+ */
+export const MARQUEUR_RATTACHEMENT = 'rattachement';
+
+/**
  * Les méthodes par lesquelles ce compte peut s'ouvrir. Better Auth appelle
  * « compte » ce que nous appelons une MÉTHODE : une ligne par fournisseur, plus
  * `credential` pour le mot de passe.
@@ -157,7 +164,16 @@ export const methodesDeConnexion = (): Promise<string[]> =>
 export const rattacherGoogle = async (): Promise<void> => {
   const { url } = await json<{ url: string }>('/api/auth/link-social', {
     method: 'POST',
-    body: JSON.stringify({ provider: 'google', callbackURL: '/?lie=google' }),
+    body: JSON.stringify({
+      provider: 'google',
+      callbackURL: `/?${MARQUEUR_RATTACHEMENT}=fait`,
+      /* SANS ce `errorCallbackURL`, un refus — une adresse Google qui n'est
+         pas la sienne, par exemple — emmenait le parent sur la page d'erreur
+         de Better Auth, HORS de l'application. Il n'avait plus qu'un bouton
+         « retour » pour comprendre. Il revient maintenant ici, avec le motif
+         en paramètre. */
+      errorCallbackURL: `/?${MARQUEUR_RATTACHEMENT}=echec`,
+    }),
   });
   location.href = url;
 };

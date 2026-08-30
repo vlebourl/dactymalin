@@ -50,6 +50,52 @@ test('quand Google existe, le bouton emprunte la route de RATTACHEMENT', async (
   expect(JSON.parse((await envoi).postData() ?? '{}')).toMatchObject({ provider: 'google' });
 });
 
+/**
+ * LE défaut que la revue a trouvé : le refus « ce n'est pas ton adresse »
+ * sortait de l'application. Better Auth redirige vers SA page d'erreur quand on
+ * ne lui donne pas d'`errorCallbackURL` — le parent quittait le site et n'avait
+ * qu'un bouton « retour » pour comprendre.
+ *
+ * Il revient maintenant dans l'espace parent, avec le motif, et l'adresse est
+ * nettoyée derrière lui.
+ */
+test('un rattachement refusé ramène dans l’espace parent et dit pourquoi', async ({ page }) => {
+  await inscrit(page);
+  await ouvrir(page, 'fr-FR', 1);
+
+  await page.goto('/?rattachement=echec&error=email_does_not_match');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V9');
+  await expect(page.getByRole('alert')).toContainText(/même adresse/i);
+
+  expect(new URL(page.url()).search).toBe('');
+  await page.reload();
+  await expect(page.locator('body')).not.toHaveAttribute('data-vue', 'V9');
+});
+
+test('un rattachement réussi le dit, dans l’espace parent', async ({ page }) => {
+  await inscrit(page);
+  await ouvrir(page, 'fr-FR', 1);
+
+  await page.goto('/?rattachement=fait');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V9');
+  await expect(page.getByRole('status').filter({ hasText: /rattaché/i })).toBeVisible();
+});
+
+/* Quand la liste des méthodes ne se lit pas, on le DIT. L'afficher vide
+   annoncerait « mot de passe : pas encore » à un compte qui en a un — et le
+   parent croirait son compte cassé. */
+test('une liste de méthodes illisible ne se déguise pas en compte vide', async ({ page }) => {
+  await inscrit(page);
+  await ouvrir(page, 'fr-FR', 1);
+  await page.route('**/api/auth/list-accounts', (route) => route.abort());
+
+  await page.getByLabel('Réglages').click();
+  await page.getByRole('button', { name: 'Ouvrir' }).click();
+
+  await expect(page.getByText(/Impossible de lire les méthodes/)).toBeVisible();
+  await expect(page.getByText('Mot de passe')).toHaveCount(0);
+});
+
 /* Le message d'échec de #7 a désormais une suite : il ne laisse plus le parent
    sans issue, il lui indique le rattachement. */
 test('le refus de connexion Google indique le rattachement', async ({ page }) => {

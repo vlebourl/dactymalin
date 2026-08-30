@@ -169,6 +169,14 @@ export function messageDErreurGoogle(code: string | null | undefined): string | 
  * l'exige, et c'est un garde-fou, pas une contrariété : on ne rattache pas
  * l'identité d'un tiers.
  */
+/**
+ * Le motif rendu par Google est en minuscules dans l'adresse
+ * (`email_does_not_match`), là où les codes d'API sont en majuscules. On le
+ * ramène à la forme des codes plutôt que d'en tenir deux listes.
+ */
+export const motifDeRefus = (motif: string | null | undefined): string | undefined =>
+  motif ? motif.toUpperCase() : undefined;
+
 export function messageDEchecRattachement(erreur: unknown): string {
   const { statut, code } = (erreur ?? {}) as Echec;
 
