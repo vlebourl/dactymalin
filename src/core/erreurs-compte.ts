@@ -139,3 +139,22 @@ export function messageDEchecCompte(erreur: unknown): string {
   }
   return parDefaut(statut, 'La session a expiré : reconnectez-vous, puis recommencez.');
 }
+
+/**
+ * Le retour d'un parcours Google qui a échoué (#7). Better Auth ne renvoie pas
+ * une réponse d'API : il RAMÈNE le navigateur sur l'écran de connexion avec un
+ * `?error=`. Sans lecture de ce paramètre, le parent part chez Google, revient,
+ * et retrouve le formulaire sans un mot — le pire des échecs, celui qui laisse
+ * croire à une panne.
+ *
+ * `account_not_linked` est le cas FRÉQUENT, et il est voulu : la liaison
+ * automatique est désactivée. L'adresse est déjà celle d'un compte à mot de
+ * passe, et elle ne peut pas en ouvrir un second — la colonne est unique.
+ */
+export function messageDErreurGoogle(code: string | null | undefined): string | null {
+  if (!code) return null;
+  if (code === 'account_not_linked') {
+    return "Cette adresse a déjà un compte avec mot de passe. Connectez-vous avec ce mot de passe : par sécurité, un compte Google et un compte mot de passe ne sont jamais reliés automatiquement.";
+  }
+  return "La connexion avec Google n’a pas abouti. Réessayez, ou utilisez une adresse et un mot de passe.";
+}

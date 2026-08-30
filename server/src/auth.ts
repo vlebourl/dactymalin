@@ -5,6 +5,14 @@ import * as schema from './db/schema';
 import type { Env } from './env';
 
 /**
+ * Le fournisseur Google est déclaré SI ET SEULEMENT SI ses deux variables sont
+ * là. Une seule des deux ne suffit pas : un bouton qui mène à une erreur est
+ * pire qu'un bouton absent, et c'est ce que produirait un secret oublié.
+ */
+export const googleDisponible = (env: Env): boolean =>
+  Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+
+/**
  * Le compte est au PARENT. Ni email ni mot de passe pour l'enfant : il choisit
  * son profil sur l'écran « Qui joue ? », et c'est tout.
  *
@@ -25,6 +33,40 @@ export function creerAuth(base: Base, env: Env) {
       ...(env.FRONTEND_URL ? [env.FRONTEND_URL] : []),
       ...(env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']),
     ],
+    ...(googleDisponible(env)
+      ? {
+          socialProviders: {
+            google: {
+              clientId: env.GOOGLE_CLIENT_ID!,
+              clientSecret: env.GOOGLE_CLIENT_SECRET!,
+            },
+          },
+        }
+      : {}),
+    account: {
+      accountLinking: {
+        /**
+         * AUCUNE liaison automatique.
+         *
+         * La raison n'est pas le confort : la vérification d'adresse est
+         * désactivée (aucun courriel ne part). Lier automatiquement
+         * permettrait donc à un tiers de créer un compte mot de passe avec
+         * une adresse Gmail qu'il ne possède pas, puis de RECEVOIR le
+         * titulaire légitime dans son propre compte à sa première connexion
+         * Google. L'état souhaitable est « liaison + vérification
+         * d'adresse » ; il exige une infrastructure d'envoi qui n'existe pas.
+         *
+         * Ce qui arrive VRAIMENT, et que l'épopée décrivait mal en parlant de
+         * « deux comptes distincts » : `user.email` est UNIQUE en base, donc
+         * une adresse ne peut pas ouvrir un second compte. Elle est refusée.
+         * Google ramène alors le parent sur le portail avec
+         * `?error=account_not_linked`, et l'écran lui dit de se connecter avec
+         * son mot de passe. Le refus est le comportement voulu ; ce qui ne
+         * l'était pas, c'était de le laisser muet.
+         */
+        enabled: false,
+      },
+    },
     emailAndPassword: {
       enabled: true,
       /* Rien à vérifier par email tant qu'aucun email ne part. */

@@ -902,6 +902,15 @@
   text-align: left;
 }
 
+/* « Continuer avec Google ». Volontairement sobre : c'est un chemin de
+   connexion parmi deux, pas l'offre principale. */
+.boutonGoogle {
+  display: block;
+  text-align: center;
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+}
+
 /* Accueil : la bibliothèque du foyer, une carte par liste. Une carte est un
    bouton entier — un enfant vise large, et le nom seul serait une cible fine. */
 .cartesListes {

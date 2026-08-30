@@ -2,6 +2,11 @@
 node_modules/
 dist/
 
+# secrets : le client OAuth Google vit dans l'environnement, jamais dans le dépôt
+.env
+.env.*
+!.env.example
+
 # vite
 .vite/
 *.log
