@@ -239,8 +239,12 @@ test('hors ligne, créer une liste est refusé et dit pourquoi', async ({ page, 
   await page.getByLabel('Les mots de la liste').fill('chat');
   await page.getByRole('button', { name: 'Créer la liste' }).click();
 
-  await expect(page.getByRole('alert')).toContainText(/Hors ligne/);
-  await expect(page.getByRole('alert')).toContainText(/rien n’est perdu/i);
+  /* L'alerte de la BIBLIOTHÈQUE, pas n'importe laquelle : hors ligne, l'espace
+     parent en porte aussi une pour les méthodes de connexion (#32), et un
+     `getByRole('alert')` nu finirait par pointer ailleurs sans qu'on le voie. */
+  const refus = page.getByRole('alert').filter({ hasText: 'Hors ligne' });
+  await expect(refus).toContainText(/Hors ligne/);
+  await expect(refus).toContainText(/rien n’est perdu/i);
 
   /* La file porte TOUJOURS la seule progression jouée plus haut, et rien de
      plus : la création refusée ne s'y est pas glissée pour partir toute seule

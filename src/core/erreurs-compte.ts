@@ -154,7 +154,37 @@ export function messageDEchecCompte(erreur: unknown): string {
 export function messageDErreurGoogle(code: string | null | undefined): string | null {
   if (!code) return null;
   if (code === 'account_not_linked') {
-    return "Cette adresse a déjà un compte avec mot de passe. Connectez-vous avec ce mot de passe : par sécurité, un compte Google et un compte mot de passe ne sont jamais reliés automatiquement.";
+    /* Depuis #32, ce message a une SUITE : le parent n'est plus enfermé dans
+       la méthode par laquelle il a commencé. Il se connecte comme d'habitude,
+       puis rattache Google depuis l'espace parent — un geste qui exige d'être
+       déjà dans le compte, et c'est précisément ce qui le rend sûr. */
+    return "Cette adresse a déjà un compte avec mot de passe. Connectez-vous avec ce mot de passe, puis rattachez Google depuis l’espace parent : par sécurité, les deux ne sont jamais reliés automatiquement.";
   }
   return "La connexion avec Google n’a pas abouti. Réessayez, ou utilisez une adresse et un mot de passe.";
+}
+
+/**
+ * Rattacher Google au compte ouvert (#32). Deux refus arrivent vraiment : le
+ * réseau, et une adresse Google qui n'est pas celle du compte — Better Auth
+ * l'exige, et c'est un garde-fou, pas une contrariété : on ne rattache pas
+ * l'identité d'un tiers.
+ */
+/**
+ * Le motif rendu par Google est en minuscules dans l'adresse
+ * (`email_does_not_match`), là où les codes d'API sont en majuscules. On le
+ * ramène à la forme des codes plutôt que d'en tenir deux listes.
+ */
+export const motifDeRefus = (motif: string | null | undefined): string | undefined =>
+  motif ? motif.toUpperCase() : undefined;
+
+export function messageDEchecRattachement(erreur: unknown): string {
+  const { statut, code } = (erreur ?? {}) as Echec;
+
+  if (statut === undefined) {
+    return 'Le serveur n’a pas répondu : rien n’a changé. Vérifiez la connexion à Internet, puis réessayez.';
+  }
+  if (code === 'EMAIL_DOES_NOT_MATCH') {
+    return 'Ce compte Google porte une autre adresse. Le rattachement demande le compte Google de la même adresse que celle-ci.';
+  }
+  return parDefaut(statut, 'La session a expiré : reconnectez-vous, puis recommencez.');
 }

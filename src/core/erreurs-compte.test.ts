@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  messageDEchecRattachement,
   messageDErreurGoogle,
   messageDEchec,
   messageDEchecCompte,
@@ -142,8 +143,10 @@ describe('messageDErreurGoogle', () => {
   it('explique le refus de liaison, qui est le cas fréquent', () => {
     const m = messageDErreurGoogle('account_not_linked')!;
     expect(m).toMatch(/mot de passe/i);
-    /* Il dit quoi FAIRE, pas seulement que ça a raté. */
+    /* Il dit quoi FAIRE, pas seulement que ça a raté — et depuis #32 la suite
+       existe vraiment : rattacher depuis l'espace parent. */
     expect(m).toMatch(/connectez-vous|utilisez/i);
+    expect(m).toMatch(/rattach/i);
   });
 
   it('reste compréhensible sur un code qu’on ne connaît pas', () => {
@@ -155,5 +158,26 @@ describe('messageDErreurGoogle', () => {
   it('ne dit rien quand il n’y a pas d’erreur', () => {
     expect(messageDErreurGoogle(null)).toBeNull();
     expect(messageDErreurGoogle('')).toBeNull();
+  });
+});
+
+/* #32 — rattacher une seconde méthode au compte ouvert. Les deux refus qui
+   arrivent vraiment : le réseau, et une adresse Google qui n'est pas la
+   sienne — on ne rattache pas l'identité d'un tiers. */
+describe('messageDEchecRattachement', () => {
+  it('hors ligne, il dit que rien n’a changé', () => {
+    const m = messageDEchecRattachement({});
+    expect(m).toMatch(/Internet|réseau/i);
+    expect(m).toMatch(/rien n’a changé|rien n'a changé/i);
+  });
+
+  it('une adresse qui ne correspond pas est nommée comme telle', () => {
+    expect(messageDEchecRattachement({ statut: 400, code: 'EMAIL_DOES_NOT_MATCH' })).toMatch(
+      /même adresse/i,
+    );
+  });
+
+  it('la session finie renvoie à la reconnexion', () => {
+    expect(messageDEchecRattachement({ statut: 401 })).toMatch(/session/i);
   });
 });
