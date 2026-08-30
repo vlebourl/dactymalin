@@ -115,10 +115,19 @@ export async function ouvrir(
   prenom = 'Joueur 1',
   parcours: 'decouverte' | 'dactylo' = 'decouverte',
   lecons = 0,
+  /* Durée de la leçon, en millisecondes. Quatre secondes suffisent pour qu'une
+     leçon se termine en quelques exercices ; un test qui déroule une séquence
+     précise — le piège de la Majuscule, par exemple — en demande davantage. */
+  dureeLeconMs = 4_000,
 ): Promise<void> {
   await assureConnexion(page);
   const idProfil = await assureProfil(page, prenom);
   await graineProfil(page, idProfil, prenom);
+  /* Une leçon dure douze minutes en vrai. Le harnais la raccourcit — sans quoi
+     chaque test attendrait douze minutes pour voir l'écran de fin. */
+  await page.addInitScript((ms) => {
+    (globalThis as { __dureeLeconMs?: number }).__dureeLeconMs = ms as number;
+  }, dureeLeconMs);
   await page.addInitScript(
     ([cle, disposition, niveau, avecSons, quelParcours, dejaFaites]) => {
       const cleProgression = `${quelParcours}:${disposition}`;
@@ -189,12 +198,20 @@ export async function jouerItem(page: Page, id: IdDisposition): Promise<string |
 }
 
 /** Joue un bloc entier sans une seule faute, puis enchaîne depuis V5. */
+/**
+ * Joue une leçon entière, sans une erreur, jusqu'à l'écran de fin.
+ *
+ * « Un bloc » n'existe plus : la leçon dure un TEMPS, et son nombre d'exercices
+ * dépend de la vitesse de l'enfant. Le harnais raccourcit ce temps (voir
+ * `ouvrir`), et cette boucle tape jusqu'à ce que l'écran de fin arrive — elle
+ * ne compte plus les items, ce qui n'aurait aucun sens.
+ */
 export async function jouerBlocParfait(page: Page, id: IdDisposition): Promise<void> {
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 60; i++) {
     if ((await page.locator('body').getAttribute('data-vue')) !== 'V4') break;
     if (!(await jouerItem(page, id))) break;
   }
-  await page.waitForSelector('body[data-vue="V5"]', { timeout: 6000 });
+  await page.waitForSelector('body[data-vue="V5"]', { timeout: 10000 });
 }
 
 /** Sauvegarde telle qu'elle est réellement persistée, pour le profil joué. */

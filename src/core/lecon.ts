@@ -15,6 +15,26 @@ import type { Item } from './generator';
 import type { IdDisposition } from './layouts';
 import { verdictMaj } from './maj';
 
+/**
+ * Une leçon est une séance d'un jour : dix à quinze minutes (cahier §4.3).
+ * On retient le milieu de la fourchette ; c'est le premier paramètre à
+ * réajuster si l'usage réel le contredit, et c'est pourquoi le nombre de leçons
+ * réellement consommées par étape est instrumenté.
+ */
+export const DUREE_LECON_MS = 12 * 60_000;
+
+/**
+ * ponytail: une leçon de douze minutes rendrait la suite de bout en bout
+ * inexécutable — chaque test attendrait douze minutes pour voir l'écran de fin.
+ * Le harnais pose donc `__dureeLeconMs`. Ce n'est pas une porte dérobée pour
+ * l'enfant : rien dans l'interface n'y touche. À reprendre en réglage persisté
+ * si un jour le parent doit pouvoir régler la durée.
+ */
+export function dureeLecon(): number {
+  const o = (globalThis as { __dureeLeconMs?: unknown }).__dureeLeconMs;
+  return typeof o === 'number' && o > 0 ? o : DUREE_LECON_MS;
+}
+
 export const DUREE_FAUSSE = 180; // 150-200 ms
 export const DUREE_CELEBRATION = 700; // 0,5 à 1 s
 
@@ -46,6 +66,17 @@ export type EtatLecon = {
   itemsSatures: number;
   /** l'item en cours a-t-il atteint le barreau 3 ? */
   satureCourant: boolean;
+  /**
+   * Instant où la leçon doit s'arrêter. `null` = elle s'arrête quand la file
+   * est vide, ce qui reste le régime des listes de la maison.
+   *
+   * L'exercice COMMENCÉ avant l'échéance se termine : couper au milieu d'un
+   * mot ferait disparaître l'écran sous les doigts de l'enfant.
+   */
+  finLe: number | null;
+  /** Dernier instant connu, rafraîchi à chaque tic. Sert à dire quelle part de
+      la leçon est écoulée sans que l'écran ait à tenir sa propre horloge. */
+  maintenant: number;
 };
 
 export type ActionLecon =
@@ -63,6 +94,8 @@ export type ActionLecon =
       majMauvaisCote?: boolean;
     }
   | { type: 'tic'; maintenant: number }
+  /** Rallonge la file : le compositeur de séance recharge avant la pénurie. */
+  | { type: 'ajouter'; items: Item[] }
   | { type: 'reprise'; maintenant: number }
   | { type: 'masquer' }
   | { type: 'montrer' };
@@ -85,7 +118,12 @@ export function verdictFrappe(e: EtatLecon, a: FrappeLecon): Verdict {
   return a.majMauvaisCote ? 'quasi' : 'reussite';
 }
 
-export function creerEtat(items: Item[], maintenant: number, latence: number): EtatLecon {
+export function creerEtat(
+  items: Item[],
+  maintenant: number,
+  latence: number,
+  dureeMs?: number,
+): EtatLecon {
   return {
     items,
     i: 0,
@@ -108,6 +146,8 @@ export function creerEtat(items: Item[], maintenant: number, latence: number): E
     incoherentes: 0,
     itemsSatures: 0,
     satureCourant: false,
+    finLe: dureeMs === undefined ? null : maintenant + dureeMs,
+    maintenant,
   };
 }
 
@@ -146,8 +186,14 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
         celebration: e.celebration === null ? null : a.maintenant,
       };
 
+    /* Le compositeur de séance rallonge la file avant qu'elle ne se vide. La
+       vague reste invisible : rien à l'écran ne la marque, sans quoi le
+       « bloc » que le cahier chasse reviendrait sous un autre nom. */
+    case 'ajouter':
+      return a.items.length === 0 ? e : { ...e, items: [...e.items, ...a.items] };
+
     case 'tic': {
-      let suivant = e;
+      let suivant: EtatLecon = e.maintenant === a.maintenant ? e : { ...e, maintenant: a.maintenant };
       if (suivant.fausse && a.maintenant - suivant.depuisFausse >= DUREE_FAUSSE) {
         suivant = { ...suivant, fausse: null };
       }
@@ -232,7 +278,11 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
 
 export function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
   const i = e.i + 1;
-  if (i >= e.items.length) return { ...e, celebration: null, fini: true };
+  /* Deux façons de finir : le temps est écoulé, ou l'étape n'a plus rien à
+     servir. On ne coupe JAMAIS un exercice en cours — c'est ici, entre deux
+     items, que l'échéance est lue. */
+  const tempsEcoule = e.finLe !== null && maintenant >= e.finLe;
+  if (tempsEcoule || i >= e.items.length) return { ...e, celebration: null, fini: true };
   return {
     ...e,
     i,
