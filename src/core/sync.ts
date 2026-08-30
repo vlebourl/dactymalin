@@ -571,33 +571,45 @@ async function reconcilier(): Promise<void> {
   remplacerIndex(distants.map((d) => ({ id: d.id, nom: d.prenom })));
 
   for (const d of distants) {
-    const cle = cleDe(d.id);
-    const majIci = majLocale(d.id);
-
-    /* Aucune copie LISIBLE ici : le serveur fait foi, sans fusion — fusionner
-       avec des valeurs par défaut effacerait ses préférences. */
-    if (!copieLocale(cle)) {
-      if (d.etat) sauver(d.etat, cle);
-      oublierMaj(d.id);
-      continue;
+    try {
+      await reconcilierUn(d);
+    } catch (erreur) {
+      /* Un profil en difficulté ne coûte RIEN aux suivants (#53). L'exception
+         — `empreinte` qui déborde la pile sur une entrée pathologique, par
+         exemple — arrêtait la boucle : le premier enfant en travers privait
+         toute la fratrie de synchronisation, sans un message. */
+      console.warn(`[tapeavecmoi] profil ${d.id} non réconcilié`, erreur);
     }
-
-    const ici = charger(cle);
-    if (!d.etat || !d.majLe) {
-      await pousser(d.id, ici);
-      continue;
-    }
-
-    /* Une copie locale SANS horodatage (clé perdue, stockage plein au mauvais
-       moment) est datée « très vieille » plutôt qu'écrasée : ses acquis sont
-       gardés, et ce sont les préférences du serveur qui gagnent. */
-    const fusionne = fusionner(
-      { etat: ici, majLe: majIci ?? 0 },
-      { etat: d.etat, majLe: Date.parse(d.majLe) },
-    );
-    sauver(fusionne, cle);
-    /* On ne renvoie que ce que le serveur ne sait pas déjà : au démarrage,
-       trois appareils identiques n'ont rien à se dire. */
-    if (empreinte(fusionne) !== empreinte(d.etat)) await pousser(d.id, fusionne);
   }
+}
+
+async function reconcilierUn(d: ProfilDistant): Promise<void> {
+  const cle = cleDe(d.id);
+  const majIci = majLocale(d.id);
+
+  /* Aucune copie LISIBLE ici : le serveur fait foi, sans fusion — fusionner
+     avec des valeurs par défaut effacerait ses préférences. */
+  if (!copieLocale(cle)) {
+    if (d.etat) sauver(d.etat, cle);
+    oublierMaj(d.id);
+    return;
+  }
+
+  const ici = charger(cle);
+  if (!d.etat || !d.majLe) {
+    await pousser(d.id, ici);
+    return;
+  }
+
+  /* Une copie locale SANS horodatage (clé perdue, stockage plein au mauvais
+     moment) est datée « très vieille » plutôt qu'écrasée : ses acquis sont
+     gardés, et ce sont les préférences du serveur qui gagnent. */
+  const fusionne = fusionner(
+    { etat: ici, majLe: majIci ?? 0 },
+    { etat: d.etat, majLe: Date.parse(d.majLe) },
+  );
+  sauver(fusionne, cle);
+  /* On ne renvoie que ce que le serveur ne sait pas déjà : au démarrage,
+     trois appareils identiques n'ont rien à se dire. */
+  if (empreinte(fusionne) !== empreinte(d.etat)) await pousser(d.id, fusionne);
 }
