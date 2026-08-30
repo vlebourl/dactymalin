@@ -65,8 +65,6 @@ export type EtatApp = Omit<Sauvegarde, 'palier' | 'blocsSurPalier' | 'bloc'> & {
   parcours: IdParcours;
   vue: Vue;
   raisonVue?: RaisonVue;
-  /** blocs enchaînés sans repasser par l'accueil */
-  blocsConsecutifs: number;
   etoilesDuBloc: number;
   titreEncouragement: string;
   /** palier que ce bloc vient d'ouvrir, pour l'illumination de V5 */
@@ -122,7 +120,6 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ...etat,
         vue: action.vue,
         raisonVue: action.raison,
-        blocsConsecutifs: action.vue === 'V1' ? 0 : etat.blocsConsecutifs,
       };
 
     case 'commencer':
@@ -216,7 +213,6 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
           ...etat,
           vue: 'V5',
           lecon: Math.min(etat.lecon + 1, BLOC_MAX),
-          blocsConsecutifs: etat.blocsConsecutifs + 1,
           etoilesDuBloc: action.bilan.etoiles,
           titreEncouragement: encouragementSuivant(etat.titreEncouragement),
           aReinjecter: [],
@@ -237,6 +233,13 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
          contenu (#39). Le plafond anti-mur disparaît avec lui : sans porte, il
          n'y a plus de mur à forcer. */
       const leconsSurEtape = etat.leconsSurEtape + 1;
+      /* REJOUER n'est pas rattraper. L'étape rejouée se joue « à côté » : elle
+         ne compte pas dans le quota de l'étape courante, sans quoi un enfant à
+         6 leçons sur 7 de l'étape 5 débloquerait l'étape 6 en refaisant
+         l'étape 2 — la progression avancerait sur un contenu déjà acquis.
+         Ce qu'il a tapé reste vrai pour autant : la maîtrise et les mesures
+         enregistrent ce qui s'est passé, sous le numéro de l'étape JOUÉE. */
+      const rejoue = etat.etapeRejouee !== null;
       /* L'étiquette de parcours et l'étape sont posées ICI, pas par la vue :
          c'est l'état qui sait dans quelle série la leçon doit tomber, et une
          vue qui se tromperait d'étiquette mélangerait les deux courbes — le
@@ -244,20 +247,19 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
       const mesures = action.bilan.mesures
         ? enregistrer(etat.mesures ?? {}, etat.parcours, {
             ...action.bilan.mesures,
-            etape: etat.etape,
+            etape: etat.etapeRejouee ?? etat.etape,
           })
         : etat.mesures;
-      const franchi = etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;
+      const franchi = !rejoue && etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;
       return {
         ...etat,
         vue: 'V5',
         maitrise,
         mesures,
         lecon: Math.min(etat.lecon + 1, BLOC_MAX),
-        leconsSurEtape: franchi ? 0 : leconsSurEtape,
+        leconsSurEtape: rejoue ? etat.leconsSurEtape : franchi ? 0 : leconsSurEtape,
         etape: franchi ? etat.etape + 1 : etat.etape,
         etapeOuverte: franchi ? etat.etape + 1 : null,
-        blocsConsecutifs: etat.blocsConsecutifs + 1,
         etoilesDuBloc: action.bilan.etoiles,
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
         aReinjecter: action.bilan.aRevoir,
@@ -338,7 +340,6 @@ export function etatDeDepart(cle?: string): EtatApp {
        — sauf si l'on revient de chez Google : le parent a demandé quelque
        chose, il doit en voir le résultat là où il l'a demandé. */
     vue: retourDeRattachement() ? 'V9' : sauve.dispositionChoisieALaMain ? 'V1' : 'V2',
-    blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),
     etapeOuverte: null,

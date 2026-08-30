@@ -76,3 +76,38 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
     expect(focalise).toBe('BUTTON');
   });
 });
+
+/* LA PROPOSITION D'ARRÊT (#57).
+ *
+ * Elle attendait quatre blocs enchaînés — un héritage de la v1, où un bloc
+ * durait 60-90 s. Une leçon en dure douze : l'enfant ne s'entendait proposer
+ * une pause qu'après trois quarts d'heure de frappe. La décision 17 la place à
+ * la fin de la leçon, qui EST désormais la séance.
+ */
+test.describe("la proposition d'arrêt", () => {
+  test('arrive dès la fin de la première leçon', async ({ page }) => {
+    test.slow();
+    await ouvrir(page, 'fr-FR');
+    await page.getByRole('button', { name: 'On commence !' }).click();
+
+    for (let i = 0; i < 60; i++) {
+      if ((await page.locator('body').getAttribute('data-vue')) === 'V5') break;
+      const mot = await motCourant(page);
+      if (!mot) break;
+      await taper(page, 'fr-FR', mot);
+      await page.waitForFunction(
+        (precedent) =>
+          document.body.dataset.vue === 'V5' ||
+          document.querySelector('[data-mot]')?.getAttribute('data-mot') !== precedent,
+        mot,
+        { timeout: 4000 },
+      );
+    }
+
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V5');
+    /* Une proposition, jamais un verdict : les deux boutons restent là, et
+       « Encore » n'a pas disparu. */
+    await expect(page.getByText("On peut s'arrêter là")).toBeVisible();
+    await expect(page.getByRole('button', { name: /Encore|Commencer l'étape/ })).toBeVisible();
+  });
+});
