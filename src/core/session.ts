@@ -1,6 +1,6 @@
-import { composerBloc, TAILLE_BLOC_MAX, type Item } from './generator';
-import type { IdDisposition } from './layouts';
-import type { IdParcours } from './parcours';
+import { composerBloc, TAILLE_BLOC_MAX, type Item } from "./generator";
+import type { IdDisposition } from "./layouts";
+import type { IdParcours } from "./parcours";
 
 /**
  * Le flux d'exercices d'une leçon qui dure un TEMPS et non un compte.
@@ -27,12 +27,47 @@ export const TAILLE_VAGUE = TAILLE_BLOC_MAX;
 /** On recharge AVANT la pénurie : une file vide finirait la leçon au milieu. */
 export const RESTE_AVANT_RECHARGE = 3;
 
+/**
+ * Le délai au-delà duquel la leçon du retour commence par une révision (§7.4).
+ *
+ * Dans un programme pilote de 32 séances, les gains étaient là en fin de
+ * session et la plupart avaient disparu six semaines plus tard : remettre
+ * l'enfant à son étape courante sans rien réviser le met en échec au premier
+ * exercice. Quatorze jours est un RÉGLAGE, pas une valeur démontrée — il se
+ * change ici, ou au cas par cas, sans toucher à la logique.
+ */
+export const JOURS_AVANT_REVISION = 14;
+
+const JOUR_MS = 86_400_000;
+
+/**
+ * Y a-t-il eu une interruption de plusieurs JOURS ?
+ *
+ * Trois choses à ne pas confondre. Une séance abandonnée en cours et un
+ * rechargement de page se comptent en minutes : ils ne changent rien. Sans
+ * date connue, il n'y a pas eu de pause — l'enfant n'a encore rien joué, et
+ * réviser des étapes jamais faites n'aurait aucun sens.
+ */
+export function revisionNecessaire(
+  derniereLecon: number | undefined,
+  maintenant: number,
+  joursAvantRevision: number = JOURS_AVANT_REVISION,
+): boolean {
+  if (derniereLecon === undefined) return false;
+  return maintenant - derniereLecon > joursAvantRevision * JOUR_MS;
+}
+
 export type OptionsSession = {
   id: IdDisposition;
   parcours: IdParcours;
   etape: number;
   aReinjecter?: string[];
   graine?: number;
+  /** Quand la dernière leçon a été close (`storage.derniereLecon`). */
+  derniereLecon?: number;
+  /** Injectable pour les tests ; l'horloge sinon. */
+  maintenant?: number;
+  joursAvantRevision?: number;
 };
 
 export type Session = {
@@ -49,6 +84,21 @@ export type Session = {
 
 export function creerSession(o: OptionsSession): Session {
   const graine = o.graine ?? Math.floor(Math.random() * 2 ** 31);
+  /* La RÉVISION du retour (#47) : une première vague composée sur l'étape
+     PRÉCÉDENTE, dont le vivier est exactement l'ensemble des touches des
+     étapes déjà faites. L'étape courante n'est pas touchée — rien n'est
+     retiré, on ajoute une vague devant. À la première étape il n'y a rien
+     derrière : la leçon du retour y est une leçon ordinaire.
+     Cette vague ne s'annonce nulle part : l'enfant ne doit jamais lire qu'il
+     a baissé, ni qu'on lui reproche une absence. */
+  const revise =
+    o.etape > 1 &&
+    revisionNecessaire(
+      o.derniereLecon,
+      o.maintenant ?? Date.now(),
+      o.joursAvantRevision,
+    );
+  const premiereVagueDeLEtape = revise ? 1 : 0;
   const file: Item[] = [];
   const servis = new Set<string>();
   let vague = 0;
@@ -71,10 +121,12 @@ export function creerSession(o: OptionsSession): Session {
     const lot = composerBloc({
       id: o.id,
       parcours: o.parcours,
-      etape: o.etape,
-      /* Les items à revoir n'ont de sens qu'au début : les resservir à chaque
-         vague les ferait revenir toutes les deux minutes. */
-      aReinjecter: vague === 0 ? o.aReinjecter : undefined,
+      etape: revise && vague === 0 ? o.etape - 1 : o.etape,
+      /* Les items à revoir n'ont de sens qu'au début de l'étape COURANTE : les
+         resservir à chaque vague les ferait revenir toutes les deux minutes,
+         et les servir pendant la révision y ferait entrer des touches que
+         cette vague-là écarte exprès. */
+      aReinjecter: vague === premiereVagueDeLEtape ? o.aReinjecter : undefined,
       taille: TAILLE_VAGUE,
       graine: graine + vague * 7919,
     });
