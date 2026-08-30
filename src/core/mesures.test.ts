@@ -14,16 +14,18 @@ import {
   proprete,
   serieDe,
   vitesse,
+  MEMOIRE_LECONS,
   SEUIL_VITESSE_DECOUVERTE,
   alarmePassageDactylo,
   cumulRecent,
+  fusionnerMesures,
   type Mesures,
   type RapportLecon,
 } from './mesures';
 import { LECONS_PAR_ETAPE } from './parcours';
 import { creerEtat, reducer as reducerLecon, type ActionLecon } from './lecon';
 import type { Item } from './generator';
-import { CLE, charger, estIntact, sauver, valider } from './storage';
+import { CLE, DEFAUTS, charger, estIntact, sauver, valider } from './storage';
 import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from '../state';
 
 /** Faux localStorage : ces fonctions doivent rester testables en env node. */
@@ -238,6 +240,157 @@ describe('deux séries, jamais fusionnées', () => {
   });
 });
 
+describe('deux appareils, une seule série par parcours (#64)', () => {
+  /* Une leçon close porte l'instant où elle l'a été : c'est ce qui la distingue
+     de celle d'un autre appareil, et ce qui permet de les remettre dans
+     l'ordre. Sans cette date, deux séries ne peuvent qu'être départagées — donc
+     l'une des deux jetée. */
+  /* Deux leçons réellement distinctes ne coïncident pas sur leur durée : elle
+     se compte à la milliseconde sur une séance de douze minutes. Les fixtures
+     le reflètent — une leçon qui ne diffère QUE par sa date est le même
+     événement revu, pas un second. */
+  const le = (t: number, p: Partial<RapportLecon> = {}) =>
+    rapport({ le: t, ms: 60_000 + t, ...p });
+
+  it('réunit les leçons des deux appareils, dans l’ordre du temps', () => {
+    const ici = enregistrer(enregistrer({}, 'decouverte', le(100)), 'decouverte', le(300));
+    const la = enregistrer({}, 'decouverte', le(200));
+    const f = fusionnerMesures(ici, la);
+    expect(serieDe(f, 'decouverte').lecons.map((l) => l.le)).toEqual([100, 200, 300]);
+  });
+
+  it('est idempotente : synchroniser dix fois ne fabrique pas dix leçons', () => {
+    const m = enregistrer(enregistrer({}, 'dactylo', le(1)), 'dactylo', le(2));
+    let f = fusionnerMesures(m, m);
+    for (let i = 0; i < 9; i++) f = fusionnerMesures(f, m);
+    expect(serieDe(f, 'dactylo').lecons).toHaveLength(2);
+  });
+
+  it('est commutative : l’ordre des appareils ne change rien', () => {
+    const a = enregistrer({}, 'decouverte', le(10, { lettres: 50 }));
+    const b = enregistrer({}, 'decouverte', le(20, { lettres: 80 }));
+    expect(fusionnerMesures(a, b)).toEqual(fusionnerMesures(b, a));
+  });
+
+  it('ne fait jamais franchir la frontière d’un parcours à l’autre', () => {
+    const a = enregistrer({}, 'decouverte', le(10));
+    const b = enregistrer({}, 'dactylo', le(20));
+    const f = fusionnerMesures(a, b);
+    expect(serieDe(f, 'decouverte').lecons.map((l) => l.le)).toEqual([10]);
+    expect(serieDe(f, 'dactylo').lecons.map((l) => l.le)).toEqual([20]);
+  });
+
+  it('un appareil qui ne connaît pas les mesures n’efface pas celles de l’autre', () => {
+    const a = enregistrer({}, 'decouverte', le(10));
+    expect(fusionnerMesures(a, {})).toEqual(a);
+    expect(fusionnerMesures({}, a)).toEqual(a);
+  });
+
+  it('les touches cumulées prennent le MAXIMUM, jamais la somme', () => {
+    // La somme doublerait le compte à chaque synchronisation. Comme pour la
+    // maîtrise : « ce qu'a vu le mieux informé des deux appareils ».
+    let a: Mesures = {};
+    let b: Mesures = {};
+    for (let i = 0; i < 3; i++) a = enregistrer(a, 'decouverte', le(i, { touches: { e: { propres: 2, total: 3 } } }));
+    b = enregistrer(b, 'decouverte', le(99, { touches: { e: { propres: 1, total: 1 } } }));
+    expect(serieDe(fusionnerMesures(a, b), 'decouverte').touches.e).toEqual({ propres: 6, total: 9 });
+  });
+
+  it('les leçons d’avant la date — toutes à zéro — ne se dupliquent pas non plus', () => {
+    /* Une sauvegarde d'avant #64 porte des leçons sans date : elles valent
+       toutes 0. Les empiler les ferait grossir à chaque synchro ; on garde le
+       lot le mieux fourni des deux, comme pour un multi-ensemble. */
+    let a: Mesures = {};
+    for (let i = 0; i < 5; i++) a = enregistrer(a, 'decouverte', le(0));
+    let b: Mesures = {};
+    for (let i = 0; i < 3; i++) b = enregistrer(b, 'decouverte', le(0));
+    expect(serieDe(fusionnerMesures(a, b), 'decouverte').lecons).toHaveLength(5);
+    expect(serieDe(fusionnerMesures(a, a), 'decouverte').lecons).toHaveLength(5);
+  });
+
+  it('un appareil qui ignore la date ne fait pas doubler l’historique', () => {
+    /* Le cas réel du déploiement : un appareil resté au bundle d'avant #64
+       relit les leçons sans `le` et les repousse toutes datées de 0. Une union
+       qui se fierait à la date verrait deux fois chaque leçon — une fois datée,
+       une fois à zéro — et l'historique doublerait à CHAQUE synchronisation. */
+    let ici: Mesures = {};
+    for (let i = 1; i <= 5; i++) ici = enregistrer(ici, 'decouverte', le(i * 100));
+    const sansDate: Mesures = {
+      decouverte: {
+        touches: serieDe(ici, 'decouverte').touches,
+        lecons: serieDe(ici, 'decouverte').lecons.map((l) => ({ ...l, le: 0 })),
+      },
+    };
+    let f = fusionnerMesures(ici, sansDate);
+    expect(serieDe(f, 'decouverte').lecons).toHaveLength(5);
+    // Et ça ne dérive pas non plus au bout de cinq réconciliations.
+    for (let i = 0; i < 5; i++) f = fusionnerMesures(f, sansDate);
+    expect(serieDe(f, 'decouverte').lecons).toHaveLength(5);
+    // La date connue survit : c'est elle qui ordonne la série.
+    expect(serieDe(f, 'decouverte').lecons.map((l) => l.le)).toEqual([100, 200, 300, 400, 500]);
+  });
+
+  it('l’historique reste borné après fusion, et ce sont les plus VIEILLES qui partent', () => {
+    let a: Mesures = {};
+    let b: Mesures = {};
+    for (let i = 0; i < MEMOIRE_LECONS; i++) a = enregistrer(a, 'dactylo', le(i + 1));
+    for (let i = 0; i < 10; i++) b = enregistrer(b, 'dactylo', le(10_000 + i));
+    const lecons = serieDe(fusionnerMesures(a, b), 'dactylo').lecons;
+    expect(lecons).toHaveLength(MEMOIRE_LECONS);
+    expect(lecons[lecons.length - 1].le).toBe(10_009);
+  });
+
+  it('ne mute ni l’un ni l’autre des appareils', () => {
+    const a = enregistrer({}, 'decouverte', le(10));
+    const b = enregistrer({}, 'decouverte', le(20));
+    const copie = structuredClone(a);
+    fusionnerMesures(a, b);
+    expect(a).toEqual(copie);
+  });
+});
+
+describe('une leçon vraiment jouée survit à la relecture', () => {
+  /* `V4Lecon` mesure le temps avec `performance.now()`, qui rend des flottants.
+     `leconsValides` n'accepte que des entiers : une durée fractionnaire faisait
+     jeter la leçon ENTIÈRE à la relecture, sans un mot. Les mesures ne vivaient
+     donc qu'en mémoire, et l'écran parent se vidait au premier rechargement —
+     alors que les `touches`, elles, passaient, ce qui rendait le trou
+     invisible. Le remède est à la source : la durée est arrondie en se
+     fermant. */
+  it('la durée d’une leçon close est un entier, même mesurée en flottant', () => {
+    // Un seul item : le taper referme la leçon, et la durée s'inscrit.
+    let e = creerEtat([{ texte: 'et', genre: 'mot' }] as Item[], 1000.5, 0);
+    for (const c of 'et') {
+      e = reducerLecon(e, {
+        type: 'frappe',
+        caractere: c,
+        code: `Key${c.toUpperCase()}`,
+        attendu: c,
+        maintenant: 9999.75,
+        debutant: true,
+        id: 'fr-FR',
+      } as ActionLecon);
+    }
+    /* La dernière frappe déclenche la célébration ; c'est le tic suivant qui
+       fait avancer, constate qu'il n'y a plus d'item, et ferme la leçon. */
+    e = reducerLecon(e, { type: 'tic', maintenant: 12_000.25 } as ActionLecon);
+    expect(e.fini, 'la leçon devrait être close').toBe(true);
+    expect(Number.isInteger(e.rapport.ms), `ms = ${e.rapport.ms}`).toBe(true);
+  });
+
+  it('une durée fractionnaire est bien jetée à la relecture — d’où l’arrondi', () => {
+    /* Ce test tient l'autre bout : la validation ne se relâche PAS. Une durée
+       non entière est la marque d'un fichier abîmé, et la leçon part. C'est
+       exactement ce qui se produisait pour TOUTES les leçons. */
+    const abimee = enregistrer({}, 'decouverte', rapport({ le: 42, ms: 4000.7 }));
+    expect(serieDe(valider({ ...DEFAUTS, mesures: abimee }).mesures ?? {}, 'decouverte').lecons)
+      .toHaveLength(0);
+    const saine = enregistrer({}, 'decouverte', rapport({ le: 42, ms: 4001 }));
+    expect(serieDe(valider({ ...DEFAUTS, mesures: saine }).mesures ?? {}, 'decouverte').lecons)
+      .toHaveLength(1);
+  });
+});
+
 describe('persistance', () => {
   it('les mesures traversent une sauvegarde et sa relecture', () => {
     const m = enregistrer({}, 'dactylo', rapport({ etape: 4, touches: { e: { propres: 1, total: 2 } } }));
@@ -418,6 +571,9 @@ describe('rien de tout cela n’atteint l’enfant', () => {
     'src/core/storage.ts',
     'src/core/mesures.ts',
     'src/core/lecon.ts',
+    /* `fusion.ts` réunit les séries de deux appareils depuis #64 : c'est de la
+       réconciliation, pas de l'affichage — rien n'en ressort vers une vue. */
+    'src/core/fusion.ts',
     'src/views/V9Compte.tsx',
   ]);
 

@@ -324,7 +324,13 @@ export function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
       ...e,
       celebration: null,
       fini: true,
-      rapport: { ...e.rapport, ms: maintenant - e.debut },
+      /* ARRONDIE, et ce n'est pas cosmétique : `maintenant` vient de
+         `performance.now()`, qui rend des flottants. La sauvegarde n'accepte
+         que des entiers, et une durée fractionnaire faisait JETER la leçon
+         entière à la relecture — sans un mot. Les mesures ne survivaient donc
+         qu'en mémoire vive, et l'écran parent se vidait au premier
+         rechargement. */
+      rapport: { ...e.rapport, ms: Math.round(maintenant - e.debut) },
     };
   return {
     ...e,
