@@ -41,10 +41,8 @@ C'est la règle qui a arbitré cette révision.
 | 16 | **Les phrases n'existent qu'à partir de Maj et du point.** Les groupes nominaux sont admis dès l'espace. | v1 §4.7 (phrases hors MVP) | P3 : *le lion dort* est une phrase écrite faux ; *un chat* est vrai. |
 | 17 | **La proposition d'arrêt passe à la fin de la leçon.** | v1 §4.2 (4ᵉ bloc consécutif) | La leçon est désormais la séance entière. |
 
-**Ce qui reste ouvert et n'est pas tranché ici** : l'emplacement des actifs de
-mains dans le dépôt, le rendu en portrait sur téléphone, la signification des
-trois pastilles claires portées par chaque main dessinée, et le contenu exact
-de l'étape 10 (paragraphes).
+**Ce qui reste ouvert et n'est pas tranché ici** : le rendu en portrait sur
+téléphone, et le contenu exact de l'étape 10 (paragraphes).
 
 ---
 
@@ -306,7 +304,15 @@ Douze états, six visuels : `index`, `majeur`, `annulaire`, `auriculaire`,
 douze. **Les fichiers sont dans `public/doigts/`**, nommés
 `<doigt>_<gauche|droite>.png` — PNG à fond transparent, 256 px de large,
 168 Ko pour les douze. Ils sont calés au pixel près les uns sur les autres :
-une même boîte, une même ligne de base, aucun recadrage à faire. Sur le clavier, le porteur d'information reste la **POSITION**, pas la
+une même boîte, une même ligne de base, aucun recadrage à faire.
+
+**Chaque main porte une pastille claire sur l'index, et une seule.** C'est le
+repère tactile `F`/`J`, que le clavier physique marque d'un ergot et que le
+cahier exige visible dès la première leçon. Elle reste affichée quel que soit le
+doigt surligné : un point de référence n'a de sens que s'il ne bouge pas. Les
+visuels d'origine en portaient trois — annulaire, majeur, index — ce qui ne
+correspondait à aucune notion de la méthode et apprenait à l'enfant une
+convention inexistante. Sur le clavier, le porteur d'information reste la **POSITION**, pas la
 couleur : le clavier est scindé en trois blocs visuellement séparés. Chaque
 état doit rester discriminable **en niveaux de gris**. Aucune légende
 couleur→doigt sur l'écran de leçon.
