@@ -47,7 +47,10 @@ test.describe('comptes parents', () => {
     await ouvrir(page2, 'fr-FR', 2);
     await page2.getByLabel('Réglages').click();
     await page2.getByRole('button', { name: 'Ouvrir' }).click();
-    await expect(page2.getByText(email)).toBeVisible();
+    /* La ligne de l'espace parent, pas n'importe quelle occurrence : depuis
+       #19 le bandeau affiche AUSSI le courriel sur tous les écrans, et un
+       `getByText(email)` nu trouve donc deux éléments. */
+    await expect(page2.getByText(`Connecté en tant que ${email}`)).toBeVisible();
 
     // la progression du premier a rejoint le second
     await expect.poll(async () => (await sauvegarde(page2)).palier, { timeout: 5000 }).toBe(4);
