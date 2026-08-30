@@ -4,7 +4,7 @@ import {
   COUVERTURE_MIN,
   couvertureCible,
   pouceDeLEspace,
-  QUOTA_NOMBRES,
+
   TAILLE_BLOC_MAX,
   TAILLE_BLOC_MIN,
 } from './generator';
