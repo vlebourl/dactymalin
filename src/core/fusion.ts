@@ -90,9 +90,23 @@ export function fusionner(
  * donnait plus le même clavier que B puis A.
  *
  * On départage donc sur le contenu, qui lui ne dépend pas de l'ordre d'appel.
- * Le vainqueur est arbitraire — sa stabilité ne l'est pas — et il emporte
- * TOUTES les préférences, jamais un panachage : la famille se retrouverait
- * sinon avec un réglage qu'aucun des deux appareils n'a jamais porté.
+ * Le vainqueur est arbitraire, et il emporte TOUTES les préférences, jamais un
+ * panachage : la famille se retrouverait sinon avec un réglage qu'aucun des
+ * deux appareils n'a jamais porté.
+ *
+ * LIMITE CONNUE, et il faut la dire plutôt que la découvrir : ce départage rend
+ * la fusion commutative, mais PAS associative à horodatages égaux. Fusionner
+ * `(a∘b)∘c` peut ne pas donner `a∘(b∘c)`, parce que l'état intermédiaire est un
+ * objet fusionné dont la sérialisation n'a plus de rapport d'ordre avec celles
+ * de `a` et `b` — et le panachage interdit à deux revient alors à trois.
+ * À horodatages DISTINCTS, l'associativité tient (fuzz de 20 000 triplets).
+ *
+ * Aucun chemin de production n'y mène : `sync.reconcilier` ne fusionne jamais
+ * que DEUX états, et le côté serveur porte toujours un `Date.parse` réel,
+ * jamais 0. Il faudrait trois appareils à la même milliseconde. C'est suivi en
+ * ticket plutôt que corrigé ici : rendre le départage associatif demanderait un
+ * ordre total sur les états que la fusion préserve, ce qui coûterait bien plus
+ * que ce que ce cas rapporte.
  */
 function ordonner<T extends { etat: Sauvegarde; majLe: number }>(a: T, b: T): [T, T] {
   if (a.majLe !== b.majLe) return a.majLe < b.majLe ? [a, b] : [b, a];

@@ -315,6 +315,18 @@ describe('fusion de deux appareils horodatés à la même milliseconde', () => {
     expect(fusionner(a, b)).toEqual(fusionner(b, a));
   });
 
+  /* L'associativité ne tient PAS à horodatages égaux, et ce test grave la
+     propriété qui compte en production : trois appareils réels portent trois
+     horodatages distincts — le côté serveur en porte toujours un vrai. */
+  it('reste associative dès que les horodatages diffèrent', () => {
+    const a = { etat: gauche(), majLe: 1000 };
+    const b = { etat: droite(), majLe: 2000 };
+    const c = { etat: valider({ ...DEFAUTS, disposition: 'fr-FR', parcours: 'dactylo' }), majLe: 3000 };
+    const gd = fusionner({ etat: fusionner(a, b), majLe: 2000 }, c);
+    const dg = fusionner(a, { etat: fusionner(b, c), majLe: 3000 });
+    expect(gd).toEqual(dg);
+  });
+
   it('tranche pour un seul appareil, jamais pour un panachage des deux', () => {
     /* Départager arbitrairement est acceptable — personne ne peut savoir qui a
        parlé en dernier. Prendre le clavier de l'un et le parcours de l'autre
