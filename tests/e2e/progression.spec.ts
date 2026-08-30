@@ -34,7 +34,14 @@ test.describe('progression explicite', () => {
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
     await expect(page.getByLabel(`Étape ${ETAPE_MAX} ·`, { exact: false })).toBeVisible();
-    await expect(page.getByText(`Étape ${ETAPE_MAX + 1}`)).toHaveCount(0);
+    /* Chercher l'absence du texte exact « Étape 11 » ne prouvait rien : toute
+       AUTRE promesse mensongère passait. On vérifie que le numéro affiché est
+       bien le dernier, quelle que soit la formulation. */
+    const numeros = await page.evaluate(() =>
+      [...document.body.innerText.matchAll(/Étape\s+(\d+)/g)].map((m) => Number(m[1])),
+    );
+    expect(numeros.length).toBeGreaterThan(0);
+    expect(Math.max(...numeros)).toBe(ETAPE_MAX);
   });
 
   /* Changer d'étape ne se voyait NULLE PART : même titre d'encouragement, même

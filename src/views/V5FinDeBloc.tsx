@@ -36,26 +36,28 @@ export function V5FinDeBloc() {
      bloc ordinaire, le même bouton « Encore ». L'état portait pourtant déjà
      l'information — `palierOuvert` vaut le nouveau palier à cet instant précis
      et ne servait qu'à choisir les touches à illuminer. On la dit. */
-  const nouvelleLecon = app.palierOuvert;
+  /* `palierOuvert` porte le numéro de la nouvelle ÉTAPE. L'appeler « leçon »
+     ici contredisait la phrase juste en dessous, qui disait « étape ». */
+  const nouvelleEtape = app.palierOuvert;
   /* Ce que la leçon APPORTE, pas tout ce qu'elle contient : `libellesEnsemble`
      rend le cumul depuis le palier 1 et aurait annoncé des touches déjà
      acquises comme des nouveautés. L'espace n'est pas une nouveauté à fêter. */
-  const touchesDeLaLecon = nouvelleLecon
-    ? nouvellesTouches(app.parcours, id, nouvelleLecon).filter((c) => c !== ' ')
+  const touchesDeLaLecon = nouvelleEtape
+    ? nouvellesTouches(app.parcours, id, nouvelleEtape).filter((c) => c !== ' ')
     : [];
 
   return (
     <div className={v.ecran}>
       <div className={v.centre}>
         <h1 className={v.titre}>
-          {nouvelleLecon ? `Leçon ${nouvelleLecon} débloquée !` : app.titreEncouragement}
+          {nouvelleEtape ? `Étape ${nouvelleEtape} débloquée !` : app.titreEncouragement}
         </h1>
 
         <Stars nombre={app.etoilesDuBloc} />
 
-        {nouvelleLecon && (
+        {nouvelleEtape && (
           <p className={v.gainLexical}>
-            Tu passes à l'étape <b>{nouvelleLecon}</b> sur {ETAPE_MAX}. Elle t'apporte :{' '}
+            Tu passes à l'étape <b>{nouvelleEtape}</b> sur {ETAPE_MAX}. Elle t'apporte :{' '}
             <b>{touchesDeLaLecon.join(' ')}</b>
           </p>
         )}
@@ -80,7 +82,7 @@ export function V5FinDeBloc() {
             className={[u.bouton, proposePause ? '' : u.primaire].join(' ')}
             onClick={() => envoi({ type: 'commencer' })}
           >
-            {nouvelleLecon ? `Commencer la leçon ${nouvelleLecon}` : 'Encore'}
+            {nouvelleEtape ? `Commencer l'étape ${nouvelleEtape}` : 'Encore'}
           </button>
           <button
             className={[u.bouton, proposePause ? u.primaire : ''].join(' ')}

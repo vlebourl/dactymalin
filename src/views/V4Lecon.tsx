@@ -12,9 +12,8 @@ import {
 } from '../core/layouts';
 import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj } from '../core/maj';
-import { PALIER_MAX_DEBUTANT } from '../core/paliers';
 import { CONSIGNES, imageMain, type Doigt } from '../core/doigts';
-import { doigtDe, ensembleTouches, ETAPE_MAX, type IdParcours } from '../core/parcours';
+import { doigtDe, ensembleTouches, etapes, ETAPE_MAX, type IdParcours } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
@@ -39,7 +38,15 @@ export function V4Lecon() {
   const app = useApp();
   const envoi = useEnvoi();
   const id: IdDisposition = app.disposition;
-  const debutant = app.palier <= PALIER_MAX_DEBUTANT;
+  /* P6 : c'est DÉCOUVERTE dont la latence est plafonnée à zéro — ce parcours
+     entraîne le placement des mains, pas le rappel en mémoire. Le déduire du
+     numéro d'étape faisait que les six premières étapes de Dactylo se
+     comportaient comme Découverte : la cible apparaissait immédiatement, et la
+     fenêtre de rappel n'existait pas là où elle a un sens. */
+  const debutant = app.parcours === 'decouverte';
+  /* Où la Majuscule s'enseigne dépend du parcours : tôt en Dactylo pour ouvrir
+     les phrases, tard en Découverte. La vue ne le sait pas, le parcours si. */
+  const etapeMajuscule = etapes(app.parcours, id).find((e) => e.genre === 'majuscule')?.n;
 
   const items = useMemo(
     () =>
@@ -404,10 +411,10 @@ export function V4Lecon() {
               ensemble={ensemble}
               cible={enCelebration ? undefined : cible}
               cibleMaj={cibleMaj}
-              /* Les Maj sont dessinées au palier qui les enseigne, mais aussi
+              /* Les Maj sont dessinées dès l'étape qui les enseigne, et aussi
                  dès que la cible en réclame une — sans quoi la consigne
                  désignait une touche absente du clavier. */
-              avecMaj={app.palier >= PALIER_MAX_DEBUTANT + 1 || besoinMaj}
+              avecMaj={etapeMajuscule !== undefined && app.palier >= etapeMajuscule || besoinMaj}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
               espace={{
