@@ -60,7 +60,7 @@ export function V4Lecon() {
   /* L'étape RÉELLEMENT jouée : celle que l'enfant a choisi de rejouer, sinon la
      sienne. Rejouer ne fait pas avancer la progression — c'est un choix, pas un
      rattrapage. */
-  const etapeJouee = app.etapeRejouee ?? app.palier;
+  const etapeJouee = app.etapeRejouee ?? app.etape;
 
   const session = useMemo(
     () =>
@@ -74,7 +74,7 @@ export function V4Lecon() {
           }),
     // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.parcours, etapeJouee, app.bloc, app.listeJouee],
+    [id, app.parcours, etapeJouee, app.lecon, app.listeJouee],
   );
 
   const items = useMemo(
@@ -104,7 +104,7 @@ export function V4Lecon() {
     const base = ensembleTouches(app.parcours, id, etapeJouee);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
-  }, [id, app.palier, app.listeJouee, items]);
+  }, [id, app.etape, app.listeJouee, items]);
   const item = e.items[e.i];
   const attendu = item?.texte[e.curseur] ?? '';
   const enCelebration = e.celebration !== null;
@@ -238,7 +238,7 @@ export function V4Lecon() {
       aRevoir: e.aRevoir,
       items: e.valides,
     };
-    envoi({ type: 'blocTermine', bilan });
+    envoi({ type: 'leconTerminee', bilan });
   }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ------------------------------------ surveillance de disposition (F7)
@@ -283,6 +283,11 @@ export function V4Lecon() {
 
   /* Ce que les pastilles montrent : la part de la leçon écoulée. Le temps est
      lu au tic du reducer, qui est déjà la seule horloge de l'écran. */
+  /* 92 vw d'espace utile, un caractère occupant environ 0,62 em à cette
+     graisse : la taille tenable est donc ~148/n en vw. Le plancher de six
+     caractères empêche un mot très court de devenir énorme. */
+  const tailleMot = Math.floor(148 / Math.max(6, item?.texte.length ?? 6));
+
   const partEcoulee =
     e.finLe === null
       ? // une liste de la maison a une fin connue : on suit les items
@@ -296,8 +301,8 @@ export function V4Lecon() {
   /* « {n} blocs finis sur 6 » a disparu : il montrait à l'enfant le plafond de
      secours que le produit devait garder silencieux — et ce plafond n'existe
      plus. Reste un décompte lisible d'avance, dans les mots de l'enfant. */
-  const avance = avancementEtape(app.blocsSurPalier);
-  const etiquetteLecon = `Étape ${app.palier} · Leçon ${Math.min(avance.leconsFaites + 1, avance.total)} sur ${avance.total}`;
+  const avance = avancementEtape(app.leconsSurEtape);
+  const etiquetteLecon = `Étape ${app.etape} · Leçon ${Math.min(avance.leconsFaites + 1, avance.total)} sur ${avance.total}`;
   const clavierMasque = e.masque && !e.fini;
 
   return (
@@ -380,6 +385,11 @@ export function V4Lecon() {
           <span
             className={v.mot}
             key={`${e.i}`}
+            /* La taille du mot suit sa LONGUEUR, pas l'étape. Depuis que les
+               phrases existent, « Une princesse travaille. » débordait l'écran
+               à 375 px alors qu'un mot de six lettres y tenait sans peine :
+               c'est le nombre de caractères qui décide, jamais le programme. */
+            style={{ fontSize: `min(clamp(28px, 6.2vw, 72px), ${tailleMot}vw)` }}
             data-mot={item?.texte}
             data-curseur={e.curseur}
             aria-hidden="true"
@@ -457,7 +467,7 @@ export function V4Lecon() {
               /* Les Maj sont dessinées dès l'étape qui les enseigne, et aussi
                  dès que la cible en réclame une — sans quoi la consigne
                  désignait une touche absente du clavier. */
-              avecMaj={etapeMajuscule !== undefined && app.palier >= etapeMajuscule || besoinMaj}
+              avecMaj={etapeMajuscule !== undefined && app.etape >= etapeMajuscule || besoinMaj}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
               espace={{
@@ -471,7 +481,7 @@ export function V4Lecon() {
               }}
               /* La rangée Maj ajoute 3,4 unités de largeur : au palier qui la
                  dessine, la touche rétrécit pour que rien ne déborde. */
-              taille={app.palier >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
+              taille={app.etape >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
             <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration ? 'oui' : 'non'}>
               <img src={imageMain('droite', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />

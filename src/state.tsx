@@ -42,11 +42,24 @@ export type BilanBloc = {
   mesures?: RapportLecon;
 };
 
-export type EtatApp = Sauvegarde & {
+/**
+ * L'état de SESSION parle le vocabulaire de la v2 — étape, leçon — là où la
+ * `Sauvegarde` garde le sien : ses noms sont le format de fil que des clients
+ * plus anciens savent lire, et les renommer casserait leur lecture. Les trois
+ * champs concernés sont donc retirés puis redéclarés ici, et `aSauvegarder`
+ * fait la traduction dans un seul endroit.
+ */
+export type EtatApp = Omit<Sauvegarde, 'palier' | 'blocsSurPalier' | 'bloc'> & {
+  /** Étape courante du parcours joué. */
+  etape: number;
+  /** Leçons déjà faites dans cette étape. */
+  leconsSurEtape: number;
+  /** Numéro de la prochaine leçon, monotone : sert à répartir les occurrences. */
+  lecon: number;
   /**
    * Le parcours JOUÉ, choisi par le parent en V7 (#42). Il n'est plus
    * optionnel ici : dans l'état de session, il y a toujours un parcours en
-   * cours, et `palier` / `blocsSurPalier` sont l'étape et les leçons DE
+   * cours, et `etape` / `leconsSurEtape` sont l'étape et les leçons DE
    * CELUI-LÀ — plus forcément celles de Découverte.
    */
   parcours: IdParcours;
@@ -57,7 +70,7 @@ export type EtatApp = Sauvegarde & {
   etoilesDuBloc: number;
   titreEncouragement: string;
   /** palier que ce bloc vient d'ouvrir, pour l'illumination de V5 */
-  palierOuvert: number | null;
+  etapeOuverte: number | null;
   /** Étape que l'enfant a choisi de rejouer, ou `null` pour son étape courante.
       Jamais persistée : c'est un choix du moment, pas un acquis. */
   etapeRejouee: number | null;
@@ -99,7 +112,7 @@ export type Action =
      propose pas d'elle-même. */
   | { type: 'rejouerEtape'; etape: number }
   | { type: 'guideDoigtVu' }
-  | { type: 'blocTermine'; bilan: BilanBloc }
+  | { type: 'leconTerminee'; bilan: BilanBloc }
   | { type: 'verrMaj'; actif: boolean };
 
 export function reducer(etat: EtatApp, action: Action): EtatApp {
@@ -117,7 +130,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ...etat,
         vue: 'V4',
         premierLancement: false,
-        palierOuvert: null,
+        etapeOuverte: null,
         /* Appuyer sur une carte impose SA liste ; « On commence ! » passe
            `null` et revient au parcours ; « On continue ! » n'envoie rien et
            rejoue ce qui était en cours. */
@@ -136,7 +149,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         vue: 'V4',
         etapeRejouee: action.etape,
         listeJouee: null,
-        palierOuvert: null,
+        etapeOuverte: null,
       };
 
     case 'listes':
@@ -154,11 +167,11 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
            de sept rétrogradait un enfant arrivé aux chiffres dès qu'il changeait
            de clavier. `PALIER_MAX` ne vaut plus que pour le miroir destiné aux
            clients d'avant, jamais pour la progression vécue. */
-        palier: change ? Math.min(etat.palier, ETAPE_MAX) : etat.palier,
+        etape: change ? Math.min(etat.etape, ETAPE_MAX) : etat.etape,
         /* Les blocs déjà joués l'ont été sur l'AUTRE clavier : les garder au
            compteur ouvrait le palier suivant par le plafond anti-mur alors que
            rien n'avait été prouvé sur la nouvelle disposition. */
-        blocsSurPalier: change ? 0 : etat.blocsSurPalier,
+        leconsSurEtape: change ? 0 : etat.leconsSurEtape,
       };
     }
 
@@ -177,13 +190,13 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ...etat,
         parcours: action.parcours,
         progressions,
-        palier: p.etape,
-        blocsSurPalier: p.leconsSurEtape,
+        etape: p.etape,
+        leconsSurEtape: p.leconsSurEtape,
         /* Les items à revoir viennent de la leçon de l'AUTRE parcours : les
            réinjecter ici ferait taper des touches que celui-ci n'a pas encore
            ouvertes. */
         aReinjecter: [],
-        palierOuvert: null,
+        etapeOuverte: null,
       };
     }
 
@@ -193,7 +206,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
     case 'verrMaj':
       return etat.verrMaj === action.actif ? etat : { ...etat, verrMaj: action.actif };
 
-    case 'blocTermine': {
+    case 'leconTerminee': {
       /* Une LISTE est hors parcours : on tape les mots de la maison pour le
          plaisir, sans avancer ni compter dans le palier. Elle peut contenir
          des lettres que l'enfant n'a pas apprises — rien de ce qu'il tape là
@@ -202,19 +215,19 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         return {
           ...etat,
           vue: 'V5',
-          bloc: Math.min(etat.bloc + 1, BLOC_MAX),
+          lecon: Math.min(etat.lecon + 1, BLOC_MAX),
           blocsConsecutifs: etat.blocsConsecutifs + 1,
           etoilesDuBloc: action.bilan.etoiles,
           titreEncouragement: encouragementSuivant(etat.titreEncouragement),
           aReinjecter: [],
           itemsDuBloc: action.bilan.items,
           touchesNouvelles: [],
-          palierOuvert: null,
+          etapeOuverte: null,
         };
       }
       let maitrise = etat.maitrise;
       const dejaMaitrisees = new Set(Object.keys(maitrise).filter((c) => estMaitrisee(maitrise, c)));
-      for (const c of action.bilan.propres) maitrise = noterOccurrence(maitrise, c, etat.bloc);
+      for (const c of action.bilan.propres) maitrise = noterOccurrence(maitrise, c, etat.lecon);
       // Ce que ce bloc-ci a fait basculer, et rien d'autre.
       const franchies = Object.keys(maitrise).filter(
         (c) => !dejaMaitrisees.has(c) && estMaitrisee(maitrise, c),
@@ -223,7 +236,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
          Le critère de maîtrise ne commande plus le passage — il compose le
          contenu (#39). Le plafond anti-mur disparaît avec lui : sans porte, il
          n'y a plus de mur à forcer. */
-      const leconsSurEtape = etat.blocsSurPalier + 1;
+      const leconsSurEtape = etat.leconsSurEtape + 1;
       /* L'étiquette de parcours et l'étape sont posées ICI, pas par la vue :
          c'est l'état qui sait dans quelle série la leçon doit tomber, et une
          vue qui se tromperait d'étiquette mélangerait les deux courbes — le
@@ -231,19 +244,19 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
       const mesures = action.bilan.mesures
         ? enregistrer(etat.mesures ?? {}, etat.parcours, {
             ...action.bilan.mesures,
-            etape: etat.palier,
+            etape: etat.etape,
           })
         : etat.mesures;
-      const franchi = etapeFinie(leconsSurEtape) && etat.palier < ETAPE_MAX;
+      const franchi = etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;
       return {
         ...etat,
         vue: 'V5',
         maitrise,
         mesures,
-        bloc: Math.min(etat.bloc + 1, BLOC_MAX),
-        blocsSurPalier: franchi ? 0 : leconsSurEtape,
-        palier: franchi ? etat.palier + 1 : etat.palier,
-        palierOuvert: franchi ? etat.palier + 1 : null,
+        lecon: Math.min(etat.lecon + 1, BLOC_MAX),
+        leconsSurEtape: franchi ? 0 : leconsSurEtape,
+        etape: franchi ? etat.etape + 1 : etat.etape,
+        etapeOuverte: franchi ? etat.etape + 1 : null,
         blocsConsecutifs: etat.blocsConsecutifs + 1,
         etoilesDuBloc: action.bilan.etoiles,
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
@@ -263,8 +276,8 @@ function rangerProgression(etat: EtatApp): Progressions {
   return {
     ...etat.progressions,
     [cleProgression(etat.parcours, etat.disposition)]: {
-      etape: etat.palier,
-      leconsSurEtape: etat.blocsSurPalier,
+      etape: etat.etape,
+      leconsSurEtape: etat.leconsSurEtape,
     },
   };
 }
@@ -273,7 +286,7 @@ function rangerProgression(etat: EtatApp): Progressions {
 export function aSauvegarder(etat: EtatApp): Sauvegarde {
   const progressions = rangerProgression(etat);
   /* Le miroir legacy reste celui de DÉCOUVERTE, et il est recalculé depuis les
-     progressions plutôt que recopié de `etat.palier`. Y verser l'étape de
+     progressions plutôt que recopié de `etat.etape`. Y verser l'étape de
      Dactylo ne serait pas qu'un affichage faux chez les anciens clients :
      `progressionsNormalisees` refusionne le miroir dans le couple Découverte
      à chaque relecture, et l'avance changerait de parcours pour de bon. */
@@ -289,7 +302,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
     /* Le compteur de blocs est PERSISTÉ tel quel : le reconstruire depuis la
        seule maîtrise resservait le numéro d'un bloc joué sans aucune frappe
        propre, et deux blocs distincts comptaient alors pour un seul. */
-    bloc: etat.bloc,
+    bloc: etat.lecon,
     maitrise: etat.maitrise,
     mesures: etat.mesures,
     guideDoigtVu: etat.guideDoigtVu,
@@ -317,8 +330,9 @@ export function etatDeDepart(cle?: string): EtatApp {
   return {
     ...sauve,
     parcours,
-    palier: progression.etape,
-    blocsSurPalier: progression.leconsSurEtape,
+    etape: progression.etape,
+    leconsSurEtape: progression.leconsSurEtape,
+    lecon: sauve.bloc,
     etapeRejouee: null,
     /* Au tout premier lancement, on passe par le choix du clavier (cahier 4.1)
        — sauf si l'on revient de chez Google : le parent a demandé quelque
@@ -327,7 +341,7 @@ export function etatDeDepart(cle?: string): EtatApp {
     blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),
-    palierOuvert: null,
+    etapeOuverte: null,
     aReinjecter: [],
     itemsDuBloc: [],
     touchesNouvelles: [],

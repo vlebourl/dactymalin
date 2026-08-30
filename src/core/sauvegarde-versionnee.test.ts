@@ -11,8 +11,9 @@ import {
   type Sauvegarde,
   CLE_PROGRESSION_MAX,
   PROGRESSIONS_MAX,
+  ETAPE_MIROIR_MAX,
 } from './storage';
-import { PALIER_MAX } from './paliers';
+
 import { ETAPE_MAX, LECONS_PAR_ETAPE } from './parcours';
 
 /** Faux localStorage : `core/` doit rester testable en env node. */
@@ -50,7 +51,7 @@ const v1 = (p: Record<string, unknown> = {}) => ({
 /* L'ANCIEN CLIENT, tel qu'il est déployé aujourd'hui.                       */
 /*                                                                           */
 /* Réplique du contrat de lecture du bundle en production : `estIntact` y     */
-/* exige `version === 1` et un `palier` dans [1, PALIER_MAX], et `valider` y  */
+/* exige `version === 1` et un `palier` dans [1, ETAPE_MIROIR_MAX], et `valider` y  */
 /* reconstruit un état à partir des SEULS champs qu'il connaît. Un état qui   */
 /* échoue ce contrat est traité comme corrompu : repli sur la sauvegarde de   */
 /* secours, sinon remise à zéro — et le serveur, resté lui aussi sur l'ancien */
@@ -65,7 +66,7 @@ function ancienEstIntact(brut: unknown): boolean {
   if (o.version !== 1) return false;
   if (o.disposition !== 'fr-FR' && o.disposition !== 'fr-CH') return false;
   if (typeof o.dispositionChoisieALaMain !== 'boolean') return false;
-  if (!entier(o.palier, 1, PALIER_MAX)) return false;
+  if (!entier(o.palier, 1, ETAPE_MIROIR_MAX)) return false;
   if (!entier(o.blocsSurPalier, 0, 999)) return false;
   if (o.bloc !== undefined && !entier(o.bloc, 1, 1_000_000)) return false;
   if (typeof o.guideDoigtVu !== 'boolean') return false;
@@ -246,7 +247,7 @@ describe("un client resté sur l'ancien bundle", () => {
       leconsSurEtape: 4,
     });
     expect(ancienEstIntact(neuf)).toBe(true);
-    expect(neuf.palier).toBe(PALIER_MAX);
+    expect(neuf.palier).toBe(ETAPE_MIROIR_MAX);
   });
 
   it("sa réécriture — qui efface les champs neufs — ne perd pas Découverte", () => {

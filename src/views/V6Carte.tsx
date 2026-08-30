@@ -12,14 +12,14 @@ export function V6Carte() {
   const id = app.disposition;
 
   const acquises = new Set<string>();
-  for (let p = 1; p < app.palier; p++) {
+  for (let p = 1; p < app.etape; p++) {
     for (const c of nouvellesTouches(app.parcours, id, p)) {
       const code = (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code;
       if (code) acquises.add(code);
     }
   }
   const enCours = new Set<string>(
-    nouvellesTouches(app.parcours, id, app.palier)
+    nouvellesTouches(app.parcours, id, app.etape)
       .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
       .filter((c): c is string => !!c),
   );
@@ -41,7 +41,7 @@ export function V6Carte() {
 
         <Keyboard
           id={id}
-          ensemble={ensembleTouches(app.parcours, id, app.palier)}
+          ensemble={ensembleTouches(app.parcours, id, app.etape)}
           acquises={acquises}
           illuminees={enCours}
           taille="clamp(13px, 2.7vw, 38px)"
@@ -50,12 +50,12 @@ export function V6Carte() {
 
         <div className={v.listePaliers}>
           {etapes(app.parcours, id).map((p) => {
-            const passe = p.n < app.palier;
-            const courant = p.n === app.palier;
+            const passe = p.n < app.etape;
+            const courant = p.n === app.etape;
             /* Plus aucune étape n'est verrouillée « pour toujours » : les dix
                sont réelles et atteignables. Ce qui reste devant est simplement
                à venir. */
-            const aVenir = p.n > app.palier;
+            const aVenir = p.n > app.etape;
             return (
               <div
                 key={p.n}

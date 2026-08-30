@@ -1,6 +1,6 @@
 import { disposition } from '../core/layouts';
 import { estJouable } from '../core/listes';
-import { ensembleTouches } from '../core/paliers';
+import { ensembleTouches } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { useApp, useEnvoi } from '../state';
@@ -57,7 +57,7 @@ export function V1Accueil() {
         {/* Illustration à plat, sans mains ni personnage. */}
         <Keyboard
           id={app.disposition}
-          ensemble={ensembleTouches(app.disposition, app.palier)}
+          ensemble={ensembleTouches(app.parcours, app.disposition, app.etape)}
           taille="clamp(13px, 2.7vw, 38px)"
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />

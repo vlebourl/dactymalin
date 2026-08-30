@@ -34,6 +34,7 @@ import {
   type Compte,
   type ProfilDistant,
 } from '../core/sync';
+import { progressionDe } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -220,7 +221,13 @@ function LigneEnfant({
         Renommer
       </button>{' '}
       <span className={v.promessePalier}>
-        {profil.etat ? `palier ${profil.etat.palier}` : 'aucune progression enregistrée'}
+        {/* Le champ `palier` de la sauvegarde est le MIROIR destiné aux anciens
+            clients, plafonné à la septième étape : l'afficher tel quel montrait
+            « palier 7 » à un parent dont l'enfant en est à la dixième. On lit
+            la progression réelle du parcours joué. */}
+        {profil.etat
+          ? `étape ${progressionDe(profil.etat, profil.etat.parcours ?? 'decouverte', profil.etat.disposition).etape}`
+          : 'aucune progression enregistrée'}
       </span>{' '}
       <ConfirmationSuppression
         quoi={profil.prenom}
