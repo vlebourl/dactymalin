@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  messageDErreurGoogle,
   messageDEchec,
   messageDEchecCompte,
   messageDEchecListe,
@@ -130,5 +131,29 @@ describe('messageDEchecCompte', () => {
   it('session finie ou serveur en panne : chacun son motif', () => {
     expect(messageDEchecCompte({ statut: 401 })).toMatch(/session/i);
     expect(messageDEchecCompte({ statut: 503 })).toMatch(/problème/i);
+  });
+});
+
+/* #7 — le retour d'un parcours Google qui a échoué. Better Auth ramène le
+   navigateur sur l'écran de connexion avec un `?error=` ; sans lecture de ce
+   paramètre, le parent revient de chez Google sans un mot d'explication, et
+   c'est le chemin d'échec le plus probable en production. */
+describe('messageDErreurGoogle', () => {
+  it('explique le refus de liaison, qui est le cas fréquent', () => {
+    const m = messageDErreurGoogle('account_not_linked')!;
+    expect(m).toMatch(/mot de passe/i);
+    /* Il dit quoi FAIRE, pas seulement que ça a raté. */
+    expect(m).toMatch(/connectez-vous|utilisez/i);
+  });
+
+  it('reste compréhensible sur un code qu’on ne connaît pas', () => {
+    const m = messageDErreurGoogle('quelque_chose_dimprevu')!;
+    expect(m).toMatch(/Google/);
+    expect(m).toMatch(/adresse et un mot de passe|réessay/i);
+  });
+
+  it('ne dit rien quand il n’y a pas d’erreur', () => {
+    expect(messageDErreurGoogle(null)).toBeNull();
+    expect(messageDErreurGoogle('')).toBeNull();
   });
 });

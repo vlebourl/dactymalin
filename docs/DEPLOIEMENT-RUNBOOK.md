@@ -100,11 +100,17 @@ cocher :
 | 2 | Cliquer le bouton | redirection vers `accounts.google.com`, pas une page d'erreur |
 | 3 | Choisir un compte Google | retour sur `typing.tiarkaerell.com`, connecté |
 | 4 | Créer un enfant, jouer un bloc | la progression est bien enregistrée |
-| 5 | Se déconnecter, puis se reconnecter par ADRESSE avec la même adresse Gmail | un compte SÉPARÉ, vide — la liaison automatique est désactivée exprès (#7) |
+| 5 | Se déconnecter, créer un compte par ADRESSE avec une *autre* adresse, s'en déconnecter, puis cliquer « Continuer avec Google » et choisir le compte Google dont l'adresse est celle-là | **refus explicite** : retour au portail avec « Cette adresse a déjà un compte avec mot de passe… ». C'est le comportement VOULU — la liaison automatique est désactivée (#7), et `user.email` est unique : une adresse n'ouvre jamais deux comptes |
 
 **Si le bouton n'apparaît pas** : les deux variables `GOOGLE_CLIENT_ID` et
 `GOOGLE_CLIENT_SECRET` ne sont pas toutes les deux posées dans Coolify.
 `GET /api/config` répond `{"google":false}` — c'est le diagnostic le plus court.
+
+**Attendu, pas un défaut** : un compte Google et un compte mot de passe de même
+adresse ne coexistent pas. La seconde tentative est refusée, dans un sens comme
+dans l'autre. C'est le prix assumé de « pas de liaison sans vérification
+d'adresse » — et la vérification d'adresse exige un envoi de courriels qui
+n'existe pas.
 
 **Si Google répond `redirect_uri_mismatch`** : l'URI déclarée dans la console
 ne correspond pas au chemin réel, qui est

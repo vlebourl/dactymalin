@@ -46,9 +46,7 @@ export function creerAuth(base: Base, env: Env) {
     account: {
       accountLinking: {
         /**
-         * AUCUNE liaison automatique. Un compte Google et un compte
-         * mot de passe portant la même adresse restent deux comptes
-         * distincts, avec deux bibliothèques.
+         * AUCUNE liaison automatique.
          *
          * La raison n'est pas le confort : la vérification d'adresse est
          * désactivée (aucun courriel ne part). Lier automatiquement
@@ -57,6 +55,14 @@ export function creerAuth(base: Base, env: Env) {
          * titulaire légitime dans son propre compte à sa première connexion
          * Google. L'état souhaitable est « liaison + vérification
          * d'adresse » ; il exige une infrastructure d'envoi qui n'existe pas.
+         *
+         * Ce qui arrive VRAIMENT, et que l'épopée décrivait mal en parlant de
+         * « deux comptes distincts » : `user.email` est UNIQUE en base, donc
+         * une adresse ne peut pas ouvrir un second compte. Elle est refusée.
+         * Google ramène alors le parent sur le portail avec
+         * `?error=account_not_linked`, et l'écran lui dit de se connecter avec
+         * son mot de passe. Le refus est le comportement voulu ; ce qui ne
+         * l'était pas, c'était de le laisser muet.
          */
         enabled: false,
       },

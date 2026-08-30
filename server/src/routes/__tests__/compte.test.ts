@@ -77,6 +77,26 @@ d('suppression du compte', () => {
     app = creerApp({ env, base, auth: creerAuth(base, env) });
   });
 
+  /**
+   * #7 — « aucune liaison automatique entre un compte Google et un compte mot
+   * de passe de même adresse ». La moitié observable sans Google : une adresse
+   * n'ouvre JAMAIS deux comptes. La colonne est unique en base, et le serveur
+   * refuse — c'est ce refus qui empêche un tiers d'attirer à lui le titulaire
+   * légitime d'une adresse Gmail qu'il ne possède pas.
+   */
+  it('une adresse déjà prise n’ouvre pas un second compte', async () => {
+    const email = `w${Date.now()}@exemple.fr`;
+    await inscrire(email);
+
+    const second = await app.request('/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: MDP, name: 'Un autre' }),
+    });
+    expect(second.status).toBeGreaterThanOrEqual(400);
+    expect(((await second.json()) as { code?: string }).code).toMatch(/USER_ALREADY_EXISTS/);
+  });
+
   it('refuse la suppression sans session', async () => {
     expect((await app.request('/api/compte', { method: 'DELETE' })).status).toBe(401);
   });
