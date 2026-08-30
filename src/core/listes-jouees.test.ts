@@ -17,8 +17,8 @@ const AUTRE: Liste = { ...DICTEE, id: 'l2', nom: 'La famille', mots: ['papi'] };
 
 const base = (): EtatApp => ({
   ...etatDeDepart('cle-inexistante'),
-  palier: 2,
-  blocsSurPalier: 4,
+  etape: 2,
+  leconsSurEtape: 4,
   vue: 'V1',
 });
 
@@ -54,16 +54,17 @@ describe('un bloc de liste ne fait pas avancer le parcours', () => {
     propres: ['d', 'i', 'n', 'o'],
     aRevoir: [],
     items: ['dinosaure'],
+    fin: 1_700_000_000_000,
   };
 
   it('rapporte les étoiles, et ne bouge ni palier, ni maîtrise, ni compteur', () => {
     const enCours = reducer(base(), { type: 'commencer', liste: DICTEE });
-    const apres = reducer(enCours, { type: 'blocTermine', bilan });
+    const apres = reducer(enCours, { type: 'leconTerminee', bilan });
     expect(apres.etoilesDuBloc).toBe(3);
-    expect(apres.palier).toBe(2);
-    expect(apres.blocsSurPalier).toBe(4);
+    expect(apres.etape).toBe(2);
+    expect(apres.leconsSurEtape).toBe(4);
     expect(apres.maitrise).toEqual(enCours.maitrise);
-    expect(apres.palierOuvert).toBeNull();
+    expect(apres.etapeOuverte).toBeNull();
   });
 });
 

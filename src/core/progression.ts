@@ -1,13 +1,13 @@
-import type { IdDisposition } from './layouts';
-import { PALIER_MAX, touchesAValider } from './paliers';
+import { LECONS_PAR_ETAPE } from './parcours';
 
 /** Occurrences validées sans erreur ni aide, repérées par le n° de bloc. */
 export type Maitrise = Record<string, number[]>;
 
+/* Ces deux seuils ne commandent plus aucun passage (#38) : ils définissent ce
+   qu'on appelle « une touche acquise » pour composer les leçons suivantes. */
 export const OCCURRENCES_REQUISES = 3;
 export const BLOCS_DISTINCTS_REQUIS = 2;
 /** Plafond anti-mur : au-delà, le palier suivant s'ouvre quand même, en silence. */
-export const PLAFOND_BLOCS = 6;
 
 /**
  * Enregistre une frappe propre (ni erreur, ni escalade d'aide au-delà du
@@ -24,61 +24,32 @@ export function estMaitrisee(m: Maitrise, caractere: string): boolean {
   return blocs.length >= OCCURRENCES_REQUISES && new Set(blocs).size >= BLOCS_DISTINCTS_REQUIS;
 }
 
-/**
- * Le palier est-il franchi ?
- * Critère : chaque touche du palier maîtrisée (3 occurrences / ≥ 2 blocs).
- * Plafond anti-mur : `blocsSurPalier >= 6` ouvre le palier suivant sans message.
- */
-export function palierFranchi(
-  id: IdDisposition,
-  palier: number,
-  m: Maitrise,
-  blocsSurPalier: number,
-): boolean {
-  if (palier >= PALIER_MAX) return false;
-  if (blocsSurPalier >= PLAFOND_BLOCS) return true;
-  return touchesAValider(id, palier).every((c) => estMaitrisee(m, c));
-}
+/* `palierFranchi` a disparu (#38). L'étape se termine après sept leçons, ce
+   que `parcours.etapeFinie` décide seul. La maîtrise ne garde donc plus de
+   rôle de PORTE : elle sert à composer le contenu des leçons suivantes, en
+   faisant revenir plus souvent les touches mal acquises. */
 
-/** Ce qui commande la barre d'avancement du palier. */
+/** Ce qui commande la barre d'avancement de l'étape. */
 export type Avancement = {
-  /** 0 → 1, plein exactement quand `palierFranchi` bascule */
+  /** 0 → 1, plein exactement à la septième leçon. */
   part: number;
-  maitrisees: number;
+  leconsFaites: number;
   total: number;
-  /** le chemin le plus avancé, celui qu'on nomme à l'écran */
-  chemin: 'touches' | 'blocs' | 'dernier';
 };
 
 /**
- * Où en est-on DANS le palier ?
+ * Où en est-on DANS l'étape ?
  *
- * Deux chemins mènent au palier suivant — toutes les touches maîtrisées, ou le
- * plafond de blocs — et on ne sait pas d'avance lequel arrivera le premier.
- * La barre suit donc le PLUS AVANCÉ des deux : elle atteint 1 exactement quand
- * `palierFranchi` bascule, jamais avant, jamais après. N'écouter que la
- * maîtrise la laisserait basse puis la ferait sauter sans prévenir chez
- * l'enfant que le plafond fait monter.
+ * Une seule réponse désormais, et elle est lisible d'avance : le nombre de
+ * leçons faites sur sept. La v1 suivait le plus avancé de deux chemins — les
+ * touches maîtrisées ou le plafond de blocs — parce qu'on ne savait pas lequel
+ * arriverait le premier. Avec un quota fixe, la question ne se pose plus.
  */
-export function avancementPalier(
-  id: IdDisposition,
-  palier: number,
-  m: Maitrise,
-  blocsSurPalier: number,
-): Avancement {
-  const cles = touchesAValider(id, palier);
-  const maitrisees = cles.filter((c) => estMaitrisee(m, c)).length;
-  // Le dernier palier n'ouvre sur rien : promettre une progression vers un
-  // palier 8 inexistant serait une promesse en l'air.
-  if (palier >= PALIER_MAX) {
-    return { part: 1, maitrisees, total: cles.length, chemin: 'dernier' };
-  }
-  const parTouches = cles.length === 0 ? 1 : maitrisees / cles.length;
-  const parBlocs = Math.min(1, blocsSurPalier / PLAFOND_BLOCS);
+export function avancementEtape(leconsFaites: number): Avancement {
+  const total = LECONS_PAR_ETAPE;
   return {
-    part: Math.max(parTouches, parBlocs),
-    maitrisees,
-    total: cles.length,
-    chemin: parTouches >= parBlocs ? 'touches' : 'blocs',
+    part: Math.min(1, leconsFaites / total),
+    leconsFaites: Math.min(leconsFaites, total),
+    total,
   };
 }

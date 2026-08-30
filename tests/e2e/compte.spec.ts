@@ -32,7 +32,7 @@ test.describe('comptes parents', () => {
     await ouvrir(page, 'fr-FR', 4);
     await page.getByLabel('Réglages').click();
     await page.getByRole('button', { name: 'Ouvrir' }).click();
-    await expect(page.getByText('palier 4')).toBeVisible();
+    await expect(page.getByText('étape 4')).toBeVisible();
 
     // ordinateur 2 : tout neuf, même compte
     const autre = await browser.newContext();

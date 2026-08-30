@@ -20,16 +20,19 @@ test.describe('Verr. Maj', () => {
   });
 });
 
+/* La v1 ouvrait les chiffres dès le palier 1 en CH-FR parce qu'ils y sont
+   directs : l'enfant suisse devait valider onze touches contre sept pour
+   l'enfant français, avec le même plafond, et son premier palier était ~57 %
+   plus long. La v2 aligne les deux dispositions sur une étape « chiffres »
+   commune — l'asymétrie était un défaut, pas une promesse. */
 test.describe('CH-FR', () => {
-  test('la leçon 1 propose bien des nombres, comme V2 le promet', async ({ page }) => {
+  test('la première étape sert des mots, et aucun chiffre', async ({ page }) => {
     await ouvrir(page, 'fr-CH');
     await page.getByRole('button', { name: 'On commence !' }).click();
-    const items = await page.evaluate(() => {
-      const bandeau = document.querySelector('[data-mot]');
-      return bandeau?.getAttribute('data-mot') ?? '';
-    });
-    expect(items.length).toBeGreaterThan(0);
-    // les chiffres 4 5 6 7 sont déverrouillés dès le palier 1
-    await expect(page.getByText(/4\s*5\s*6\s*7/)).toBeVisible();
+    const mot = await page.evaluate(
+      () => document.querySelector('[data-mot]')?.getAttribute('data-mot') ?? '',
+    );
+    expect(mot.length).toBeGreaterThan(0);
+    expect(mot, 'aucun chiffre avant l’étape qui les enseigne').not.toMatch(/[0-9]/);
   });
 });

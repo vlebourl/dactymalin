@@ -17,14 +17,23 @@ const VUES: Array<[string, string | null]> = [
   ['V7', null], // engrenage
 ];
 
+/* Une leçon longue, ici, n'est pas un détail : ces tests mesurent une mise en
+   page, et une leçon qui se termine pendant la mesure fait basculer l'écran sur
+   la vue de fin. La mesure portait alors sur autre chose que ce qu'elle croyait
+   observer, une fois sur deux. */
 test.describe('aucun débordement horizontal', () => {
   for (const largeur of LARGEURS) {
     for (const palier of [1, 7]) {
       test(`${largeur} px, palier ${palier}`, async ({ page }) => {
         await page.setViewportSize({ width: largeur, height: 900 });
-        await ouvrir(page, 'fr-FR', palier);
+        await ouvrir(page, 'fr-FR', palier, false, 'Joueur 1', 'decouverte', 0, 600_000);
 
         const mesurer = async (vue: string) => {
+          /* Les polices arrivent après le premier rendu, et un texte encore
+             mesuré dans la fonte de repli est plus large : sous quatre workers,
+             la mesure tombait avant l'échange et voyait un débordement qui
+             n'existe pas une fois la page posée. */
+          await page.evaluate(() => document.fonts.ready);
           const debordement = await page.evaluate(
             () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
           );
@@ -59,7 +68,7 @@ test.describe('aucun débordement horizontal', () => {
    Corollaire à ne pas rater — après un clic souris sur un bouton de la leçon,
    le clavier doit revenir à la leçon, sinon plus rien ne se tape. */
 test('un clic souris sur un bouton de la leçon rend le clavier à la leçon', async ({ page }) => {
-  await ouvrir(page, 'fr-FR', 1);
+  await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', 0, 600_000);
   await page.getByRole('button', { name: 'On commence !' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
@@ -76,7 +85,7 @@ test.describe('touches dessinables mais non proposables', () => {
   test('Retour arrière et touches mortes sont dessinés, éteints et sans cadenas', async ({
     page,
   }) => {
-    await ouvrir(page, 'fr-FR', 1);
+    await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', 0, 600_000);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
@@ -93,17 +102,16 @@ test.describe('touches dessinables mais non proposables', () => {
   });
 
   test('CH-FR : le ^ mort est là, éteint', async ({ page }) => {
-    await ouvrir(page, 'fr-CH', 1);
+    await ouvrir(page, 'fr-CH', 1, false, 'Joueur 1', 'decouverte', 0, 600_000);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
     for (const code of ['Equal', 'BracketRight', 'Minus']) {
       await expect(page.locator(`[data-code="${code}"]`)).toHaveAttribute('data-etat', 'eteinte');
     }
-    // les chiffres, eux, sont ouverts dès le palier 1 : ni cadenas ni extinction
-    expect(await page.locator('[data-code="Digit4"]').getAttribute('data-etat')).not.toBe(
-      'eteinte',
-    );
-    await expect(page.locator('[data-code="Digit4"] svg')).toHaveCount(0);
+    /* Les chiffres ne sont plus ouverts dès la première étape en CH-FR : la v2
+       les place à la même étape pour les deux dispositions. Ils sont donc
+       dessinés et cadenassés — annoncés, pas absents. */
+    await expect(page.locator('[data-code="Digit4"] svg')).toHaveCount(1);
     // le Retour arrière a été retiré du dessin : plus aucune trace
     await expect(page.locator('[data-code="Backspace"]')).toHaveCount(0);
   });
@@ -121,7 +129,7 @@ test.describe('V3 : les mains encadrent le clavier', () => {
       page,
     }) => {
       await page.setViewportSize({ width: largeur, height: hauteur });
-      await ouvrir(page, 'fr-FR', 1);
+      await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', 0, 600_000);
       await page.getByRole('button', { name: 'Revoir : où mettre mes doigts' }).click();
       await expect(page.locator('body')).toHaveAttribute('data-vue', 'V3');
 
@@ -159,7 +167,7 @@ test.describe('les écrans de formulaire restent atteignables', () => {
   ] as const) {
     test(`réglages : on atteint le bas en ${largeur}×${hauteur}`, async ({ page }) => {
       await page.setViewportSize({ width: largeur, height: hauteur });
-      await ouvrir(page, 'fr-FR', 1);
+      await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', 0, 600_000);
       await page.getByLabel('Réglages').click();
       await expect(page.locator('body')).toHaveAttribute('data-vue', 'V7');
 

@@ -1,57 +1,87 @@
 import { expect, test } from '@playwright/test';
 import { jouerBlocParfait, ouvrir, sauvegarde } from './helpers/app';
+import { ETAPE_MAX, LECONS_PAR_ETAPE } from '../../src/core/parcours';
 
-/* La progression était entièrement muette : rien à l'écran ne disait à quelle
-   leçon on en était, et franchir un palier ne se voyait nulle part. Ces tests
-   tiennent les deux bouts — l'affichage pendant la leçon, et l'annonce au
-   moment du franchissement. */
+/* La progression était entièrement muette : rien à l'écran ne disait où on en
+   était, et changer d'étape ne se voyait nulle part. Ces tests tiennent les
+   deux bouts — l'affichage pendant la leçon, et l'annonce au moment du
+   passage.
+
+   Ce qu'ils vérifiaient de la v1 et qui n'existe plus : la barre suivait le
+   plus avancé de DEUX chemins concurrents — touches maîtrisées ou plafond de
+   blocs — et pouvait sauter sans prévenir. Il n'en reste qu'un, le compte de
+   leçons, annoncé d'avance. */
 test.describe('progression explicite', () => {
-  test("l'en-tête annonce la leçon, le bloc et à qui appartient la progression", async ({
+  test("l'en-tête annonce l'étape, la leçon et à qui appartient la progression", async ({
     page,
   }) => {
     await ouvrir(page, 'fr-FR', 3, false, 'Lila');
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
-    await expect(page.getByText('Leçon 3 sur 7')).toBeVisible();
-    await expect(page.getByText('Bloc 1 de cette leçon')).toBeVisible();
+    /* Le texte visible dit la leçon, le nom accessible de la jauge dit
+       l'étape : un lecteur d'écran doit entendre les deux. */
+    await expect(page.getByText(`Leçon 1 sur ${LECONS_PAR_ETAPE}`)).toBeVisible();
+    await expect(page.getByLabel(`Étape 3 · Leçon 1 sur ${LECONS_PAR_ETAPE}`)).toBeVisible();
     await expect(page.getByText('Lila')).toBeVisible();
   });
 
-  /* La jauge doit atteindre son maximum EXACTEMENT quand le palier tombe : une
-     barre pleine sur un palier qui continue, ou un saut sans barre pleine,
-     rendraient l'indice mensonger. Le dernier palier n'ouvre sur rien. */
-  test('au dernier palier, la leçon est annoncée comme la dernière', async ({ page }) => {
-    await ouvrir(page, 'fr-FR', 7);
+  /* Le quota est LISIBLE D'AVANCE : c'est tout l'intérêt du changement. À la
+     dernière étape, il n'y a plus rien à promettre au-delà. */
+  test('à la dernière étape, rien ne promet une étape suivante', async ({ page }) => {
+    await ouvrir(page, 'fr-FR', ETAPE_MAX);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
-    await expect(page.getByText('Leçon 7 sur 7')).toBeVisible();
-    await expect(page.getByText('dernière leçon')).toBeVisible();
+    await expect(page.getByLabel(`Étape ${ETAPE_MAX} ·`, { exact: false })).toBeVisible();
+    /* Chercher l'absence du texte exact « Étape 11 » ne prouvait rien : toute
+       AUTRE promesse mensongère passait. On vérifie que le numéro affiché est
+       bien le dernier, quelle que soit la formulation. */
+    const numeros = await page.evaluate(() =>
+      [...document.body.innerText.matchAll(/Étape\s+(\d+)/g)].map((m) => Number(m[1])),
+    );
+    expect(numeros.length).toBeGreaterThan(0);
+    expect(Math.max(...numeros)).toBe(ETAPE_MAX);
   });
-  /* Franchir un palier ne se voyait NULLE PART : même titre d'encouragement,
-     même bouton « Encore ». L'enfant changeait de leçon sans le savoir. */
-  test('franchir un palier est annoncé, et le bouton mène à la leçon suivante', async ({
-    page,
-  }) => {
+
+  /* Changer d'étape ne se voyait NULLE PART : même titre d'encouragement, même
+     bouton « Encore ». L'enfant changeait de contenu sans le savoir. */
+  test("passer d'étape est annoncé, et le bouton mène à la suivante", async ({ page }) => {
     test.slow();
-    await ouvrir(page, 'fr-FR');
+    // placé à une leçon de la fin : la prochaine termine l'étape
+    await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', LECONS_PAR_ETAPE - 1);
     await page.getByRole('button', { name: 'On commence !' }).click();
 
-    for (let bloc = 0; bloc < 4; bloc++) {
-      await jouerBlocParfait(page, 'fr-FR');
-      if ((await sauvegarde(page)).palier > 1) break;
-      await page.getByRole('button', { name: 'Encore' }).click();
-      await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
-    }
+    await jouerBlocParfait(page, 'fr-FR');
+    expect((await sauvegarde(page)).palier).toBe(2);
 
-    await expect(page.getByRole('heading', { name: 'Leçon 2 débloquée !' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /débloquée !/ })).toBeVisible();
     await expect(page.getByText(/Elle t'apporte/)).toBeVisible();
+  });
+});
 
-    const suivant = page.getByRole('button', { name: 'Commencer la leçon 2' });
-    await expect(suivant).toBeVisible();
-    await suivant.click();
+/* REJOUER (#62).
+ *
+ * Le bandeau était construit sur l'étape COURANTE et sur un quota qui, depuis
+ * #58, ne bouge plus pendant un rejeu. Un enfant à l'étape 5 rejouant l'étape
+ * 2 lisait donc « Leçon 7 sur 7 » — un chiffre faux, et une idée fausse :
+ * rejouer n'avance pas. Le lecteur d'écran, lui, entendait « Étape 5 » sur le
+ * contenu de l'étape 2. */
+test.describe('rejouer une étape', () => {
+  test("nomme l'étape rejouée et n'annonce aucun quota", async ({ page }) => {
+    await ouvrir(page, 'fr-FR', 5, false, 'Lila', 'decouverte', LECONS_PAR_ETAPE - 1);
+    await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
+
+    await page
+      .locator('div', { hasText: /^Étape 2 —/ })
+      .getByRole('button', { name: 'La rejouer' })
+      .first()
+      .click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
-    await expect(page.getByText('Leçon 2 sur 7')).toBeVisible();
+
+    await expect(page.getByText(`Étape 2 sur ${ETAPE_MAX}`)).toBeVisible();
+    await expect(page.getByLabel('Étape 2 · tu la rejoues')).toBeVisible();
+    /* Ni le quota de l'étape courante, ni aucun autre. */
+    await expect(page.getByText(/Leçon \d+ sur \d+/)).toHaveCount(0);
   });
 });

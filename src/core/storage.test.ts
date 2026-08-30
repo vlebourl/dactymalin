@@ -58,7 +58,9 @@ describe('gardes de chargement', () => {
 
 describe('persistance et clé de secours', () => {
   it('recharge à l\'identique', () => {
-    const etat = { ...DEFAUTS, palier: 3, disposition: 'fr-CH' as const, maitrise: { e: [1, 2, 3] } };
+    /* `valider` : la relecture MIGRE toujours ce qu'elle lit — comparer à
+       l'objet brut testerait l'absence de migration, pas la persistance. */
+    const etat = valider({ ...DEFAUTS, palier: 3, disposition: 'fr-CH' as const, maitrise: { e: [1, 2, 3] } });
     sauver(etat);
     expect(charger()).toEqual(etat);
   });

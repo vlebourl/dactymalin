@@ -90,8 +90,15 @@ describe('frappe propre', () => {
     expect(estPropre({ ...etatInitial('s', 0), atteint: 1 })).toBe(true);
   });
 
-  it('une erreur ou une escalade au barreau 2 ne compte pas', () => {
+  /* Régression #38 : un débutant de huit ans dépasse les trois secondes qui
+     font monter l'aide au barreau 2 sur presque chaque touche. Compter cette
+     hésitation comme un échec revenait à ne jamais rien valider. */
+  it("l'hésitation ne disqualifie plus une frappe juste", () => {
+    expect(estPropre({ ...etatInitial('s', 0), atteint: 2 })).toBe(true);
+    expect(estPropre({ ...etatInitial('s', 0), atteint: 3 })).toBe(true);
+  });
+
+  it('une erreur, elle, ne compte pas', () => {
     expect(estPropre(surErreur(etatInitial('s', 0), 1))).toBe(false);
-    expect(estPropre({ ...etatInitial('s', 0), atteint: 2 })).toBe(false);
   });
 });

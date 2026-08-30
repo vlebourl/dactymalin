@@ -55,7 +55,7 @@ async function allerAUnChiffre(page: Page): Promise<string> {
 test.describe('son de réussite', () => {
   test('reste muet quand la frappe est refusée pour mauvaise Maj', async ({ page }) => {
     await espionnerLeSon(page);
-    await ouvrir(page, 'fr-FR', 7, true);
+    await ouvrir(page, 'fr-FR', 8, true);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 

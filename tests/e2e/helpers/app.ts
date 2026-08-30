@@ -98,26 +98,53 @@ function graineProfil(page: Page, id: string, nom: string) {
 }
 
 /** Progression déjà en place : on démarre sur V1, pas sur l'onboarding. */
+/**
+ * Place l'enfant à une étape donnée, dans un parcours donné.
+ *
+ * Écrit le format v2 : la progression y est indexée par couple
+ * parcours × disposition et va jusqu'à la dixième étape. Le champ `palier`
+ * n'est plus qu'un MIROIR pour les clients d'avant, borné au septième — s'en
+ * servir pour placer l'enfant le ramenait silencieusement à l'étape 7, et
+ * aucun test ne pouvait atteindre les chiffres ni la ponctuation.
+ */
 export async function ouvrir(
   page: Page,
   id: IdDisposition = 'fr-FR',
-  palier = 1,
+  etape = 1,
   sons = false,
   prenom = 'Joueur 1',
+  parcours: 'decouverte' | 'dactylo' = 'decouverte',
+  lecons = 0,
+  /* Durée de la leçon, en millisecondes. Quatre secondes suffisent pour qu'une
+     leçon se termine en quelques exercices ; un test qui déroule une séquence
+     précise — le piège de la Majuscule, par exemple — en demande davantage. */
+  dureeLeconMs = 4_000,
 ): Promise<void> {
   await assureConnexion(page);
   const idProfil = await assureProfil(page, prenom);
   await graineProfil(page, idProfil, prenom);
+  /* Une leçon dure douze minutes en vrai. Le harnais la raccourcit — sans quoi
+     chaque test attendrait douze minutes pour voir l'écran de fin. */
+  await page.addInitScript((ms) => {
+    (globalThis as { __dureeLeconMs?: number }).__dureeLeconMs = ms as number;
+  }, dureeLeconMs);
   await page.addInitScript(
-    ([cle, disposition, niveau, avecSons]) => {
+    ([cle, disposition, niveau, avecSons, quelParcours, dejaFaites]) => {
+      const cleProgression = `${quelParcours}:${disposition}`;
       localStorage.setItem(
         cle as string,
         JSON.stringify({
           version: 1,
+          modele: 2,
+          parcours: quelParcours,
           disposition,
           dispositionChoisieALaMain: true,
-          palier: niveau,
-          blocsSurPalier: 0,
+          progressions: {
+            [cleProgression]: { etape: niveau, leconsSurEtape: dejaFaites },
+          },
+          // miroir pour un client resté sur l'ancien bundle
+          palier: Math.min(niveau as number, 7),
+          blocsSurPalier: dejaFaites,
           bloc: 1,
           maitrise: {},
           guideDoigtVu: true,
@@ -132,7 +159,14 @@ export async function ouvrir(
         JSON.stringify({ [String(cle).replace('tapeavecmoi.v1.', '')]: new Date().toISOString() }),
       );
     },
-    [cleProfil(page), id, palier, sons] as [string, IdDisposition, number, boolean],
+    [cleProfil(page), id, etape, sons, parcours, lecons] as [
+      string,
+      IdDisposition,
+      number,
+      boolean,
+      string,
+      number,
+    ],
   );
   await page.goto('/');
   await page.waitForSelector('body[data-vue="V1"]');
@@ -164,12 +198,20 @@ export async function jouerItem(page: Page, id: IdDisposition): Promise<string |
 }
 
 /** Joue un bloc entier sans une seule faute, puis enchaîne depuis V5. */
+/**
+ * Joue une leçon entière, sans une erreur, jusqu'à l'écran de fin.
+ *
+ * « Un bloc » n'existe plus : la leçon dure un TEMPS, et son nombre d'exercices
+ * dépend de la vitesse de l'enfant. Le harnais raccourcit ce temps (voir
+ * `ouvrir`), et cette boucle tape jusqu'à ce que l'écran de fin arrive — elle
+ * ne compte plus les items, ce qui n'aurait aucun sens.
+ */
 export async function jouerBlocParfait(page: Page, id: IdDisposition): Promise<void> {
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 60; i++) {
     if ((await page.locator('body').getAttribute('data-vue')) !== 'V4') break;
     if (!(await jouerItem(page, id))) break;
   }
-  await page.waitForSelector('body[data-vue="V5"]', { timeout: 6000 });
+  await page.waitForSelector('body[data-vue="V5"]', { timeout: 10000 });
 }
 
 /** Sauvegarde telle qu'elle est réellement persistée, pour le profil joué. */
