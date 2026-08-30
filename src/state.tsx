@@ -18,7 +18,6 @@ import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
 import { etapeFinie, ETAPE_MAX, type IdParcours } from './core/parcours';
-import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
 export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V9';
@@ -122,7 +121,11 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         dispositionChoisieALaMain: action.manuel || etat.dispositionChoisieALaMain,
         // la maîtrise est indexée par caractère : changer de clavier repart proprement
         maitrise: change ? {} : etat.maitrise,
-        palier: change ? Math.min(etat.palier, PALIER_MAX) : etat.palier,
+        /* Le parcours v2 compte DIX étapes ; borner ici sur l'ancien maximum
+           de sept rétrogradait un enfant arrivé aux chiffres dès qu'il changeait
+           de clavier. `PALIER_MAX` ne vaut plus que pour le miroir destiné aux
+           clients d'avant, jamais pour la progression vécue. */
+        palier: change ? Math.min(etat.palier, ETAPE_MAX) : etat.palier,
         /* Les blocs déjà joués l'ont été sur l'AUTRE clavier : les garder au
            compteur ouvrait le palier suivant par le plafond anti-mur alors que
            rien n'avait été prouvé sur la nouvelle disposition. */
