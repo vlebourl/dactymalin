@@ -9,6 +9,8 @@ import {
   sauver,
   valider,
   type Sauvegarde,
+  CLE_PROGRESSION_MAX,
+  PROGRESSIONS_MAX,
 } from './storage';
 import { PALIER_MAX } from './paliers';
 import { ETAPE_MAX, LECONS_PAR_ETAPE } from './parcours';
@@ -163,7 +165,48 @@ describe('progression indexée par couple parcours × disposition', () => {
     });
     expect(progressionDe(s, 'decouverte', 'fr-FR').etape).toBeLessThanOrEqual(ETAPE_MAX);
     expect(progressionDe(s, 'dactylo', 'fr-FR')).toEqual({ etape: 1, leconsSurEtape: 0 });
-    expect(Object.keys(s.progressions ?? {})).not.toContain('sournois:fr-FR');
+    /* Une clé qu'on ne comprend PAS n'est pas une injection : c'est peut-être
+       un parcours qu'un client plus récent connaît déjà. La jeter revenait à
+       effacer sa progression à chaque fusion, silencieusement. On la garde
+       telle quelle, sans jamais l'interpréter. */
+    expect(Object.keys(s.progressions ?? {})).toContain('sournois:fr-FR');
+    expect(s.progressions?.['sournois:fr-FR' as keyof typeof s.progressions]).toEqual({
+      etape: 4,
+      leconsSurEtape: 0,
+    });
+  });
+
+  /* Ce qu'il faut vraiment refuser : une clé mal formée, et un état qui grossit
+     sans fin. Pas un parcours qu'on ne connaît pas encore. */
+  it('refuse une clé de progression mal formée', () => {
+    const s = valider({
+      ...v1(),
+      progressions: {
+        'sans-deux-points': { etape: 2, leconsSurEtape: 0 },
+        '__proto__': { etape: 2, leconsSurEtape: 0 },
+        ['x'.repeat(200) + ':fr-FR']: { etape: 2, leconsSurEtape: 0 },
+      },
+    });
+    for (const cle of Object.keys(s.progressions ?? {})) {
+      expect(cle).toMatch(/^[a-z0-9-]+:[a-zA-Z0-9-]+$/);
+      expect(cle.length).toBeLessThanOrEqual(CLE_PROGRESSION_MAX);
+    }
+  });
+
+  it("borne le nombre de progressions qu'un pair peut faire stocker", () => {
+    const brut: Record<string, unknown> = {};
+    for (let k = 0; k < 200; k++) brut[`parcours${k}:fr-FR`] = { etape: 1, leconsSurEtape: 0 };
+    const s = valider({ ...v1(), progressions: brut });
+    /* La migration ajoute au passage la clé de Découverte : le plafond porte
+       sur ce qu'un pair peut FAIRE STOCKER, pas sur ce que l'app se doit à
+       elle-même. */
+    expect(Object.keys(s.progressions ?? {}).length).toBeLessThanOrEqual(PROGRESSIONS_MAX + 1);
+  });
+
+  it("une clé future traverse lecture puis écriture sans changer", () => {
+    const s = valider({ ...v1(), progressions: { 'troisieme:fr-CH': { etape: 5, leconsSurEtape: 3 } } });
+    const relu = valider(JSON.parse(JSON.stringify(s)));
+    expect(relu.progressions).toEqual(s.progressions);
   });
 
   it('survit à des progressions franchement corrompues', () => {

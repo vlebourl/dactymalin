@@ -78,6 +78,22 @@ export function V6Carte() {
                   <span className={v.promessePalier}>
                     {p.exemples.length > 0 ? p.exemples.join(', ') : (p.promesse ?? '')}
                   </span>
+                  {/* Rejouer une étape FINIE, et seulement à l'initiative de
+                      l'enfant. L'app ne le propose jamais d'elle-même, surtout
+                      pas après une difficulté : ce serait un rattrapage
+                      déguisé. Rien n'est retiré, rien n'est recompté. */}
+                  {passe && (
+                    <>
+                      <br />
+                      <button
+                        type="button"
+                        className={v.rejouerEtape}
+                        onClick={() => envoi({ type: 'rejouerEtape', etape: p.n })}
+                      >
+                        La rejouer
+                      </button>
+                    </>
+                  )}
                 </span>
               </div>
             );

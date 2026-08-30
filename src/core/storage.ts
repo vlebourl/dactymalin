@@ -269,15 +269,62 @@ function progressionValide(v: unknown): Progression | null {
   return { etape, leconsSurEtape: lecons };
 }
 
+/**
+ * Une clé de progression INCONNUE est conservée telle quelle, sans être
+ * interprétée.
+ *
+ * `estIntact` la tolérait déjà — « une clé inconnue est TOLÉRÉE (un parcours
+ * futur) » — mais cette fonction-là la jetait, et `valider` passe par elle. Le
+ * jour où un troisième parcours arrive, un appareil resté sur l'ancien bundle
+ * aurait donc EFFACÉ la progression du parcours neuf à chaque fusion, sans un
+ * mot et sans retour possible. Ce n'est pas un bug actif — `IdParcours` n'a que
+ * deux valeurs — c'est une bombe à retardement, et elle explosait au moment
+ * précis où l'on croirait n'avoir fait qu'ajouter une valeur.
+ *
+ * Les deux fonctions tiennent désormais le même contrat : on ne comprend pas,
+ * on ne touche pas.
+ */
 function progressionsValides(v: unknown): Progressions {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
-  const sortie: Progressions = {};
-  for (const [cle, val] of Object.entries(v as Record<string, unknown>)) {
-    if (!CLES_PROGRESSION.has(cle)) continue;
+  const sortie: Progressions = Object.create(null) as Progressions;
+  /* Les clés CONNUES passent d'abord : le plafond ne doit jamais coûter la
+     progression réelle de l'enfant au profit d'un espace opaque. */
+  const entrees = Object.entries(v as Record<string, unknown>).sort(
+    (a, b) => Number(CLES_PROGRESSION.has(b[0])) - Number(CLES_PROGRESSION.has(a[0])),
+  );
+  let n = 0;
+  for (const [cle, val] of entrees) {
+    if (n >= PROGRESSIONS_MAX) break;
     const p = progressionValide(val);
-    if (p) sortie[cle as CleProgression] = p;
+    if (!p) continue;
+    if (CLES_PROGRESSION.has(cle) || estCleProgressionPlausible(cle)) {
+      sortie[cle as CleProgression] = p;
+      n++;
+    }
   }
-  return sortie;
+  return { ...sortie };
+}
+
+/** Bornes de l'espace opaque : elles empêchent un pair d'y faire grossir la
+    sauvegarde sans fin, sans rien décider de ce qu'il contient. */
+export const CLE_PROGRESSION_MAX = 64;
+export const PROGRESSIONS_MAX = 32;
+
+/**
+ * Forme d'une clé de progression, sans exiger de connaître NI le parcours NI la
+ * disposition : les deux peuvent évoluer, et un client d'aujourd'hui n'a pas à
+ * en juger. On vérifie seulement que la clé est sûre et bornée.
+ */
+function estCleProgressionPlausible(cle: string): boolean {
+  return (
+    cle.length > 0 &&
+    cle.length <= CLE_PROGRESSION_MAX &&
+    /^[a-z0-9-]+:[a-zA-Z0-9-]+$/.test(cle) &&
+    /* pollution de prototype : une clé ne devient jamais une propriété
+       héritée, même si elle passe le filtre de forme */
+    cle !== '__proto__' &&
+    cle !== 'constructor'
+  );
 }
 
 /**

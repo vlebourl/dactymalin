@@ -986,3 +986,17 @@
   text-align: center;
   color: var(--encre-douce, #5b5347);
 }
+
+/* Discret par construction : rejouer est une envie, pas une étape du parcours.
+   Le mettre en avant en ferait une consigne. */
+.rejouerEtape {
+  margin-top: 0.15rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.85em;
+  color: var(--encre-douce, #5b5347);
+  text-decoration: underline;
+  cursor: pointer;
+}
