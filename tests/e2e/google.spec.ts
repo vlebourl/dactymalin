@@ -91,3 +91,32 @@ test('aucun trafic Google en dehors de l’écran de connexion', async ({ page }
 
   expect(versGoogle).toEqual([]);
 });
+
+/**
+ * Le chemin d'échec le plus probable en production, et il était MUET.
+ *
+ * La liaison automatique est désactivée exprès : un parent qui a déjà un compte
+ * à mot de passe et clique « Continuer avec Google » avec la même adresse est
+ * refusé. Google le ramène ici avec `?error=account_not_linked` — sans lecture
+ * de ce paramètre, il retrouvait le formulaire sans un mot d'explication.
+ */
+test('revenir de Google en échec explique pourquoi, et ne laisse pas de trace', async ({
+  page,
+}) => {
+  await page.goto('/?error=account_not_linked');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'connexion');
+
+  const alerte = page.getByRole('alert');
+  await expect(alerte).toContainText(/déjà un compte avec mot de passe/i);
+
+  /* Le paramètre est retiré de la barre d'adresse : un rechargement ne doit pas
+     ressusciter une erreur déjà lue. */
+  expect(new URL(page.url()).search).toBe('');
+  await page.reload();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('un code d’erreur inconnu reste compréhensible', async ({ page }) => {
+  await page.goto('/?error=quelque_chose_dimprevu');
+  await expect(page.getByRole('alert')).toContainText(/Google n’a pas abouti/i);
+});

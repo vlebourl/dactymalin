@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { messageDEchec } from '../core/erreurs-compte';
+import { messageDEchec, messageDErreurGoogle } from '../core/erreurs-compte';
 import {
   compteCourant,
   connecter,
@@ -34,6 +34,21 @@ export function Connexion({ onConnecte }: { onConnecte: (c: Compte) => void }) {
 
   useEffect(() => {
     void googleDisponible().then(setAvecGoogle);
+  }, []);
+
+  /* Google nous RAMÈNE ici avec un `?error=` quand le parcours a échoué. Sans
+     cette lecture, le parent revient de chez Google devant un formulaire muet.
+     Le paramètre est retiré de la barre d'adresse une fois lu : un
+     rechargement ne doit pas ressusciter une erreur déjà comprise. */
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const motif = messageDErreurGoogle(params.get('error'));
+    if (!motif) return;
+    setErreur(motif);
+    params.delete('error');
+    params.delete('error_description');
+    const reste = params.toString();
+    history.replaceState(null, '', location.pathname + (reste ? `?${reste}` : ''));
   }, []);
 
   useEffect(() => {
