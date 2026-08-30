@@ -40,6 +40,30 @@ export const CLE_LISTES = 'tapeavecmoi.listes';
 
 type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
 
+/**
+ * File de repli EN MÉMOIRE, pour la session en cours (#55).
+ *
+ * Quand le stockage refuse d'écrire — quota saturé, navigation privée —, la
+ * file relue depuis `CLE_FILE` est vide : l'envoi n'était pas différé, il
+ * n'existait plus, et `enAttente()` annonçait zéro au parent. Ce qui n'a pas pu
+ * être persisté reste donc ici, envoyable et COMPTÉ, jusqu'au rechargement.
+ */
+let fileMemoire: EnAttente[] | null = null;
+
+/** La file : celle de la mémoire tant que le stockage n'en a pas voulu. */
+const lireFile = (): EnAttente[] => fileMemoire ?? lire<EnAttente[]>(CLE_FILE, []);
+
+/**
+ * Repart d'une session vierge. La file de repli n'appartient qu'à la session
+ * en cours : la déconnexion la jette, et un test qui change de stockage aussi.
+ */
+export const oublierFileMemoire = (): void => void (fileMemoire = null);
+
+/** Écrit la file, et la garde en mémoire si le stockage l'a refusée. */
+function ecrireFile(file: EnAttente[]): void {
+  fileMemoire = ecrire(CLE_FILE, file) ? null : file;
+}
+
 function lire<T>(cle: string, defaut: T): T {
   try {
     const brut = localStorage.getItem(cle);
@@ -49,11 +73,17 @@ function lire<T>(cle: string, defaut: T): T {
   }
 }
 
-function ecrire(cle: string, valeur: unknown): void {
+/** `true` si l'écriture a bien eu lieu. Le retour COMPTE : un stockage plein
+    avalait l'erreur, et l'appelant croyait avoir persisté (#55). */
+function ecrire(cle: string, valeur: unknown): boolean {
   try {
     localStorage.setItem(cle, JSON.stringify(valeur));
-  } catch {
-    /* navigation privée : la session continue sans file persistée */
+    return true;
+  } catch (erreur) {
+    /* Aucune trace, nulle part : c'était le premier problème. Le parent ne lit
+       pas la console, mais celui qui cherche la panne, si. */
+    console.warn(`[tapeavecmoi] écriture refusée sur ${cle}`, erreur);
+    return false;
   }
 }
 
@@ -278,6 +308,9 @@ export const connecter = (email: string, motDePasse: string) =>
  */
 function oublierTout(): void {
   oublierLeCompte();
+  /* La file de repli part avec le reste : la donner à la session suivante,
+     c'est donner le travail d'un enfant au compte d'une autre famille. */
+  oublierFileMemoire();
   effacer(CLE_FILE);
   effacer(CLE_MAJ);
   oublierProfils();
@@ -411,7 +444,7 @@ export function viderLaFile(): Promise<void> {
 }
 
 async function vidange(): Promise<void> {
-  let file = lire<EnAttente[]>(CLE_FILE, []);
+  let file = lireFile();
   while (file.length > 0) {
     const [premier, ...reste] = file;
     try {
@@ -425,7 +458,7 @@ async function vidange(): Promise<void> {
       if (statut !== 400 && statut !== 404) return; // hors ligne : on réessaiera
     }
     file = reste;
-    ecrire(CLE_FILE, file);
+    ecrireFile(file);
   }
 }
 
@@ -445,14 +478,14 @@ export function pousser(idProfil: string, etat: Sauvegarde): Promise<void> {
   ecrire(CLE_MAJ, { ...lire<Record<string, string>>(CLE_MAJ, {}), [idProfil]: majLe });
   /* Une seule entrée par profil : la plus récente remplace la précédente,
      inutile de rejouer dix états intermédiaires. */
-  const file = lire<EnAttente[]>(CLE_FILE, []).filter((e) => e.profilDistant !== idProfil);
+  const file = lireFile().filter((e) => e.profilDistant !== idProfil);
   file.push({ profilDistant: idProfil, etat, majLe });
-  ecrire(CLE_FILE, file);
+  ecrireFile(file);
   return viderLaFile();
 }
 
 /** Nombre d'envois encore en attente : affiché au parent, jamais à l'enfant. */
-export const enAttente = (): number => lire<EnAttente[]>(CLE_FILE, []).length;
+export const enAttente = (): number => lireFile().length;
 
 /**
  * REPRISE, une seule fois, de la progression d'AVANT les identifiants serveur.

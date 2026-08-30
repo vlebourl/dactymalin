@@ -12,6 +12,7 @@ import {
   CLE_MAJ,
   deconnecter,
   enAttente,
+  oublierFileMemoire,
   pousser,
   synchroniserProfils,
   viderLaFile,
@@ -86,6 +87,9 @@ function serveur(distants: Distant[]) {
 }
 
 beforeEach(() => {
+  /* Nouveau stockage = nouvelle session : la file de repli en mémoire (#55)
+     ne doit pas franchir la frontière d'un test. */
+  oublierFileMemoire();
   globalThis.localStorage = new FauxStockage() as unknown as Storage;
   globalThis.sessionStorage = new FauxStockage() as unknown as Storage;
 });
@@ -586,6 +590,42 @@ describe('déconnexion', () => {
     expect(localStorage.getItem(cleDe('d1'))).toBeNull();
     expect(localStorage.getItem(CLE_FILE)).toBeNull();
     expect(localStorage.getItem(CLE_MAJ)).toBeNull();
+    expect(enAttente()).toBe(0);
+  });
+});
+
+/* ------------------------------------------------------------------ #55 */
+
+/** Un stockage qui refuse TOUTE écriture : quota saturé, Safari privé. */
+class StockagePlein extends FauxStockage {
+  setItem = () => {
+    throw new DOMException('quota', 'QuotaExceededError');
+  };
+}
+
+describe('stockage plein : la séance ne disparaît pas en silence', () => {
+  beforeEach(() => {
+    globalThis.localStorage = new StockagePlein() as unknown as Storage;
+  });
+
+  it('l’envoi part quand même : il n’est pas perdu avec la file', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(s.puts.map((p) => p.etat.palier)).toEqual([3]);
+    expect(enAttente()).toBe(0);
+  });
+
+  it('hors ligne ET stockage plein : la progression reste COMPTÉE en attente', async () => {
+    /* Le pire des cas : rien ne peut être persisté, rien ne peut partir. Le
+       seul indicateur que la famille possède ne doit pas annoncer zéro. */
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    s.couper();
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(enAttente()).toBe(1);
+
+    s.rebrancher();
+    await viderLaFile();
+    expect(s.puts.map((p) => p.etat.palier)).toEqual([3]);
     expect(enAttente()).toBe(0);
   });
 });
