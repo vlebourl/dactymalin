@@ -27,7 +27,7 @@ depuis l'extérieur ».
 | Base | `typing-app-db`, UUID `hrfpcwechi8tb7imlir13b1a`, PostgreSQL 17 |
 | Sauvegarde planifiée | UUID `i101zg9ef5sh78fy1yheqtkw`, tous les jours à 03:00 |
 | Port hôte | **3003** → 3000 dans le conteneur |
-| Domaine | `typing.tiarkaerell.com`, publié par **Nginx Proxy Manager** vers `192.168.1.48:3003` |
+| Domaines | `dacty.tiarkaerell.com` (**canonique** : `BETTER_AUTH_URL`, retour de Google, cookie de session) et `typing.tiarkaerell.com`, tous deux vivants et publiés par **Nginx Proxy Manager** vers `192.168.1.48:3003`. Les DEUX doivent figurer dans `FRONTEND_URL` (#66) |
 | Jetons API | fichiers `root` sur l'hôte : `/root/.coolify-claude-token`, `/root/.typing-app-coolify-token` |
 
 ## Vérifier que tout va bien
@@ -67,6 +67,7 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | Un push ne déclenche rien | le runner `homelab-runner` est hors ligne | `sudo systemctl status actions.runner.vlebourl-dactymalin.homelab-runner` sur l'hôte Coolify |
 | Webhook GitHub renvoyant 403 | Cloudflare défie les POST de GitHub (« Just a moment… ») | ne pas utiliser de webhook : le runner appelle Coolify en localhost |
 | Le bouton Google est absent en production | une seule des deux variables du fournisseur est posée, ou aucune | vérifier `GET /api/config` ; poser `GOOGLE_CLIENT_ID` **et** `GOOGLE_CLIENT_SECRET` dans Coolify, puis redéployer |
+| 403 `Invalid origin` sur la connexion ET la création de compte | le domaine ouvert par le parent n'est pas dans `FRONTEND_URL` | ajouter l'origine à `FRONTEND_URL` (liste séparée par des virgules), redéployer. Diagnostic : le corps de la réponse dit `{"code":"INVALID_ORIGIN"}` — et un `curl` ne le reproduit PAS, Better Auth ne vérifiant l'origine que si la requête porte un cookie |
 | Google répond `redirect_uri_mismatch` | l'URI déclarée dans la console Google diffère du chemin réel | déclarer `https://typing.tiarkaerell.com/api/auth/callback/google` — le chemin vient de `basePath: '/api/auth'` |
 | Un appareil de la famille sert une VIEILLE version | le service worker (`public/sw.js`) garde la coquille de l'application sur la machine | il est en RÉSEAU D'ABORD : un rechargement en ligne suffit. S'il faut forcer, changer le nom `CACHE` dans `sw.js` — l'activation efface alors tous les caches d'avant |
 
