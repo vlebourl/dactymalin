@@ -54,6 +54,7 @@ describe('un bloc de liste ne fait pas avancer le parcours', () => {
     propres: ['d', 'i', 'n', 'o'],
     aRevoir: [],
     items: ['dinosaure'],
+    fin: 1_700_000_000_000,
   };
 
   it('rapporte les étoiles, et ne bouge ni palier, ni maîtrise, ni compteur', () => {
