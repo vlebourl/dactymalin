@@ -66,6 +66,8 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
 | Un push ne déclenche rien | le runner `homelab-runner` est hors ligne | `sudo systemctl status actions.runner.vlebourl-dactymalin.homelab-runner` sur l'hôte Coolify |
 | Webhook GitHub renvoyant 403 | Cloudflare défie les POST de GitHub (« Just a moment… ») | ne pas utiliser de webhook : le runner appelle Coolify en localhost |
+| Le bouton Google est absent en production | une seule des deux variables du fournisseur est posée, ou aucune | vérifier `GET /api/config` ; poser `GOOGLE_CLIENT_ID` **et** `GOOGLE_CLIENT_SECRET` dans Coolify, puis redéployer |
+| Google répond `redirect_uri_mismatch` | l'URI déclarée dans la console Google diffère du chemin réel | déclarer `https://typing.tiarkaerell.com/api/auth/callback/google` — le chemin vient de `basePath: '/api/auth'` |
 | Un appareil de la famille sert une VIEILLE version | le service worker (`public/sw.js`) garde la coquille de l'application sur la machine | il est en RÉSEAU D'ABORD : un rechargement en ligne suffit. S'il faut forcer, changer le nom `CACHE` dans `sw.js` — l'activation efface alors tous les caches d'avant |
 
 ## Le service worker
@@ -83,6 +85,32 @@ Depuis #3, l'application démarre sans réseau : `public/sw.js` garde sa coquill
 - Le cache **enfle lentement** : chaque déploiement ajoute ses fichiers au nom
   haché sans retirer les précédents. Le ménage se fait en changeant le nom
   `CACHE` dans `sw.js`, ce qui efface tous les caches antérieurs à l'activation.
+
+## Google SSO — la vérification qui ne s'automatise pas
+
+Le parcours Google ne se teste pas en machine : un faux serveur OAuth
+vérifierait surtout notre capacité à écrire un serveur OAuth. Ce qui casse en
+pratique — clé, secret, URI de redirection — ne se voit que sur le vrai Google.
+**Après chaque déploiement qui touche à l'authentification**, dérouler ceci et
+cocher :
+
+| # | Geste | Attendu |
+|---|---|---|
+| 1 | Ouvrir `https://typing.tiarkaerell.com` en navigation privée | l'écran de connexion, avec le bouton « Continuer avec Google » |
+| 2 | Cliquer le bouton | redirection vers `accounts.google.com`, pas une page d'erreur |
+| 3 | Choisir un compte Google | retour sur `typing.tiarkaerell.com`, connecté |
+| 4 | Créer un enfant, jouer un bloc | la progression est bien enregistrée |
+| 5 | Se déconnecter, puis se reconnecter par ADRESSE avec la même adresse Gmail | un compte SÉPARÉ, vide — la liaison automatique est désactivée exprès (#7) |
+
+**Si le bouton n'apparaît pas** : les deux variables `GOOGLE_CLIENT_ID` et
+`GOOGLE_CLIENT_SECRET` ne sont pas toutes les deux posées dans Coolify.
+`GET /api/config` répond `{"google":false}` — c'est le diagnostic le plus court.
+
+**Si Google répond `redirect_uri_mismatch`** : l'URI déclarée dans la console
+ne correspond pas au chemin réel, qui est
+`https://typing.tiarkaerell.com/api/auth/callback/google`. Il vient de la base
+de montage de Better Auth (`basePath: '/api/auth'`) ; une lettre de travers
+suffit.
 
 ## Ce qui protège les données
 

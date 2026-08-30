@@ -13,6 +13,13 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().optional(),
   FRONTEND_URL: z.string().url().optional(),
+  /**
+   * Client OAuth Google. Les DEUX ou AUCUNE : un fournisseur déclaré à moitié
+   * afficherait un bouton qui mène à une erreur. Absentes, l'application
+   * démarre normalement et seul le chemin mot de passe existe (#7).
+   */
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   /** Sauvegarde Coolify avant migration (étape 2). */
   COOLIFY_WEBHOOK_URL: z.string().url().optional(),
   COOLIFY_API_TOKEN: z.string().min(1).optional(),

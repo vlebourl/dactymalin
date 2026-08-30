@@ -1,6 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { messageDEchec } from '../core/erreurs-compte';
-import { compteCourant, connecter, creerCompte, type Compte } from '../core/sync';
+import {
+  compteCourant,
+  connecter,
+  creerCompte,
+  googleDisponible,
+  partirVersGoogle,
+  type Compte,
+} from '../core/sync';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
@@ -21,6 +28,13 @@ export function Connexion({ onConnecte }: { onConnecte: (c: Compte) => void }) {
   const [motDePasse, setMotDePasse] = useState('');
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
+  /* `false` d'abord : on n'affiche pas un chemin dont on ignore encore s'il
+     existe, quitte à le faire apparaître une fraction de seconde plus tard. */
+  const [avecGoogle, setAvecGoogle] = useState(false);
+
+  useEffect(() => {
+    void googleDisponible().then(setAvecGoogle);
+  }, []);
 
   useEffect(() => {
     document.body.dataset.vue = 'connexion';
@@ -108,6 +122,27 @@ export function Connexion({ onConnecte }: { onConnecte: (c: Compte) => void }) {
           >
             {mode === 'creation' ? "J'ai déjà un compte" : 'Créer un compte'}
           </button>
+          {/* Le fournisseur n'est proposé que si le SERVEUR sait s'en servir.
+              Un bouton et non un lien : il n'y a pas d'adresse à suivre. Le
+              serveur doit d'abord être interrogé, et c'est LUI qui rend
+              l'adresse chez Google — celle qui porte l'état anti-rejeu. */}
+          {avecGoogle && (
+            <button
+              className={[u.bouton, v.boutonGoogle].join(' ')}
+              type="button"
+              disabled={occupe}
+              onClick={() => {
+                setErreur(null);
+                void partirVersGoogle().catch(() =>
+                  setErreur(
+                    'Impossible de joindre Google pour l’instant. Réessayez, ou utilisez une adresse et un mot de passe.',
+                  ),
+                );
+              }}
+            >
+              Continuer avec Google
+            </button>
+          )}
           {/* Sans service d'envoi d'email, aucun lien de réinitialisation ne
               peut partir : mieux vaut le dire que le laisser espérer. */}
           <p className={v.promessePalier}>

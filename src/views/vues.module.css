@@ -902,6 +902,17 @@
   text-align: left;
 }
 
+/* « Continuer avec Google » : un LIEN dessiné comme un bouton — la navigation
+   quitte vraiment l'application. Volontairement sobre : c'est un chemin de
+   connexion parmi deux, pas l'offre principale. */
+.boutonGoogle {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+}
+
 /* Accueil : la bibliothèque du foyer, une carte par liste. Une carte est un
    bouton entier — un enfant vise large, et le nom seul serait une cible fine. */
 .cartesListes {
