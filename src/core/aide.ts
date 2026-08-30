@@ -69,7 +69,18 @@ export function prochaineLatence(
   return LATENCES[Math.min((i < 0 ? 0 : i) + 1, LATENCES.length - 1)];
 }
 
-/** Un item est « propre » (compte pour la maîtrise) s'il n'a demandé ni erreur ni aide. */
+/**
+ * Un item est « propre » (il compte pour la maîtrise) s'il a été frappé JUSTE.
+ *
+ * L'escalade de l'aide n'entre plus dans le calcul, et c'est la correction du
+ * défaut le plus grave du produit livré : le barreau 2 monte après trois
+ * secondes d'hésitation, or un débutant de huit ans dépasse ce délai en
+ * permanence. Exiger `atteint <= 1` faisait donc qu'AUCUNE de ses frappes ne
+ * comptait jamais — il franchissait tous ses paliers par le plafond de secours,
+ * et le critère de maîtrise ne mesurait rien.
+ *
+ * P7 le disait déjà : aucune pénalité pour une frappe lente, nulle part.
+ */
 export function estPropre(etat: EtatAide): boolean {
-  return etat.erreurs === 0 && etat.atteint <= 1;
+  return etat.erreurs === 0;
 }

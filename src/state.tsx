@@ -4,7 +4,8 @@ import type { Liste } from './core/listes';
 import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
 import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
-import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
+import { estMaitrisee, noterOccurrence } from './core/progression';
+import { etapeFinie, ETAPE_MAX } from './core/parcours';
 import { PALIER_MAX } from './core/paliers';
 import { encouragementSuivant } from './core/encouragements';
 
@@ -144,14 +145,18 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
       const franchies = Object.keys(maitrise).filter(
         (c) => !dejaMaitrisees.has(c) && estMaitrisee(maitrise, c),
       );
-      const blocsSurPalier = etat.blocsSurPalier + 1;
-      const franchi = palierFranchi(etat.disposition, etat.palier, maitrise, blocsSurPalier);
+      /* #38 : l'étape est finie après sept leçons, et par rien d'autre.
+         Le critère de maîtrise ne commande plus le passage — il compose le
+         contenu (#39). Le plafond anti-mur disparaît avec lui : sans porte, il
+         n'y a plus de mur à forcer. */
+      const leconsSurEtape = etat.blocsSurPalier + 1;
+      const franchi = etapeFinie(leconsSurEtape) && etat.palier < ETAPE_MAX;
       return {
         ...etat,
         vue: 'V5',
         maitrise,
         bloc: Math.min(etat.bloc + 1, BLOC_MAX),
-        blocsSurPalier: franchi ? 0 : blocsSurPalier,
+        blocsSurPalier: franchi ? 0 : leconsSurEtape,
         palier: franchi ? etat.palier + 1 : etat.palier,
         palierOuvert: franchi ? etat.palier + 1 : null,
         blocsConsecutifs: etat.blocsConsecutifs + 1,
