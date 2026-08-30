@@ -6,7 +6,7 @@
     {
      "n": 1,
      "genre": "lettres",
-     "titre": null,
+     "titre": "e a s i r t u p",
      "promesse": null,
      "nouvelles": [
       "e",
@@ -29,6 +29,11 @@
       "p": "auriculaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "et",
+      "pas",
+      "est"
+     ],
      "items": {
       "mots": 254,
       "groupes": 0,
@@ -38,7 +43,7 @@
     {
      "n": 2,
      "genre": "lettres",
-     "titre": null,
+     "titre": "o n m d v",
      "promesse": null,
      "nouvelles": [
       "o",
@@ -55,6 +60,11 @@
       "v": "index_gauche"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "de",
+      "un",
+      "ne"
+     ],
      "items": {
       "mots": 1786,
       "groupes": 552,
@@ -64,7 +74,7 @@
     {
      "n": 3,
      "genre": "lettres",
-     "titre": null,
+     "titre": "l c é f b",
      "promesse": null,
      "nouvelles": [
       "l",
@@ -81,6 +91,11 @@
       "b": "index_gauche"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "la",
+      "le",
+      "il"
+     ],
      "items": {
       "mots": 4187,
       "groupes": 2461,
@@ -90,7 +105,7 @@
     {
      "n": 4,
      "genre": "lettres",
-     "titre": null,
+     "titre": "g h q x è",
      "promesse": null,
      "nouvelles": [
       "g",
@@ -107,6 +122,11 @@
       "è": "index_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "qui",
+      "que",
+      "quand"
+     ],
      "items": {
       "mots": 5519,
       "groupes": 4119,
@@ -116,7 +136,7 @@
     {
      "n": 5,
      "genre": "lettres",
-     "titre": null,
+     "titre": "j z y à",
      "promesse": null,
      "nouvelles": [
       "j",
@@ -131,6 +151,11 @@
       "à": "auriculaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "je",
+      "à",
+      "y"
+     ],
      "items": {
       "mots": 5858,
       "groupes": 4578,
@@ -140,7 +165,7 @@
     {
      "n": 6,
      "genre": "lettres",
-     "titre": null,
+     "titre": "ç k w ù",
      "promesse": null,
      "nouvelles": [
       "ç",
@@ -155,6 +180,11 @@
       "ù": "auriculaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "ça",
+      "où",
+      "façon"
+     ],
      "items": {
       "mots": 5890,
       "groupes": 4647,
@@ -173,6 +203,11 @@
       ".": "majeur_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "Une fille dort.",
+      "Une fille mange.",
+      "Une fille joue."
+     ],
      "items": null
     },
     {
@@ -205,6 +240,7 @@
       "9": "annulaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [],
      "items": null
     },
     {
@@ -227,6 +263,7 @@
       "?": "index_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [],
      "items": null
     },
     {
@@ -237,6 +274,7 @@
      "nouvelles": [],
      "doigts": {},
      "doigtsOuverts": null,
+     "exemples": [],
      "items": null
     }
    ]
@@ -247,7 +285,7 @@
     {
      "n": 1,
      "genre": "lettres",
-     "titre": null,
+     "titre": "e a s i r t u p",
      "promesse": null,
      "nouvelles": [
       "e",
@@ -270,6 +308,11 @@
       "p": "auriculaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "et",
+      "pas",
+      "est"
+     ],
      "items": {
       "mots": 254,
       "groupes": 0,
@@ -279,7 +322,7 @@
     {
      "n": 2,
      "genre": "lettres",
-     "titre": null,
+     "titre": "o n m d v",
      "promesse": null,
      "nouvelles": [
       "o",
@@ -296,6 +339,11 @@
       "v": "index_gauche"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "de",
+      "un",
+      "ne"
+     ],
      "items": {
       "mots": 1786,
       "groupes": 552,
@@ -305,7 +353,7 @@
     {
      "n": 3,
      "genre": "lettres",
-     "titre": null,
+     "titre": "l c é f",
      "promesse": null,
      "nouvelles": [
       "l",
@@ -320,6 +368,11 @@
       "f": "index_gauche"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "la",
+      "le",
+      "il"
+     ],
      "items": {
       "mots": 3814,
       "groupes": 1938,
@@ -329,7 +382,7 @@
     {
      "n": 4,
      "genre": "lettres",
-     "titre": null,
+     "titre": "b g h q",
      "promesse": null,
      "nouvelles": [
       "b",
@@ -344,6 +397,11 @@
       "q": "auriculaire_gauche"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "qui",
+      "bien",
+      "que"
+     ],
      "items": {
       "mots": 5243,
       "groupes": 3550,
@@ -353,7 +411,7 @@
     {
      "n": 5,
      "genre": "lettres",
-     "titre": null,
+     "titre": "x j è z",
      "promesse": null,
      "nouvelles": [
       "x",
@@ -368,6 +426,11 @@
       "z": "index_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "je",
+      "veux",
+      "aux"
+     ],
      "items": {
       "mots": 5790,
       "groupes": 4519,
@@ -377,7 +440,7 @@
     {
      "n": 6,
      "genre": "lettres",
-     "titre": null,
+     "titre": "y à k w",
      "promesse": null,
      "nouvelles": [
       "y",
@@ -392,6 +455,11 @@
       "w": "annulaire_gauche"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "à",
+      "y",
+      "là"
+     ],
      "items": {
       "mots": 5865,
       "groupes": 4583,
@@ -410,6 +478,11 @@
       ".": "annulaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [
+      "Une fille dort.",
+      "Une fille mange.",
+      "Une fille joue."
+     ],
      "items": null
     },
     {
@@ -442,6 +515,7 @@
       "9": "annulaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [],
      "items": null
     },
     {
@@ -462,6 +536,7 @@
       "?": "auriculaire_droit"
      },
      "doigtsOuverts": null,
+     "exemples": [],
      "items": null
     },
     {
@@ -472,6 +547,7 @@
      "nouvelles": [],
      "doigts": {},
      "doigtsOuverts": null,
+     "exemples": [],
      "items": null
     }
    ]
@@ -484,7 +560,7 @@
     {
      "n": 1,
      "genre": "lettres",
-     "titre": null,
+     "titre": "e i r t n u d v",
      "promesse": null,
      "nouvelles": [
       "e",
@@ -512,6 +588,11 @@
       "majeur_gauche",
       "majeur_droit"
      ],
+     "exemples": [
+      "de",
+      "et",
+      "un"
+     ],
      "items": {
       "mots": 175,
       "groupes": 22,
@@ -521,7 +602,7 @@
     {
      "n": 2,
      "genre": "lettres",
-     "titre": null,
+     "titre": "s o l c b",
      "promesse": null,
      "nouvelles": [
       "s",
@@ -544,6 +625,11 @@
       "majeur_droit",
       "annulaire_gauche",
       "annulaire_droit"
+     ],
+     "exemples": [
+      "le",
+      "il",
+      "est"
      ],
      "items": {
       "mots": 1063,
@@ -574,12 +660,17 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "Un docteur dort.",
+      "Un docteur court.",
+      "Un docteur rit."
+     ],
      "items": null
     },
     {
      "n": 4,
      "genre": "lettres",
-     "titre": null,
+     "titre": "a p m é f",
      "promesse": null,
      "nouvelles": [
       "a",
@@ -605,6 +696,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "la",
+      "pas",
+      "pour"
+     ],
      "items": {
       "mots": 4187,
       "groupes": 2461,
@@ -614,7 +710,7 @@
     {
      "n": 5,
      "genre": "lettres",
-     "titre": null,
+     "titre": "g h q x è",
      "promesse": null,
      "nouvelles": [
       "g",
@@ -640,6 +736,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "qui",
+      "que",
+      "quand"
+     ],
      "items": {
       "mots": 5519,
       "groupes": 4119,
@@ -649,7 +750,7 @@
     {
      "n": 6,
      "genre": "lettres",
-     "titre": null,
+     "titre": "j z y à",
      "promesse": null,
      "nouvelles": [
       "j",
@@ -673,6 +774,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "je",
+      "à",
+      "y"
+     ],
      "items": {
       "mots": 5858,
       "groupes": 4578,
@@ -682,7 +788,7 @@
     {
      "n": 7,
      "genre": "lettres",
-     "titre": null,
+     "titre": "ç k w ù",
      "promesse": null,
      "nouvelles": [
       "ç",
@@ -705,6 +811,11 @@
       "annulaire_droit",
       "auriculaire_gauche",
       "auriculaire_droit"
+     ],
+     "exemples": [
+      "ça",
+      "où",
+      "façon"
      ],
      "items": {
       "mots": 5890,
@@ -751,6 +862,7 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [],
      "items": null
     },
     {
@@ -782,6 +894,7 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [],
      "items": null
     },
     {
@@ -801,6 +914,7 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [],
      "items": null
     }
    ]
@@ -811,7 +925,7 @@
     {
      "n": 1,
      "genre": "lettres",
-     "titre": null,
+     "titre": "e i r t n u d v",
      "promesse": null,
      "nouvelles": [
       "e",
@@ -839,6 +953,11 @@
       "majeur_gauche",
       "majeur_droit"
      ],
+     "exemples": [
+      "de",
+      "et",
+      "un"
+     ],
      "items": {
       "mots": 175,
       "groupes": 22,
@@ -848,7 +967,7 @@
     {
      "n": 2,
      "genre": "lettres",
-     "titre": null,
+     "titre": "s o m l c",
      "promesse": null,
      "nouvelles": [
       "s",
@@ -871,6 +990,11 @@
       "majeur_droit",
       "annulaire_gauche",
       "annulaire_droit"
+     ],
+     "exemples": [
+      "le",
+      "il",
+      "est"
      ],
      "items": {
       "mots": 1189,
@@ -901,12 +1025,17 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "Un monsieur dort.",
+      "Un monsieur court.",
+      "Un monsieur rit."
+     ],
      "items": null
     },
     {
      "n": 4,
      "genre": "lettres",
-     "titre": null,
+     "titre": "a p é f",
      "promesse": null,
      "nouvelles": [
       "a",
@@ -930,6 +1059,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "la",
+      "pas",
+      "pour"
+     ],
      "items": {
       "mots": 3814,
       "groupes": 1938,
@@ -939,7 +1073,7 @@
     {
      "n": 5,
      "genre": "lettres",
-     "titre": null,
+     "titre": "b g h q",
      "promesse": null,
      "nouvelles": [
       "b",
@@ -963,6 +1097,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "qui",
+      "bien",
+      "que"
+     ],
      "items": {
       "mots": 5243,
       "groupes": 3550,
@@ -972,7 +1111,7 @@
     {
      "n": 6,
      "genre": "lettres",
-     "titre": null,
+     "titre": "x j è z",
      "promesse": null,
      "nouvelles": [
       "x",
@@ -996,6 +1135,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [
+      "je",
+      "veux",
+      "aux"
+     ],
      "items": {
       "mots": 5790,
       "groupes": 4519,
@@ -1005,7 +1149,7 @@
     {
      "n": 7,
      "genre": "lettres",
-     "titre": null,
+     "titre": "y à k w",
      "promesse": null,
      "nouvelles": [
       "y",
@@ -1028,6 +1172,11 @@
       "annulaire_droit",
       "auriculaire_gauche",
       "auriculaire_droit"
+     ],
+     "exemples": [
+      "à",
+      "y",
+      "là"
      ],
      "items": {
       "mots": 5865,
@@ -1074,6 +1223,7 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [],
      "items": null
     },
     {
@@ -1103,6 +1253,7 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [],
      "items": null
     },
     {
@@ -1122,6 +1273,7 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
+     "exemples": [],
      "items": null
     }
    ]

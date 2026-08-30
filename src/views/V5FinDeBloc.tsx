@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motsNouveaux } from '../core/corpus';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
-import { ensembleTouches, nouvellesTouches, PALIER_MAX } from '../core/paliers';
+import { ensembleTouches, ETAPE_MAX, nouvellesTouches } from '../core/parcours';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
@@ -41,7 +41,7 @@ export function V5FinDeBloc() {
      rend le cumul depuis le palier 1 et aurait annoncé des touches déjà
      acquises comme des nouveautés. L'espace n'est pas une nouveauté à fêter. */
   const touchesDeLaLecon = nouvelleLecon
-    ? nouvellesTouches(id, nouvelleLecon).filter((c) => c !== ' ')
+    ? nouvellesTouches(app.parcours, id, nouvelleLecon).filter((c) => c !== ' ')
     : [];
 
   return (
@@ -55,7 +55,7 @@ export function V5FinDeBloc() {
 
         {nouvelleLecon && (
           <p className={v.gainLexical}>
-            Tu passes à la leçon <b>{nouvelleLecon}</b> sur {PALIER_MAX}. Elle t'apporte :{' '}
+            Tu passes à l'étape <b>{nouvelleLecon}</b> sur {ETAPE_MAX}. Elle t'apporte :{' '}
             <b>{touchesDeLaLecon.join(' ')}</b>
           </p>
         )}
@@ -68,7 +68,7 @@ export function V5FinDeBloc() {
 
         <Keyboard
           id={id}
-          ensemble={ensembleTouches(id, app.palier)}
+          ensemble={ensembleTouches(app.parcours, id, app.palier)}
           illuminees={illuminees}
           taille="clamp(13px, 3.4vw, 42px)"
         />
