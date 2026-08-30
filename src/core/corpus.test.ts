@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { CORPUS, motsDisponibles, motsNouveaux, chiffresDisponibles } from './corpus';
 import { ensembleTouches, PALIER_MAX, PALIER_MAX_DEBUTANT } from './paliers';
+/* Le générateur a migré vers `parcours` (#36) ; `corpus` et `paliers` vivent
+   encore côte à côte jusqu'à la contraction finale (#48). Les tests qui portent
+   sur le GÉNÉRATEUR interrogent donc la nouvelle source de vérité, ceux qui
+   portent sur l'ancien corpus gardent l'ancienne. */
+import { ensembleTouches as ensembleEtape } from './parcours';
+import { groupesTypables, motsTypables } from './contenu';
 import { toucheDirecte, toucheMaj } from './layouts';
 import { composerBloc, TAILLE_BLOC_MAX, TAILLE_BLOC_MIN } from './generator';
 
 const DISPOS = ['fr-FR', 'fr-CH'] as const;
 const PALIERS_JOUABLES = [1, 2, 3, 4, 5, 6, 7];
+/* Les étapes 7 à 10 ne portent encore aucune touche : Majuscule et le point
+   arrivent en #44, les chiffres et la ponctuation en #45. */
+const ETAPES_LETTRES = [1, 2, 3, 4, 5, 6];
 
 describe('invariant corpus × palier (P5, aucune exception)', () => {
   it.each(DISPOS.flatMap((id) => PALIERS_JOUABLES.map((p) => [id, p] as const)))(
@@ -18,12 +27,12 @@ describe('invariant corpus × palier (P5, aucune exception)', () => {
     },
   );
 
-  it.each(DISPOS.flatMap((id) => PALIERS_JOUABLES.map((p) => [id, p] as const)))(
-    '%s palier %i : le générateur ne sort jamais de l\'ensemble',
+  it.each(DISPOS.flatMap((id) => ETAPES_LETTRES.map((p) => [id, p] as const)))(
+    '%s étape %i : le générateur ne sort jamais de l\'ensemble',
     (id, p) => {
-      const ensemble = ensembleTouches(id, p);
+      const ensemble = ensembleEtape('decouverte', id, p);
       for (let graine = 0; graine < 30; graine++) {
-        for (const item of composerBloc({ id, palier: p, graine })) {
+        for (const item of composerBloc({ id, parcours: 'decouverte', etape: p, graine })) {
           for (const c of item.texte) expect(ensemble.has(c), `${item.texte} → ${c}`).toBe(true);
         }
       }
@@ -89,10 +98,17 @@ describe('invariant corpus × palier (P5, aucune exception)', () => {
     }
   });
 
-  it('aucun pseudo-mot : tout item de genre « mot » est dans le corpus', () => {
+  /* La règle n'a pas changé — aucun item inventé — mais la référence, si : le
+     générateur sert désormais le lexique gradué et non plus la liste écrite à
+     la main. */
+  it('aucun pseudo-mot : tout item de genre « mot » vient du lexique', () => {
     for (const id of DISPOS) {
-      for (const item of composerBloc({ id, palier: 3, graine: 7 })) {
-        if (item.genre === 'mot') expect(CORPUS).toContain(item.texte);
+      const attendus = new Set([
+        ...motsTypables(ensembleEtape('decouverte', id, 3)),
+        ...groupesTypables(ensembleEtape('decouverte', id, 3)),
+      ]);
+      for (const item of composerBloc({ id, parcours: 'decouverte', etape: 3, graine: 7 })) {
+        if (item.genre === 'mot') expect(attendus.has(item.texte), item.texte).toBe(true);
       }
     }
   });
@@ -119,7 +135,7 @@ describe('invariant corpus × palier (P5, aucune exception)', () => {
 describe('générateur', () => {
   it('produit des blocs de 8 à 12 items uniques', () => {
     for (let graine = 0; graine < 20; graine++) {
-      const bloc = composerBloc({ id: 'fr-FR', palier: 1, graine });
+      const bloc = composerBloc({ id: 'fr-FR', parcours: 'decouverte', etape: 1, graine });
       expect(bloc.length).toBeGreaterThanOrEqual(TAILLE_BLOC_MIN);
       expect(bloc.length).toBeLessThanOrEqual(TAILLE_BLOC_MAX);
       expect(new Set(bloc.map((i) => i.texte)).size).toBe(bloc.length);
@@ -127,20 +143,22 @@ describe('générateur', () => {
   });
 
   it('privilégie les vrais mots avant les nombres et les syllabes', () => {
-    const bloc = composerBloc({ id: 'fr-CH', palier: 1, graine: 3 });
+    const bloc = composerBloc({ id: 'fr-CH', parcours: 'decouverte', etape: 1, graine: 3 });
     expect(bloc.filter((i) => i.genre === 'mot').length).toBeGreaterThan(
       bloc.filter((i) => i.genre !== 'mot').length,
     );
   });
 
   it('réinjecte les items aidés comme contenu ordinaire', () => {
-    const bloc = composerBloc({ id: 'fr-FR', palier: 1, graine: 5, aReinjecter: ['sujet'] });
-    expect(bloc.map((i) => i.texte)).toContain('sujet');
+    /* « sur » est typable dès l'étape 1 de Découverte (`e a s i r t u p`) ;
+       « sujet » ne l'est plus, faute de `j`. */
+    const bloc = composerBloc({ id: 'fr-FR', parcours: 'decouverte', etape: 1, graine: 5, aReinjecter: ['sur'] });
+    expect(bloc.map((i) => i.texte)).toContain('sur');
   });
 
   it('est déterministe à graine égale', () => {
-    const a = composerBloc({ id: 'fr-FR', palier: 2, graine: 42 });
-    const b = composerBloc({ id: 'fr-FR', palier: 2, graine: 42 });
+    const a = composerBloc({ id: 'fr-FR', parcours: 'decouverte', etape: 2, graine: 42 });
+    const b = composerBloc({ id: 'fr-FR', parcours: 'decouverte', etape: 2, graine: 42 });
     expect(a).toEqual(b);
   });
 });

@@ -44,7 +44,14 @@ export function V4Lecon() {
     () =>
       app.listeJouee
         ? composerBlocDeListe(app.listeJouee.mots, id)
-        : composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
+        : composerBloc({
+            id,
+            // Un seul parcours est jouable tant que le sélecteur n'existe pas
+            // (#42) : la progression enregistrée est celle de Découverte.
+            parcours: 'decouverte',
+            etape: app.palier,
+            aReinjecter: app.aReinjecter,
+          }),
     // un nouveau bloc à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, app.palier, app.bloc, app.listeJouee],
@@ -351,8 +358,6 @@ export function V4Lecon() {
         <p className={v.pourLecteur} aria-live="polite">
           {item ? `${item.texte} — ${CONSIGNES[doigt].join(', ')}` : ''}
         </p>
-
-        {item?.genre === 'syllabe' && <p className={v.etiquetteSyllabe}>on lit et on tape</p>}
 
         {/* Piège Maj : seul cas où DEUX touches sont mises en avant ensemble. */}
         {besoinMaj && (

@@ -28,6 +28,14 @@ from pathlib import Path
 
 ECHELON_MAX = 23        # CM2 / 11 ans
 SEUIL_FLECHIE = 0.10    # occurrences par million (moyenne livres/films)
+# Dubois-Buyse est une échelle ORTHOGRAPHIQUE : elle gradue les mots qu'un
+# enfant doit apprendre à écrire, et omet donc des mots grammaticaux que tout
+# lecteur de huit ans croise chaque jour. `où` en est absent alors qu'il pèse
+# 1767 occurrences par million — et c'est le SEUL mot français qui porte le
+# `ù`, donc la touche devenait inenseignable. On rattrape ces omissions par la
+# fréquence, à un seuil assez haut pour ne faire entrer que du vocabulaire
+# quotidien.
+SEUIL_HORS_ECHELLE = 100.0
 
 
 def main(dossier, seuil=SEUIL_FLECHIE):
@@ -89,6 +97,19 @@ def main(dossier, seuil=SEUIL_FLECHIE):
     for ortho, (lemme, fl, ff, cg, genre, nombre) in sorted(formes.items()):
         if lemme in db and (fl + ff) / 2 >= seuil:
             ajoute(ortho, db[lemme], fl, ff, True, (cg, genre, nombre, lemme))
+
+    # 3) les mots très fréquents que l'échelle orthographique ignore
+    hors_echelle = 0
+    for ortho, (lemme, fl, ff, cg, genre, nombre) in sorted(formes.items()):
+        if lemme in db or ortho in vus:
+            continue
+        if (fl + ff) / 2 < SEUIL_HORS_ECHELLE:
+            continue
+        avant = len(lex)
+        ajoute(ortho, ECHELON_MAX, fl, ff, False, (cg, genre, nombre, lemme))
+        hors_echelle += len(lex) - avant
+    print(f"[lexique v3] rattrapés hors échelle (>= {SEUIL_HORS_ECHELLE}/M) : "
+          f"{hors_echelle}", file=sys.stderr)
 
     print(f"[lexique v3] Dubois-Buyse échelon<= {ECHELON_MAX} : {len(db)} lemmes ; "
           f"seuil fléchies {seuil}/M ; total retenu : {len(lex)} "
