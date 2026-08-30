@@ -95,13 +95,30 @@ function effacer(cle: string): void {
   }
 }
 
-/** `true` si ce profil a une progression en cache sur cet appareil. */
+/**
+ * `true` si ce profil a une progression LISIBLE en cache sur cet appareil.
+ *
+ * « La clé existe » ne suffit pas (#54) : une écriture interrompue laisse une
+ * clé tronquée, sans backup — `sauver` n'en écrit un que si le précédent était
+ * intact. `charger` retombe alors sur les DÉFAUTS, et le garde-fou d'en
+ * dessous, qui existe exactement pour ce cas, était contourné : les défauts
+ * partaient au serveur comme un choix du parent et écrasaient sa disposition
+ * sur tous ses appareils.
+ */
 function copieLocale(cle: string): boolean {
-  try {
-    return localStorage.getItem(cle) !== null || localStorage.getItem(`${cle}.backup`) !== null;
-  } catch {
-    return false;
-  }
+  return estIntact(lire<unknown>(cle, null)) || estIntact(lire<unknown>(`${cle}.backup`, null));
+}
+
+/**
+ * Oublie l'horodatage local d'un profil. `CLE_MAJ` est une clé SÉPARÉE : elle
+ * survit à la sauvegarde qu'elle datait, et la laisser ferait passer pour
+ * « récent » ce qui n'est plus qu'un repli sur les valeurs par défaut.
+ */
+function oublierMaj(id: string): void {
+  const tout = lire<Record<string, string>>(CLE_MAJ, {});
+  if (!(id in tout)) return;
+  delete tout[id];
+  ecrire(CLE_MAJ, tout);
 }
 
 /** Horodatage de la dernière écriture locale d'un profil, ou `null`. */
@@ -557,10 +574,11 @@ async function reconcilier(): Promise<void> {
     const cle = cleDe(d.id);
     const majIci = majLocale(d.id);
 
-    /* Aucune copie ici : le serveur fait foi, sans fusion — fusionner avec des
-       valeurs par défaut effacerait ses préférences. */
+    /* Aucune copie LISIBLE ici : le serveur fait foi, sans fusion — fusionner
+       avec des valeurs par défaut effacerait ses préférences. */
     if (!copieLocale(cle)) {
       if (d.etat) sauver(d.etat, cle);
+      oublierMaj(d.id);
       continue;
     }
 
