@@ -13,7 +13,8 @@ import {
 import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj } from '../core/maj';
 import { ensembleTouches, libellesEnsemble, PALIER_MAX, PALIER_MAX_DEBUTANT } from '../core/paliers';
-import { CONSIGNES, type Doigt } from '../core/doigts';
+import { CONSIGNES, imageMain, type Doigt } from '../core/doigts';
+import { doigtDe, type IdParcours } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
@@ -93,14 +94,20 @@ export function V4Lecon() {
       ? MAJ_GAUCHE
       : MAJ_DROITE
     : undefined;
+  /* Le doigt à MONTRER n'est pas une propriété de la touche : il dépend du
+     parcours suivi (index de la main en Découverte, doigt définitif en
+     Dactylo). `parcours.doigtDe` en décide seul — la leçon ne le recalcule
+     pas.
+     ponytail: le parcours n'est pas encore dans l'état de l'application ; il y
+     entre avec la migration des paliers (#34), cette constante disparaît alors. */
+  const parcours: IdParcours = 'decouverte';
   const doigt: Doigt =
     attendu === ' '
       ? mainCible === 'gauche'
         ? 'pouce_gauche'
         : 'pouce_droit'
-      : mainCible === 'gauche'
-        ? 'index_gauche'
-        : 'index_droit';
+      : (doigtDe(parcours, id, attendu) ??
+        (mainCible === 'gauche' ? 'index_gauche' : 'index_droit'));
 
   /* --------------------------------------------------- un seul rAF (STACK) */
   const refEnvoyer = useRef(envoyer);
@@ -382,20 +389,13 @@ export function V4Lecon() {
         )}
 
         <div className={v.zoneClavier}>
-          {/* Le mot de la main à employer, en GROS, juste au-dessus du clavier
-              et du côté concerné : l'enfant n'a pas à lever les yeux. */}
-          {!enCelebration && (
-            <p className={v.motMainHaut} aria-hidden="true">
-              <span data-cote-main={mainCible}>
-                {mainCible === 'gauche' ? 'GAUCHE' : 'DROITE'}
-              </span>
-            </p>
-          )}
           <div className={[v.deuxCotes, clavierMasque ? v.clavierMasque : ''].filter(Boolean).join(' ')}>
-            {/* Les deux mains encadrent le clavier À CHAQUE TOUR ; seule celle
-                qui doit taper est allumée. */}
+            {/* Les deux mains dessinées encadrent le clavier À CHAQUE TOUR : le
+                doigt à employer est surligné sur celle qui joue, l'autre reste
+                au repos, aucun doigt marqué. C'est le dessin qui porte le
+                doigt — plus aucun mot ne le dit (P4). */}
             <div className={v.coteMain} data-main="gauche" data-main-active={mainCible === 'gauche' && !enCelebration ? 'oui' : 'non'}>
-              <MainSchematique cote="gauche" largeur={110} tendu={false} />
+              <img src={imageMain('gauche', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
             </div>
             <Keyboard
               id={id}
@@ -422,7 +422,7 @@ export function V4Lecon() {
               taille={app.palier >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
             <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration ? 'oui' : 'non'}>
-              <MainSchematique cote="droite" largeur={110} tendu={false} />
+              <img src={imageMain('droite', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
             </div>
             {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />
