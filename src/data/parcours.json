@@ -1,0 +1,982 @@
+{
+ "decouverte": {
+  "fr-FR": {
+   "lecons_par_etape": 7,
+   "etapes": [
+    {
+     "n": 1,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "e",
+      "a",
+      "s",
+      "i",
+      "r",
+      "t",
+      "u",
+      "p"
+     ],
+     "doigts": {
+      "e": "majeur_gauche",
+      "a": "auriculaire_gauche",
+      "s": "annulaire_gauche",
+      "i": "majeur_droit",
+      "r": "index_gauche",
+      "t": "index_gauche",
+      "u": "index_droit",
+      "p": "auriculaire_droit"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 241,
+      "groupes": 0,
+      "total": 241
+     }
+    },
+    {
+     "n": 2,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "o",
+      "n",
+      "m",
+      "d",
+      "v"
+     ],
+     "doigts": {
+      "o": "annulaire_droit",
+      "n": "index_droit",
+      "m": "auriculaire_droit",
+      "d": "majeur_gauche",
+      "v": "index_gauche"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 1734,
+      "groupes": 548,
+      "total": 2282
+     }
+    },
+    {
+     "n": 3,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "l",
+      "c",
+      "é",
+      "f",
+      "b"
+     ],
+     "doigts": {
+      "l": "annulaire_droit",
+      "c": "majeur_gauche",
+      "é": "annulaire_gauche",
+      "f": "index_gauche",
+      "b": "index_gauche"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 4098,
+      "groupes": 2466,
+      "total": 6564
+     }
+    },
+    {
+     "n": 4,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "g",
+      "h",
+      "q",
+      "x",
+      "è"
+     ],
+     "doigts": {
+      "g": "index_gauche",
+      "h": "index_droit",
+      "q": "auriculaire_gauche",
+      "x": "annulaire_gauche",
+      "è": "index_droit"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 5412,
+      "groupes": 4144,
+      "total": 9556
+     }
+    },
+    {
+     "n": 5,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "j",
+      "z",
+      "y",
+      "à"
+     ],
+     "doigts": {
+      "j": "index_droit",
+      "z": "annulaire_gauche",
+      "y": "index_droit",
+      "à": "auriculaire_droit"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 5743,
+      "groupes": 4605,
+      "total": 10348
+     }
+    },
+    {
+     "n": 6,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "ç",
+      "k",
+      "w",
+      "ù"
+     ],
+     "doigts": {
+      "ç": "annulaire_droit",
+      "k": "majeur_droit",
+      "w": "auriculaire_gauche",
+      "ù": "auriculaire_droit"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 5772,
+      "groupes": 4674,
+      "total": 10446
+     }
+    },
+    {
+     "n": 7,
+     "genre": "majuscule",
+     "titre": "Majuscule et le point",
+     "promesse": "Tu écris les noms avec une grande lettre.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    },
+    {
+     "n": 8,
+     "genre": "chiffres",
+     "titre": "Les chiffres",
+     "promesse": "Tu écris les nombres.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    },
+    {
+     "n": 9,
+     "genre": "ponctuation",
+     "titre": "La ponctuation",
+     "promesse": null,
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    },
+    {
+     "n": 10,
+     "genre": "contenu",
+     "titre": "Des phrases",
+     "promesse": "Tu écris des phrases.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    }
+   ]
+  },
+  "fr-CH": {
+   "lecons_par_etape": 7,
+   "etapes": [
+    {
+     "n": 1,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "e",
+      "a",
+      "s",
+      "i",
+      "r",
+      "t",
+      "u",
+      "p"
+     ],
+     "doigts": {
+      "e": "majeur_gauche",
+      "a": "auriculaire_gauche",
+      "s": "annulaire_gauche",
+      "i": "majeur_droit",
+      "r": "index_gauche",
+      "t": "index_gauche",
+      "u": "index_droit",
+      "p": "auriculaire_droit"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 241,
+      "groupes": 0,
+      "total": 241
+     }
+    },
+    {
+     "n": 2,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "o",
+      "n",
+      "m",
+      "d",
+      "v"
+     ],
+     "doigts": {
+      "o": "annulaire_droit",
+      "n": "index_droit",
+      "m": "index_droit",
+      "d": "majeur_gauche",
+      "v": "index_gauche"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 1734,
+      "groupes": 548,
+      "total": 2282
+     }
+    },
+    {
+     "n": 3,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "l",
+      "c",
+      "é",
+      "f"
+     ],
+     "doigts": {
+      "l": "annulaire_droit",
+      "c": "majeur_gauche",
+      "é": "auriculaire_droit",
+      "f": "index_gauche"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 3728,
+      "groupes": 1936,
+      "total": 5664
+     }
+    },
+    {
+     "n": 4,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "b",
+      "g",
+      "h",
+      "q"
+     ],
+     "doigts": {
+      "b": "index_gauche",
+      "g": "index_gauche",
+      "h": "index_droit",
+      "q": "auriculaire_gauche"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 5141,
+      "groupes": 3567,
+      "total": 8708
+     }
+    },
+    {
+     "n": 5,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "x",
+      "j",
+      "è",
+      "z"
+     ],
+     "doigts": {
+      "x": "annulaire_gauche",
+      "j": "index_droit",
+      "è": "auriculaire_droit",
+      "z": "index_droit"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 5679,
+      "groupes": 4549,
+      "total": 10228
+     }
+    },
+    {
+     "n": 6,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "y",
+      "à",
+      "k",
+      "w"
+     ],
+     "doigts": {
+      "y": "auriculaire_gauche",
+      "à": "auriculaire_droit",
+      "k": "majeur_droit",
+      "w": "annulaire_gauche"
+     },
+     "doigtsOuverts": null,
+     "items": {
+      "mots": 5749,
+      "groupes": 4610,
+      "total": 10359
+     }
+    },
+    {
+     "n": 7,
+     "genre": "majuscule",
+     "titre": "Majuscule et le point",
+     "promesse": "Tu écris les noms avec une grande lettre.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    },
+    {
+     "n": 8,
+     "genre": "chiffres",
+     "titre": "Les chiffres",
+     "promesse": "Tu écris les nombres.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    },
+    {
+     "n": 9,
+     "genre": "ponctuation",
+     "titre": "La ponctuation",
+     "promesse": null,
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    },
+    {
+     "n": 10,
+     "genre": "contenu",
+     "titre": "Des phrases",
+     "promesse": "Tu écris des phrases.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": null,
+     "items": null
+    }
+   ]
+  }
+ },
+ "dactylo": {
+  "fr-FR": {
+   "lecons_par_etape": 7,
+   "etapes": [
+    {
+     "n": 1,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "e",
+      "i",
+      "r",
+      "t",
+      "n",
+      "u",
+      "d",
+      "v"
+     ],
+     "doigts": {
+      "e": "majeur_gauche",
+      "i": "majeur_droit",
+      "r": "index_gauche",
+      "t": "index_gauche",
+      "n": "index_droit",
+      "u": "index_droit",
+      "d": "majeur_gauche",
+      "v": "index_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit"
+     ],
+     "items": {
+      "mots": 165,
+      "groupes": 22,
+      "total": 187
+     }
+    },
+    {
+     "n": 2,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "s",
+      "o",
+      "l",
+      "c",
+      "b"
+     ],
+     "doigts": {
+      "s": "annulaire_gauche",
+      "o": "annulaire_droit",
+      "l": "annulaire_droit",
+      "c": "majeur_gauche",
+      "b": "index_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit"
+     ],
+     "items": {
+      "mots": 1020,
+      "groupes": 417,
+      "total": 1437
+     }
+    },
+    {
+     "n": 3,
+     "genre": "majuscule",
+     "titre": "Majuscule et le point",
+     "promesse": "Tu écris les noms avec une grande lettre.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit"
+     ],
+     "doigtsModificateur": [
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    },
+    {
+     "n": 4,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "a",
+      "p",
+      "m",
+      "é",
+      "f"
+     ],
+     "doigts": {
+      "a": "auriculaire_gauche",
+      "p": "auriculaire_droit",
+      "m": "auriculaire_droit",
+      "é": "annulaire_gauche",
+      "f": "index_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 4098,
+      "groupes": 2466,
+      "total": 6564
+     }
+    },
+    {
+     "n": 5,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "g",
+      "h",
+      "q",
+      "x",
+      "è"
+     ],
+     "doigts": {
+      "g": "index_gauche",
+      "h": "index_droit",
+      "q": "auriculaire_gauche",
+      "x": "annulaire_gauche",
+      "è": "index_droit"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 5412,
+      "groupes": 4144,
+      "total": 9556
+     }
+    },
+    {
+     "n": 6,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "j",
+      "z",
+      "y",
+      "à"
+     ],
+     "doigts": {
+      "j": "index_droit",
+      "z": "annulaire_gauche",
+      "y": "index_droit",
+      "à": "auriculaire_droit"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 5743,
+      "groupes": 4605,
+      "total": 10348
+     }
+    },
+    {
+     "n": 7,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "ç",
+      "k",
+      "w",
+      "ù"
+     ],
+     "doigts": {
+      "ç": "annulaire_droit",
+      "k": "majeur_droit",
+      "w": "auriculaire_gauche",
+      "ù": "auriculaire_droit"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 5772,
+      "groupes": 4674,
+      "total": 10446
+     }
+    },
+    {
+     "n": 8,
+     "genre": "chiffres",
+     "titre": "Les chiffres",
+     "promesse": "Tu écris les nombres.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    },
+    {
+     "n": 9,
+     "genre": "ponctuation",
+     "titre": "La ponctuation",
+     "promesse": null,
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    },
+    {
+     "n": 10,
+     "genre": "contenu",
+     "titre": "Des phrases",
+     "promesse": "Tu écris des phrases.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    }
+   ]
+  },
+  "fr-CH": {
+   "lecons_par_etape": 7,
+   "etapes": [
+    {
+     "n": 1,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "e",
+      "i",
+      "r",
+      "t",
+      "n",
+      "u",
+      "d",
+      "v"
+     ],
+     "doigts": {
+      "e": "majeur_gauche",
+      "i": "majeur_droit",
+      "r": "index_gauche",
+      "t": "index_gauche",
+      "n": "index_droit",
+      "u": "index_droit",
+      "d": "majeur_gauche",
+      "v": "index_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit"
+     ],
+     "items": {
+      "mots": 165,
+      "groupes": 22,
+      "total": 187
+     }
+    },
+    {
+     "n": 2,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "s",
+      "o",
+      "m",
+      "l",
+      "c"
+     ],
+     "doigts": {
+      "s": "annulaire_gauche",
+      "o": "annulaire_droit",
+      "m": "index_droit",
+      "l": "annulaire_droit",
+      "c": "majeur_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit"
+     ],
+     "items": {
+      "mots": 1139,
+      "groupes": 576,
+      "total": 1715
+     }
+    },
+    {
+     "n": 3,
+     "genre": "majuscule",
+     "titre": "Majuscule et le point",
+     "promesse": "Tu écris les noms avec une grande lettre.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit"
+     ],
+     "doigtsModificateur": [
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    },
+    {
+     "n": 4,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "a",
+      "p",
+      "é",
+      "f"
+     ],
+     "doigts": {
+      "a": "auriculaire_gauche",
+      "p": "auriculaire_droit",
+      "é": "auriculaire_droit",
+      "f": "index_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 3728,
+      "groupes": 1936,
+      "total": 5664
+     }
+    },
+    {
+     "n": 5,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "b",
+      "g",
+      "h",
+      "q"
+     ],
+     "doigts": {
+      "b": "index_gauche",
+      "g": "index_gauche",
+      "h": "index_droit",
+      "q": "auriculaire_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 5141,
+      "groupes": 3567,
+      "total": 8708
+     }
+    },
+    {
+     "n": 6,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "x",
+      "j",
+      "è",
+      "z"
+     ],
+     "doigts": {
+      "x": "annulaire_gauche",
+      "j": "index_droit",
+      "è": "auriculaire_droit",
+      "z": "index_droit"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 5679,
+      "groupes": 4549,
+      "total": 10228
+     }
+    },
+    {
+     "n": 7,
+     "genre": "lettres",
+     "titre": null,
+     "promesse": null,
+     "nouvelles": [
+      "y",
+      "à",
+      "k",
+      "w"
+     ],
+     "doigts": {
+      "y": "auriculaire_gauche",
+      "à": "auriculaire_droit",
+      "k": "majeur_droit",
+      "w": "annulaire_gauche"
+     },
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": {
+      "mots": 5749,
+      "groupes": 4610,
+      "total": 10359
+     }
+    },
+    {
+     "n": 8,
+     "genre": "chiffres",
+     "titre": "Les chiffres",
+     "promesse": "Tu écris les nombres.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    },
+    {
+     "n": 9,
+     "genre": "ponctuation",
+     "titre": "La ponctuation",
+     "promesse": null,
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    },
+    {
+     "n": 10,
+     "genre": "contenu",
+     "titre": "Des phrases",
+     "promesse": "Tu écris des phrases.",
+     "nouvelles": [],
+     "doigts": {},
+     "doigtsOuverts": [
+      "index_gauche",
+      "index_droit",
+      "majeur_gauche",
+      "majeur_droit",
+      "annulaire_gauche",
+      "annulaire_droit",
+      "auriculaire_gauche",
+      "auriculaire_droit"
+     ],
+     "items": null
+    }
+   ]
+  }
+ }
+}
