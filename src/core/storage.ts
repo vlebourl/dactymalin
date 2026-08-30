@@ -7,7 +7,16 @@ import {
   type Serie,
 } from "./mesures";
 import type { Maitrise } from "./progression";
-import { PALIER_MAX } from "./paliers";
+/**
+ * La dernière étape que les clients d'AVANT savent lire.
+ *
+ * Ce n'était pas une constante de compatibilité mais de curriculum : elle
+ * vivait dans la table des paliers, qui n'existe plus. Elle reste ici, et
+ * seulement ici, parce que c'est son seul rôle qui survit — borner le miroir
+ * envoyé aux anciens bundles. Elle ne dit RIEN du parcours d'aujourd'hui, qui
+ * compte dix étapes.
+ */
+export const ETAPE_MIROIR_MAX = 7;
 import { ETAPE_MAX, type IdParcours } from "./parcours";
 
 export const CLE = "tapeavecmoi.v1";
@@ -403,7 +412,7 @@ export function progressionsNormalisees(s: {
 }
 
 /**
- * Le miroir que lisent les clients d'avant. Il est BORNÉ à `PALIER_MAX` : au
+ * Le miroir que lisent les clients d'avant. Il est BORNÉ à `ETAPE_MIROIR_MAX` : au
  * delà, leur contrôle d'intégrité déclarerait la sauvegarde corrompue et la
  * remplacerait par des défauts. Les leçons ne suivent que tant que l'étape
  * tient dans le miroir — sinon elles compteraient pour une autre étape.
@@ -412,7 +421,7 @@ export function miroirLegacy(p: Progression): {
   palier: number;
   blocsSurPalier: number;
 } {
-  const palier = Math.min(p.etape, PALIER_MAX);
+  const palier = Math.min(p.etape, ETAPE_MIROIR_MAX);
   return { palier, blocsSurPalier: p.etape === palier ? p.leconsSurEtape : 0 };
 }
 
@@ -429,7 +438,7 @@ export function valider(brut: unknown): Sauvegarde {
   const derniereLecon = entierBorne(o.derniereLecon, 0, DATE_MAX, -1);
   const progressions = progressionsNormalisees({
     disposition,
-    palier: entierBorne(o.palier, 1, PALIER_MAX, DEFAUTS.palier),
+    palier: entierBorne(o.palier, 1, ETAPE_MIROIR_MAX, DEFAUTS.palier),
     blocsSurPalier: entierBorne(o.blocsSurPalier, 0, LECONS_MAX, 0),
     progressions: o.progressions,
   });
@@ -477,7 +486,7 @@ export function estIntact(brut: unknown): boolean {
   if (o.version !== 1) return false;
   if (!estDisposition(o.disposition)) return false;
   if (typeof o.dispositionChoisieALaMain !== "boolean") return false;
-  if (!entier(o.palier, 1, PALIER_MAX)) return false;
+  if (!entier(o.palier, 1, ETAPE_MIROIR_MAX)) return false;
   if (!entier(o.blocsSurPalier, 0, 999)) return false;
   /* `bloc` est un champ AJOUTÉ : absent = sauvegarde d'une version antérieure,
      encore parfaitement saine (le repli reconstruit le compteur). Présent, il

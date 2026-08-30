@@ -240,7 +240,7 @@ describe('accroche dans l’état de l’app', () => {
   const etatJouable = (): EtatApp => ({
     ...etatDeDepart(),
     parcours: 'dactylo',
-    palier: 5,
+    etape: 5,
     listeJouee: null,
   });
 
@@ -254,7 +254,7 @@ describe('accroche dans l’état de l’app', () => {
 
   it('une leçon finie range son rapport dans la série de SON parcours, à SON étape', () => {
     const apres = reducer(etatJouable(), {
-      type: 'blocTermine',
+      type: 'leconTerminee',
       bilan: bilan(rapport({ etape: 1, lettres: 300, ms: 60_000 })),
     });
     const serie = serieDe(apres.mesures ?? {}, 'dactylo');
@@ -267,15 +267,15 @@ describe('accroche dans l’état de l’app', () => {
   });
 
   it('une leçon sans rapport ne casse rien et n’invente aucune mesure', () => {
-    const apres = reducer(etatJouable(), { type: 'blocTermine', bilan: bilan() });
+    const apres = reducer(etatJouable(), { type: 'leconTerminee', bilan: bilan() });
     expect(serieDe(apres.mesures ?? {}, 'dactylo').lecons).toEqual([]);
-    expect(apres.blocsSurPalier).toBe(1);
+    expect(apres.leconsSurEtape).toBe(1);
   });
 
   it('une LISTE de la maison ne mesure rien : elle est hors parcours', () => {
     const etat = { ...etatJouable(), listeJouee: { id: 'x', nom: 'Dictée', mots: ['chat'], creeLe: '2026-01-01' } };
     const apres = reducer(etat, {
-      type: 'blocTermine',
+      type: 'leconTerminee',
       bilan: bilan(rapport({ lettres: 300, ms: 60_000 })),
     });
     expect(apres.mesures ?? {}).toEqual({});

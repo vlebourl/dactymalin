@@ -41,7 +41,7 @@ const bilan = (propres: string[]): BilanBloc => ({
 function jouer(depart: EtatApp, propres: string[], n: number): EtatApp {
   let etat = depart;
   for (let k = 0; k < n; k++) {
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(propres) });
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(propres) });
     etat = reducer(etat, { type: 'commencer' });
   }
   return etat;
@@ -60,7 +60,7 @@ describe('numéro de bloc et rechargement', () => {
   it('une occurrence par session finit par maîtriser la touche', () => {
     let etat = etatDeDepart();
     for (let session = 0; session < 3; session++) {
-      etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+      etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(['e']) });
       // rechargement : on repart de ce qui est réellement persisté
       sauver(aSauvegarder(etat));
       etat = etatDeDepart();
@@ -75,17 +75,17 @@ describe('numéro de bloc et rechargement', () => {
   it('un bloc sans frappe propre consomme quand même son numéro', () => {
     let etat = etatDeDepart();
     // bloc 1 : rien de propre — puis rechargement
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan([]) });
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan([]) });
     expect(aSauvegarder(etat).bloc).toBe(2);
     sauver(aSauvegarder(etat));
     etat = etatDeDepart();
-    expect(etat.bloc).toBe(2);
+    expect(etat.lecon).toBe(2);
 
     // bloc 2 puis bloc 3 : « e » est vu sur deux blocs DISTINCTS
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(['e']) });
     sauver(aSauvegarder(etat));
     etat = etatDeDepart();
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(['e']) });
     expect(etat.maitrise.e).toEqual([2, 3]);
   });
 
@@ -101,15 +101,15 @@ describe('changement de disposition', () => {
   const depart = (): EtatApp => ({
     ...etatDeDepart(),
     ...DEFAUTS,
-    palier: 3,
-    blocsSurPalier: 4,
+    etape: 3,
+    leconsSurEtape: 4,
     maitrise: { e: [1, 2, 3] },
     vue: 'V7',
-    bloc: 5,
+    lecon: 5,
     blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: '',
-    palierOuvert: null,
+    etapeOuverte: null,
     aReinjecter: [],
     itemsDuBloc: [],
     touchesNouvelles: [],
@@ -121,23 +121,23 @@ describe('changement de disposition', () => {
      au compteur et pouvaient ouvrir le palier suivant par le plafond. */
   it('remet blocsSurPalier à zéro quand la disposition change', () => {
     const apres = reducer(depart(), { type: 'disposition', id: 'fr-CH', manuel: true });
-    expect(apres.blocsSurPalier).toBe(0);
+    expect(apres.leconsSurEtape).toBe(0);
     expect(apres.maitrise).toEqual({});
   });
 
   it('ne touche à rien si la disposition est la même', () => {
     const apres = reducer(depart(), { type: 'disposition', id: 'fr-FR', manuel: true });
-    expect(apres.blocsSurPalier).toBe(4);
+    expect(apres.leconsSurEtape).toBe(4);
     expect(apres.maitrise).toEqual({ e: [1, 2, 3] });
   });
 
   it("changer de clavier ne peut plus ouvrir l'étape à la leçon suivante", () => {
     let etat = depart();
-    etat = { ...etat, blocsSurPalier: LECONS_PAR_ETAPE - 1 };
+    etat = { ...etat, leconsSurEtape: LECONS_PAR_ETAPE - 1 };
     etat = reducer(etat, { type: 'disposition', id: 'fr-CH', manuel: true });
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan([]) });
-    expect(etat.palier).toBe(3);
-    expect(etat.palierOuvert).toBeNull();
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan([]) });
+    expect(etat.etape).toBe(3);
+    expect(etat.etapeOuverte).toBeNull();
   });
 });
 
@@ -147,17 +147,17 @@ describe('changement de disposition', () => {
 describe("quota de sept leçons par étape", () => {
   it("ouvre l'étape suivante à la septième leçon, quoi qu'il se soit passé", () => {
     const etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE);
-    expect(etat.palier).toBe(2);
+    expect(etat.etape).toBe(2);
   });
 
   it("ne l'ouvre pas avant", () => {
     const etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE - 1);
-    expect(etat.palier).toBe(1);
+    expect(etat.etape).toBe(1);
   });
 
   it('remet le compteur de leçons à zéro au passage', () => {
     const etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE);
-    expect(etat.blocsSurPalier).toBe(0);
+    expect(etat.leconsSurEtape).toBe(0);
   });
 });
 
@@ -165,7 +165,7 @@ describe('touchesNouvelles', () => {
   /* Gate Codex n°9 : le repli illuminait TOUTES les frappes propres du bloc,
      alors que V5 promet « seules les touches nouvellement maîtrisées ». */
   it("est VIDE quand aucune touche ne vient d'être maîtrisée", () => {
-    const etat = reducer(etatDeDepart(), { type: 'blocTermine', bilan: bilan(['e', 's']) });
+    const etat = reducer(etatDeDepart(), { type: 'leconTerminee', bilan: bilan(['e', 's']) });
     expect(etat.touchesNouvelles).toEqual([]);
   });
 
@@ -175,25 +175,25 @@ describe('touchesNouvelles', () => {
     etat = jouer(etat, ['e'], 2);
     expect(etat.touchesNouvelles).toEqual([]);
     // 3ᵉ occurrence, 3ᵉ bloc : « e » bascule, et elle SEULE
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e', 's']) });
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(['e', 's']) });
     expect(etat.touchesNouvelles).toEqual(['e']);
   });
 
   it('une touche déjà maîtrisée ne se rallume pas', () => {
     let etat = jouer(etatDeDepart(), ['e'], 3);
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(['e']) });
     expect(etat.touchesNouvelles).toEqual([]);
   });
 });
 
 describe('borne du compteur de bloc', () => {
-  /* Verdict Codex final : depuis bloc = BLOC_MAX, `blocTermine` produisait
+  /* Verdict Codex final : depuis bloc = BLOC_MAX, `leconTerminee` produisait
      BLOC_MAX + 1, sauvegarde rejetée au rechargement → retour au backup et
      numéro resservi. Le repli legacy était pareillement non borné. */
   it("l'incrément ne dépasse jamais BLOC_MAX", () => {
-    let etat = { ...etatDeDepart(), bloc: BLOC_MAX };
-    etat = reducer(etat, { type: 'blocTermine', bilan: bilan(['e']) });
-    expect(etat.bloc).toBe(BLOC_MAX);
+    let etat = { ...etatDeDepart(), lecon: BLOC_MAX };
+    etat = reducer(etat, { type: 'leconTerminee', bilan: bilan(['e']) });
+    expect(etat.lecon).toBe(BLOC_MAX);
     expect(valider(aSauvegarder(etat) as unknown as Record<string, unknown>).bloc).toBe(BLOC_MAX);
   });
 
@@ -212,22 +212,22 @@ describe('choix du parcours', () => {
 
   it('Dactylo se joue directement, à son étape 1, sans avoir fini Découverte', () => {
     let etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE * 2); // Découverte étape 3
-    expect(etat.palier).toBe(3);
+    expect(etat.etape).toBe(3);
     etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
     expect(etat.parcours).toBe('dactylo');
-    expect(etat.palier).toBe(1);
-    expect(etat.blocsSurPalier).toBe(0);
+    expect(etat.etape).toBe(1);
+    expect(etat.leconsSurEtape).toBe(0);
   });
 
   it("l'avance faite en Dactylo n'écrase pas celle de Découverte", () => {
     let etat = jouer(etatDeDepart(), [], LECONS_PAR_ETAPE * 2); // Découverte étape 3
     etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
     etat = jouer(etat, [], LECONS_PAR_ETAPE); // Dactylo étape 2
-    expect(etat.palier).toBe(2);
+    expect(etat.etape).toBe(2);
     etat = reducer(etat, { type: 'parcours', parcours: 'decouverte' });
-    expect(etat.palier).toBe(3);
+    expect(etat.etape).toBe(3);
     etat = reducer(etat, { type: 'parcours', parcours: 'dactylo' });
-    expect(etat.palier).toBe(2);
+    expect(etat.etape).toBe(2);
   });
 
   it('les deux progressions et le parcours choisi survivent au rechargement', () => {
@@ -238,7 +238,7 @@ describe('choix du parcours', () => {
 
     const relu = etatDeDepart();
     expect(relu.parcours).toBe('dactylo');
-    expect(relu.palier).toBe(3);
+    expect(relu.etape).toBe(3);
     const s = charger();
     expect(progressionDe(s, 'decouverte', 'fr-FR')).toEqual({ etape: 2, leconsSurEtape: 0 });
     expect(progressionDe(s, 'dactylo', 'fr-FR')).toEqual({ etape: 3, leconsSurEtape: 0 });

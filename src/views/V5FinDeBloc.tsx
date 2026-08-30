@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { motsNouveaux } from '../core/corpus';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
 import { ensembleTouches, ETAPE_MAX, nouvellesTouches } from '../core/parcours';
+import { nouveaute } from '../core/contenu';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
@@ -19,10 +19,17 @@ export function V5FinDeBloc() {
      vient d'ouvrir uniquement si le bloc n'a rien laissé (bloc abandonné). */
   const gains = useMemo(() => {
     const joues = [...new Set(app.itemsDuBloc)];
-    const source = joues.length >= 3 ? joues : motsNouveaux(id, app.palierOuvert ?? app.palier);
+    /* Repli sur ce que l'étape vient d'ouvrir, calculé par le générateur de
+       données et non plus par une liste écrite à la main. */
+    const etape = app.etapeOuverte ?? app.etape;
+    const source =
+      joues.length >= 3 ? joues : nouveaute(
+        ensembleTouches(app.parcours, id, Math.max(1, etape - 1)),
+        ensembleTouches(app.parcours, id, etape),
+      );
     return [...source].sort(() => Math.random() - 0.5).slice(0, 3);
     // un tirage par arrivée sur la vue, pas à chaque rendu
-  }, [app.itemsDuBloc, app.bloc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [app.itemsDuBloc, app.lecon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seules les touches NOUVELLEMENT maîtrisées s'allument.
   const illuminees = new Set(
@@ -38,7 +45,7 @@ export function V5FinDeBloc() {
      et ne servait qu'à choisir les touches à illuminer. On la dit. */
   /* `palierOuvert` porte le numéro de la nouvelle ÉTAPE. L'appeler « leçon »
      ici contredisait la phrase juste en dessous, qui disait « étape ». */
-  const nouvelleEtape = app.palierOuvert;
+  const nouvelleEtape = app.etapeOuverte;
   /* Ce que la leçon APPORTE, pas tout ce qu'elle contient : `libellesEnsemble`
      rend le cumul depuis le palier 1 et aurait annoncé des touches déjà
      acquises comme des nouveautés. L'espace n'est pas une nouveauté à fêter. */
@@ -70,7 +77,7 @@ export function V5FinDeBloc() {
 
         <Keyboard
           id={id}
-          ensemble={ensembleTouches(app.parcours, id, app.palier)}
+          ensemble={ensembleTouches(app.parcours, id, app.etape)}
           illuminees={illuminees}
           taille="clamp(13px, 3.4vw, 42px)"
         />
