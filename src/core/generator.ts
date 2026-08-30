@@ -1,9 +1,9 @@
 import type { IdDisposition } from './layouts';
-import { chiffresDisponibles, motsDisponibles, syllabesDisponibles } from './corpus';
+import { groupesTypables, motsTypables, phrasesTypables } from './contenu';
 import { toucheDe } from './layouts';
-import { ensembleTouches, PALIER_MAJUSCULES, touchesAValider } from './paliers';
+import { ensembleTouches, nouvellesTouches, type IdParcours } from './parcours';
 
-export type GenreItem = 'mot' | 'nombre' | 'syllabe';
+export type GenreItem = 'mot' | 'nombre';
 
 export type Item = {
   texte: string;
@@ -48,8 +48,8 @@ function melange<T>(liste: T[], rnd: () => number): T[] {
 }
 
 /** Nombres de 1 à 3 chiffres composés uniquement de chiffres ouverts. */
-function nombresDisponibles(id: IdDisposition, palier: number): string[] {
-  const chiffres = chiffresDisponibles(id, palier);
+function nombresDisponibles(ensemble: Set<string>): string[] {
+  const chiffres = '0123456789'.split('').filter((c) => ensemble.has(c));
   if (chiffres.length === 0) return [];
   const sortie: string[] = [...chiffres];
   for (const a of chiffres) {
@@ -62,27 +62,14 @@ function nombresDisponibles(id: IdDisposition, palier: number): string[] {
   return sortie;
 }
 
-/**
- * Palier de la touche Maj : elle sert à écrire des CAPITALES et le point,
- * pas seulement des chiffres. Un mot du corpus devient une phrase minuscule
- * — « Chat. » — dont la capitale déclenche le vrai piège Maj contralatéral.
- */
-function phrasesDisponibles(id: IdDisposition, palier: number): string[] {
-  if (palier < PALIER_MAJUSCULES) return [];
-  const ensemble = ensembleTouches(id, palier);
-  return motsDisponibles(id, palier)
-    .filter((m) => !m.includes(' ') && m.length >= 3 && m.length <= 8)
-    .map((m) => m[0].toUpperCase() + m.slice(1) + '.')
-    .filter((p) => [...p].every((c) => ensemble.has(c)));
-}
-
-/** Tout ce qui est typable au palier, dans l'ordre de préférence P5. */
-function vivierDisponible(id: IdDisposition, palier: number): Item[] {
+/** Tout ce qui est typable avec cet ensemble, dans l'ordre de préférence P5 :
+    vrai mot ou groupe nominal > nombre > phrase. */
+function vivierDisponible(ensemble: Set<string>): Item[] {
   return [
-    ...motsDisponibles(id, palier).map((texte) => ({ texte, genre: 'mot' as const })),
-    ...phrasesDisponibles(id, palier).map((texte) => ({ texte, genre: 'mot' as const })),
-    ...nombresDisponibles(id, palier).map((texte) => ({ texte, genre: 'nombre' as const })),
-    ...syllabesDisponibles(id, palier).map((texte) => ({ texte, genre: 'syllabe' as const })),
+    ...motsTypables(ensemble).map((texte) => ({ texte, genre: 'mot' as const })),
+    ...groupesTypables(ensemble).map((texte) => ({ texte, genre: 'mot' as const })),
+    ...nombresDisponibles(ensemble).map((texte) => ({ texte, genre: 'nombre' as const })),
+    ...phrasesTypables(ensemble).map((texte) => ({ texte, genre: 'mot' as const })),
   ];
 }
 
@@ -93,10 +80,14 @@ function vivierDisponible(id: IdDisposition, palier: number): Item[] {
  * interdit. On vise donc `COUVERTURE_MIN`, ou l'offre du corpus si elle est
  * plus maigre.
  */
-export function couvertureCible(id: IdDisposition, palier: number): Map<string, number> {
-  const vivier = vivierDisponible(id, palier);
+export function couvertureCible(
+  parcours: IdParcours,
+  id: IdDisposition,
+  etape: number,
+): Map<string, number> {
+  const vivier = vivierDisponible(ensembleTouches(parcours, id, etape));
   return new Map(
-    touchesAValider(id, palier).map((c) => {
+    nouvellesTouches(parcours, id, etape).map((c) => {
       const offre = vivier.reduce(
         (n, it) => n + [...it.texte.toLowerCase()].filter((x) => x === c).length,
         0,
@@ -108,7 +99,8 @@ export function couvertureCible(id: IdDisposition, palier: number): Map<string, 
 
 export type OptionsBloc = {
   id: IdDisposition;
-  palier: number;
+  parcours: IdParcours;
+  etape: number;
   /** items ayant atteint le barreau 2 ou 3 dans les blocs précédents */
   aReinjecter?: string[];
   taille?: number;
@@ -117,8 +109,8 @@ export type OptionsBloc = {
 
 /**
  * Compose un bloc de 8 à 12 items.
- * Ordre de préférence strict (P5) : vrai mot > nombre > syllabe.
- * Aucun item ne contient un caractère hors de l'ensemble déclaré du palier.
+ * Ordre de préférence strict (P5) : vrai mot ou groupe nominal > nombre >
+ * phrase. Aucun item ne contient un caractère hors de l'ensemble de l'étape.
  */
 /**
  * Le bloc d'une LISTE de la maison : les mots tels quels, sans filtre de
@@ -152,10 +144,10 @@ export function composerBloc(o: OptionsBloc): Item[] {
     TAILLE_BLOC_MAX,
     Math.max(TAILLE_BLOC_MIN, o.taille ?? TAILLE_BLOC_MIN + Math.floor(rnd() * 5)),
   );
-  const ensemble = ensembleTouches(o.id, o.palier);
-  const nouvelles = touchesAValider(o.id, o.palier);
+  const ensemble = ensembleTouches(o.parcours, o.id, o.etape);
+  const nouvelles = nouvellesTouches(o.parcours, o.id, o.etape);
 
-  const mots = motsDisponibles(o.id, o.palier);
+  const mots = [...motsTypables(ensemble), ...groupesTypables(ensemble)];
   // majoritairement des touches du palier courant (cahier 4.3)
   const prioritaires = mots.filter((m) => nouvelles.some((c) => m.includes(c)));
   const autres = mots.filter((m) => !prioritaires.includes(m));
@@ -168,9 +160,8 @@ export function composerBloc(o: OptionsBloc): Item[] {
     items.push({ texte, genre });
   };
 
-  const nombres = melange(nombresDisponibles(o.id, o.palier), rnd);
-  const phrases = melange(phrasesDisponibles(o.id, o.palier), rnd);
-  const syllabes = melange(syllabesDisponibles(o.id, o.palier), rnd);
+  const nombres = melange(nombresDisponibles(ensemble), rnd);
+  const phrases = melange(phrasesTypables(ensemble), rnd);
 
   // 1. réinjection des items aidés, comme contenu ordinaire
   for (const texte of melange(o.aReinjecter ?? [], rnd).slice(0, Math.floor(taille / 3))) {
@@ -179,8 +170,8 @@ export function composerBloc(o: OptionsBloc): Item[] {
 
   /* 2. COUVERTURE des touches du palier. Glouton : on prend d'abord l'item qui
      comble le plus de manques, en gardant la préférence P5 (mot > phrase >
-     nombre > syllabe) sur les égalités, puisque le premier trouvé l'emporte. */
-  const besoins = couvertureCible(o.id, o.palier);
+     nombre) sur les égalités, puisque le premier trouvé l'emporte. */
+  const besoins = couvertureCible(o.parcours, o.id, o.etape);
   const consommer = (texte: string) => {
     for (const c of texte) {
       const reste = besoins.get(c.toLowerCase());
@@ -208,7 +199,6 @@ export function composerBloc(o: OptionsBloc): Item[] {
     ...melange(prioritaires, rnd).map((texte) => ({ texte, genre: 'mot' as const })),
     ...phrases.map((texte) => ({ texte, genre: 'mot' as const })),
     ...nombres.map((texte) => ({ texte, genre: 'nombre' as const })),
-    ...syllabes.map((texte) => ({ texte, genre: 'syllabe' as const })),
   ];
   for (const item of items) consommer(item.texte);
   initial = new Map(besoins);
@@ -233,8 +223,10 @@ export function composerBloc(o: OptionsBloc): Item[] {
   for (const m of melange(autres, rnd)) pousser(m, 'mot');
   // 6. nombres, là où les chiffres sont ouverts
   for (const n of nombres) pousser(n, 'nombre');
-  // 7. syllabes, dernier recours, étiquetées à l'affichage
-  for (const s of syllabes) pousser(s, 'syllabe');
+  /* Il n'y a pas de septième recours : la syllabe de remplissage a disparu.
+     Avec 241 items typables dès la première étape, elle n'était plus atteinte
+     — et le cahier v2 en fait une règle : si une étape ne produit pas assez de
+     contenu, c'est l'étape qu'on refait, jamais le contenu qu'on comble. */
 
   // Un bloc est intercalé pour ne pas enchaîner cinq mots qui commencent pareil.
   const bloc = melange(items, rnd);
