@@ -314,7 +314,17 @@ export function V4Lecon() {
      secours que le produit devait garder silencieux — et ce plafond n'existe
      plus. Reste un décompte lisible d'avance, dans les mots de l'enfant. */
   const avance = avancementEtape(app.leconsSurEtape);
-  const etiquetteLecon = `Étape ${app.etape} · Leçon ${Math.min(avance.leconsFaites + 1, avance.total)} sur ${avance.total}`;
+  /* Un REJEU n'est pas dans le quota : depuis #58 le compteur ne bouge plus
+     pendant, si bien qu'un « Leçon 7 sur 7 » figé s'afficherait à chaque
+     rejeu. Le chiffre serait faux, et l'idée aussi — rejouer n'avance pas.
+     L'étiquette parlée disait par-dessus le marché l'étape COURANTE alors que
+     le texte visible, lui, nommait déjà l'étape jouée : un lecteur d'écran
+     entendait « Étape 5 » sur le contenu de l'étape 2. */
+  const rejeu = app.etapeRejouee !== null;
+  const numeroLecon = Math.min(avance.leconsFaites + 1, avance.total);
+  const etiquetteLecon = rejeu
+    ? `Étape ${etapeJouee} · tu la rejoues`
+    : `Étape ${etapeJouee} · Leçon ${numeroLecon} sur ${avance.total}`;
   const clavierMasque = e.masque && !e.fini;
 
   return (
@@ -332,15 +342,26 @@ export function V4Lecon() {
             <strong>
               Étape {etapeJouee} sur {ETAPE_MAX}
             </strong>
-            <span
-              className={v.jaugeLecon}
-              role="img"
-              aria-label={etiquetteLecon}
-              title={etiquetteLecon}
-            >
-              <span className={v.jaugeLeconPleine} style={{ width: `${avance.part * 100}%` }} />
-            </span>
-            <span className={v.detailLecon}>{`Leçon ${Math.min(avance.leconsFaites + 1, avance.total)} sur ${avance.total}`}</span>
+            {rejeu ? (
+              <span className={v.detailLecon} aria-label={etiquetteLecon}>
+                tu la rejoues
+              </span>
+            ) : (
+              <>
+                <span
+                  className={v.jaugeLecon}
+                  role="img"
+                  aria-label={etiquetteLecon}
+                  title={etiquetteLecon}
+                >
+                  <span
+                    className={v.jaugeLeconPleine}
+                    style={{ width: `${avance.part * 100}%` }}
+                  />
+                </span>
+                <span className={v.detailLecon}>{`Leçon ${numeroLecon} sur ${avance.total}`}</span>
+              </>
+            )}
           </p>
           <p className={v.bandeauTouches}>
             Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>
