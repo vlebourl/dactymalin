@@ -1000,3 +1000,44 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* #63 — ce que le parent lit des mesures. Un signal à agir, pas une erreur :
+   il se distingue du texte courant par un liseré à gauche et non par du rouge,
+   qui reste banni de toute l'app. */
+.alerteObservation {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 4px solid var(--orange-moyen);
+  background: var(--orange-pale);
+  border-radius: 0 var(--r-touche) var(--r-touche) 0;
+  font-weight: 600;
+}
+
+/* La ligne d'un parcours : son nom, puis ses chiffres en petit. Les deux
+   parcours sont côte à côte et JAMAIS additionnés (§4.7). */
+.ligneObservation {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--liseré);
+}
+.chiffresObservation {
+  color: var(--encre-doux);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La porte de l'espace parent : un encadré qui s'adresse à l'adulte, posé en
+   tête des réglages. Ni rouge ni alarmant — l'enfant n'a rien fait de mal. */
+.porteAdulte {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 2px solid var(--liseré-fort);
+  border-radius: var(--r-bloc);
+  background: var(--fond-carte);
+}
+.porteAdulte p {
+  margin: 0;
+}

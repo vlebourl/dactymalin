@@ -17,7 +17,7 @@ import type { Maitrise } from "./progression";
  * compte dix étapes.
  */
 export const ETAPE_MIROIR_MAX = 7;
-import { ETAPE_MAX, type IdParcours } from "./parcours";
+import { ETAPE_MAX, PARCOURS, type IdParcours } from "./parcours";
 
 export const CLE = "tapeavecmoi.v1";
 /** Dernière progression VALIDE : une corruption ne remet jamais à zéro. */
@@ -97,8 +97,6 @@ export type Sauvegarde = {
   mesures?: Mesures;
 };
 
-/** Les deux parcours en VALEURS : `parcours.ts` n'en expose que le type. */
-const PARCOURS: IdParcours[] = ["decouverte", "dactylo"];
 const DISPOSITIONS: IdDisposition[] = ["fr-FR", "fr-CH"];
 
 export const cleProgression = (
