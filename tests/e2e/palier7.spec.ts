@@ -50,9 +50,13 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
     await expect(page.locator(`[data-code="${majAttendue}"]`)).toHaveAttribute('data-etat', 'cible');
     await expect(page.locator(`[data-code="${majAttendue}"]`)).toBeVisible();
 
-    // la main annoncée est celle de la touche porteuse, pas un défaut « gauche »
-    const consigne = await page.locator('[data-cote-main]').innerText();
-    expect(consigne.toLowerCase()).toContain(porteuse.main === 'gauche' ? 'gauche' : 'droite');
+    /* La main annoncée est celle de la touche porteuse, pas un défaut
+       « gauche ». Depuis #37 elle se lit sur le DESSIN — le mot a disparu. */
+    const cote = porteuse.main === 'gauche' ? 'gauche' : 'droite';
+    await expect(page.locator(`[data-main="${cote}"] img`)).toHaveAttribute(
+      'src',
+      `/doigts/index_${cote}.png`,
+    );
     expect(await page.locator('[data-doigt]').getAttribute('data-doigt')).toBe(
       porteuse.main === 'gauche' ? 'index_gauche' : 'index_droit',
     );

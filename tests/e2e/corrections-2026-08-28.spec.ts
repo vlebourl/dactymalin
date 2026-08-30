@@ -2,44 +2,13 @@ import { expect, test } from '@playwright/test';
 import { ouvrir } from './helpers/app';
 
 /* Trois corrections demandées le 2026-08-28 :
-   1. GAUCHE/DROITE en GROS, dans le coin haut du côté concerné ;
+   1. GAUCHE/DROITE en GROS — RETIRÉ par #37 : c'est le dessin de la main qui
+      porte le doigt, plus aucun mot ne dit la main. Ce qui l'a remplacé est
+      vérifié par `mains-dessinees.spec.ts` ;
    2. le clavier n'est plus coupé en deux — seules les couleurs distinguent
       les mains ;
    3. le choix « parcours » / « notre liste » est offert dès l'accueil, et la
       liste s'écrit sur place. */
-
-test('1. le mot de la main est en gros, au-dessus du clavier, de son côté', async ({ page }) => {
-  await ouvrir(page, 'fr-FR', 1);
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.getByRole('button', { name: 'On commence !' }).click();
-  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
-
-  const mot = page.locator('[data-cote-main]');
-  await expect(mot).toBeVisible();
-  const m = await page.evaluate(() => {
-    const el = document.querySelector('[data-cote-main]') as HTMLElement;
-    const b = el.getBoundingClientRect();
-    const clavier = document.querySelector('[data-bloc="gauche"]')!.getBoundingClientRect();
-    return {
-      cote: el.dataset.coteMain,
-      texte: el.textContent,
-      taille: parseFloat(getComputedStyle(el).fontSize),
-      centreX: b.left + b.width / 2,
-      bas: b.bottom,
-      hautClavier: clavier.top,
-      centreClavierX: window.innerWidth / 2,
-    };
-  });
-  expect(m.texte).toBe(m.cote === 'gauche' ? 'GAUCHE' : 'DROITE');
-  // « en gros »
-  expect(m.taille).toBeGreaterThanOrEqual(26);
-  // « au-dessus du clavier », et pas collé en haut de l'écran
-  expect(m.bas).toBeLessThanOrEqual(m.hautClavier);
-  expect(m.hautClavier - m.bas).toBeLessThan(120);
-  // « du côté de sa main »
-  if (m.cote === 'gauche') expect(m.centreX).toBeLessThan(m.centreClavierX);
-  else expect(m.centreX).toBeGreaterThan(m.centreClavierX);
-});
 
 test('1 bis. les deux mains encadrent le clavier à chaque tour', async ({ page }) => {
   await ouvrir(page, 'fr-FR', 1);

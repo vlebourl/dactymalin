@@ -50,6 +50,7 @@ test.describe('frappe fausse (P3)', () => {
       /^(index|pouce)_(gauche|droit)$/,
     );
     await expect(page.locator('[data-main-active="oui"]')).toHaveCount(1);
-    await expect(page.locator('[data-cote-main]')).toHaveCount(1);
+    /* Une seule main porte un doigt surligné ; l'autre est au repos (#37). */
+    await expect(page.locator('[data-main] img[src*="aucun_"]')).toHaveCount(1);
   });
 });

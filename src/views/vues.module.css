@@ -827,7 +827,11 @@
   width: clamp(52px, 11vw, 150px);
 }
 
-.coteMain svg {
+/* Le dessin de main occupe sa colonne, quel qu'en soit le support : SVG pour
+   l'overlay du barreau 3, PNG pour les deux mains qui encadrent le clavier. */
+.coteMain svg,
+.coteMain img {
+  display: block;
   width: 100%;
   height: auto;
 }
@@ -841,9 +845,6 @@
   }
 }
 
-/* Le mot GAUCHE / DROITE de la main à employer : en GROS, juste au-dessus du
-   clavier et poussé du côté de sa main. Il était collé tout en haut de l'écran,
-   trop loin du regard de l'enfant. */
 /* Dans le panneau de l'accueil, le champ prend toute la largeur : la famille
    y écrit de vrais mots, pas une note en marge. */
 .panneauListe .champMots {
@@ -852,37 +853,16 @@
   line-height: 1.55;
 }
 
-.motMainHaut {
-  /* Même gabarit que le clavier lui-même, pas que la rangée mains comprises :
-     le mot doit surplomber les touches, pas flotter au bord de l'écran. */
-  width: min(1180px, 88vw);
-  margin: 0 0 4px;
-  font-size: clamp(26px, 3.6vw, 48px);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  display: flex;
-  justify-content: flex-start;
-}
-
-.motMainHaut > span {
-  color: var(--teal-vif);
-}
-
-.motMainHaut:has([data-cote-main='droite']) {
-  justify-content: flex-end;
-}
-
-.motMainHaut > [data-cote-main='droite'] {
-  color: var(--orange-vif);
-}
-
 /* Les deux mains restent présentes à chaque tour ; celle qui ne joue pas
    s'efface sans disparaître — l'enfant garde le repère des deux côtés. */
 /* `data-main-active`, pas `data-active` : ce dernier appartient déjà aux
    pastilles de doigt de la bande basse. */
 .coteMain[data-main-active='non'] {
-  opacity: 0.28;
+  /* La main au repos reste LISIBLE : depuis #37, ce qui distingue les deux
+     mains est le doigt surligné, plus le seul contraste des deux dessins.
+     À 0,28 — la valeur des silhouettes vectorielles — le dessin s'effaçait
+     presque, et la paire cessait de montrer la frontière. */
+  opacity: 0.55;
 }
 
 .coteMain[data-main-active='oui'] {
