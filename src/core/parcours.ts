@@ -25,6 +25,9 @@ export const NOM_PARCOURS: Record<IdParcours, string> = {
   dactylo: 'Dactylo',
 };
 
+/** Les deux parcours en VALEURS, dans l'ordre où le parent les rencontre. */
+export const PARCOURS: IdParcours[] = ['decouverte', 'dactylo'];
+
 export type GenreEtape = 'lettres' | 'majuscule' | 'chiffres' | 'ponctuation' | 'contenu';
 
 /**

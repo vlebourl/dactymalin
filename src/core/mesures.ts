@@ -16,7 +16,7 @@
  *
  * Aucune de ces valeurs ne remonte à l'écran de l'enfant : pas de mots/minute,
  * pas de score, pas de compteur d'erreurs (§1). Le seul lecteur légitime est
- * l'adulte, dans les réglages, et il n'y a pour l'instant aucun lecteur.
+ * l'adulte, dans son espace — c'est `V9Compte` depuis #63, et lui seul.
  */
 import { ESPACE, LECONS_PAR_ETAPE, type IdParcours } from './parcours';
 
@@ -64,6 +64,16 @@ export const LECONS_OBSERVEES = LECONS_PAR_ETAPE;
 
 /** Seuil d'alarme du barreau 3 : une lettre sur cinq (§7.5). */
 export const SEUIL_BARREAU3 = 0.2;
+
+/**
+ * Garde-fou §7.1, en mots nets par minute. Au-delà, l'index de Découverte
+ * commence à s'automatiser sur sa demi-moitié de clavier, et le passage à
+ * Dactylo coûtera d'autant plus cher qu'il tardera. Le seuil d'automatisation
+ * kinesthésique mesuré est à 20-25 (West 1967) : quinze laisse au parent le
+ * temps de voir venir. C'est le SEUL chiffre que l'app remonte d'elle-même, et
+ * il ne va qu'au parent.
+ */
+export const SEUIL_VITESSE_DECOUVERTE = 15;
 
 export const SERIE_VIDE: Serie = { touches: {}, lecons: [] };
 
@@ -181,4 +191,45 @@ export function frequenceBarreau3(serie: Serie, sur: number = LECONS_OBSERVEES):
 export function alarmeBarreau3(serie: Serie, sur: number = LECONS_OBSERVEES): boolean {
   const f = frequenceBarreau3(serie, sur);
   return f !== null && f >= SEUIL_BARREAU3;
+}
+
+/**
+ * Les dernières leçons d'UNE série, additionnées en une seule.
+ *
+ * `vitesse` et `precision` répondent sur une leçon ; une leçon isolée est trop
+ * bruitée pour qu'un parent en tire quoi que ce soit, et la moyenne des
+ * vitesses leçon par leçon donnerait plus de poids à une leçon courte qu'à une
+ * longue. Additionner d'abord, diviser ensuite : les deux fonctions
+ * existantes s'appliquent telles quelles au résultat, et la formule ne vit
+ * qu'à un seul endroit.
+ *
+ * Comme partout ici, le cumul reste DANS une série : il n'existe pas de forme
+ * de cet appel qui prenne deux parcours.
+ */
+export function cumulRecent(serie: Serie, sur: number = LECONS_OBSERVEES): LeconMesuree | null {
+  const recentes = serie.lecons.slice(-sur);
+  if (recentes.length === 0) return null;
+  return recentes.reduce(
+    (t, l) => ({
+      etape: l.etape, // la plus récente : c'est celle où l'enfant en est
+      ms: t.ms + l.ms,
+      lettres: t.lettres + l.lettres,
+      fautes: t.fautes + l.fautes,
+      barreau3: t.barreau3 + l.barreau3,
+    }),
+    { etape: 0, ms: 0, lettres: 0, fautes: 0, barreau3: 0 },
+  );
+}
+
+/**
+ * Garde-fou §7.1 : il est temps de proposer Dactylo au parent.
+ *
+ * Ne regarde QUE la série Découverte — c'est l'index qui balaie sa moitié que
+ * le risque vise, pas la vitesse en soi. Un enfant rapide en Dactylo fait
+ * exactement ce qu'on lui demande.
+ */
+export function alarmePassageDactylo(m: Mesures, sur: number = LECONS_OBSERVEES): boolean {
+  const cumul = cumulRecent(serieDe(m, 'decouverte'), sur);
+  const v = cumul && vitesse(cumul);
+  return v !== null && v >= SEUIL_VITESSE_DECOUVERTE;
 }

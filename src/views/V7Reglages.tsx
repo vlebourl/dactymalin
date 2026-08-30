@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
-import { NOM_PARCOURS, type IdParcours } from '../core/parcours';
+import { NOM_PARCOURS, PARCOURS } from '../core/parcours';
+import { questionAdulte, reponseJuste, type QuestionAdulte } from '../core/porte-adulte';
 import { chargerIndex, CLE_CHOISIR, progressionEnCache } from '../core/profils';
 import type { Reglages } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
@@ -15,8 +16,6 @@ import u from '../ui/ui.module.css';
 const EXPLICATION_PARCOURS =
   'Découverte apprend les deux moitiés du clavier avec les index. Dactylo apprend les dix doigts. Les deux progressent séparément.';
 
-const PARCOURS: IdParcours[] = ['decouverte', 'dactylo'];
-
 const INTERRUPTEURS: Array<{ cle: keyof Reglages; libelle: string; detail: string }> = [
   { cle: 'sons', libelle: 'Sons', detail: 'Un petit son quand la touche est la bonne.' },
   { cle: 'texteEspace', libelle: 'Texte plus espacé', detail: 'Plus d\'air entre les lettres.' },
@@ -26,6 +25,35 @@ const INTERRUPTEURS: Array<{ cle: keyof Reglages; libelle: string; detail: strin
 export function V7Reglages() {
   const app = useApp();
   const envoi = useEnvoi();
+
+  /* La porte de l'espace parent. Elle garde la suppression du compte, celle
+     d'un enfant, et les mesures de #63 — vitesse et précision, que §1 interdit
+     de montrer à l'enfant. Cet écran-ci s'ouvre depuis l'accueil de l'enfant :
+     sans elle, deux clics suffisaient. */
+  const [porte, setPorte] = useState<QuestionAdulte | null>(null);
+  const [saisie, setSaisie] = useState('');
+  const [rate, setRate] = useState(false);
+
+  const demanderLaPorte = () => {
+    /* Même interrupteur de harnais que la durée de leçon : les parcours de
+       test qui visent l'espace parent n'ont pas à refaire une multiplication à
+       chaque fois. Rien en production ne pose ce drapeau. */
+    if ((globalThis as { __porteAdulteOuverte?: boolean }).__porteAdulteOuverte) {
+      return envoi({ type: 'vue', vue: 'V9' });
+    }
+    setSaisie('');
+    setRate(false);
+    setPorte(questionAdulte());
+  };
+
+  const repondre = () => {
+    if (porte && reponseJuste(porte, saisie)) return envoi({ type: 'vue', vue: 'V9' });
+    /* Une question NEUVE à chaque échec : la même reposée indéfiniment finirait
+       par céder à l'essai systématique. */
+    setPorte(questionAdulte());
+    setSaisie('');
+    setRate(true);
+  };
 
   /* Les enfants DU COMPTE, lus dans le cache et non au réseau : les réglages
      s'ouvrent aussi dans le train. Un enfant que cet appareil n'a jamais vu
@@ -54,6 +82,43 @@ export function V7Reglages() {
           Réglages
         </h1>
 
+        {porte && (
+          <div className={v.porteAdulte} role="group" aria-label="Question réservée aux parents">
+            <p>
+              <b>Une question pour les grands.</b> Combien font{' '}
+              <b>
+                {porte.a} × {porte.b}
+              </b>{' '}
+              ?
+            </p>
+            <p className={v.ligneClavier}>
+              <input
+                className={v.champNom}
+                value={saisie}
+                autoFocus
+                inputMode="numeric"
+                aria-label={`Combien font ${porte.a} fois ${porte.b} ?`}
+                onChange={(e) => {
+                  setSaisie(e.target.value);
+                  setRate(false);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && repondre()}
+              />
+              <button className={v.petitBouton} onClick={repondre}>
+                Entrer
+              </button>{' '}
+              <button className={u.lien} onClick={() => setPorte(null)}>
+                Laisser tomber
+              </button>
+            </p>
+            {rate && (
+              <p className={v.erreurCompte} role="alert" data-porte="ratee">
+                Ce n'est pas ça. En voici une autre.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className={v.reglages}>
           {/* Les enfants du compte, avec où ils en sont. En LECTURE SEULE :
               ajouter, renommer et supprimer sont des gestes de parent, et cet
@@ -75,7 +140,7 @@ export function V7Reglages() {
                 )}
               </ul>
             </div>
-            <button className={v.petitBouton} onClick={() => envoi({ type: 'vue', vue: 'V9' })}>
+            <button className={v.petitBouton} onClick={demanderLaPorte}>
               Gérer les enfants
             </button>
           </div>
@@ -89,7 +154,7 @@ export function V7Reglages() {
                 Pour retrouver la progression des enfants sur un autre ordinateur. Facultatif.
               </span>
             </span>
-            <button className={v.petitBouton} onClick={() => envoi({ type: 'vue', vue: 'V9' })}>
+            <button className={v.petitBouton} onClick={demanderLaPorte}>
               Ouvrir
             </button>
           </div>

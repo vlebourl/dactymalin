@@ -14,6 +14,9 @@ import {
   proprete,
   serieDe,
   vitesse,
+  SEUIL_VITESSE_DECOUVERTE,
+  alarmePassageDactylo,
+  cumulRecent,
   type Mesures,
   type RapportLecon,
 } from './mesures';
@@ -134,6 +137,60 @@ describe('les cinq mesures', () => {
   it('sans aucune leçon, il n’y a ni fréquence ni alarme', () => {
     expect(frequenceBarreau3(serieDe({}, 'dactylo'))).toBeNull();
     expect(alarmeBarreau3(serieDe({}, 'dactylo'))).toBe(false);
+  });
+});
+
+describe('ce que le parent peut lire (#63)', () => {
+  it('le cumul récent additionne les dernières leçons, et laisse les vieilles dehors', () => {
+    let m: Mesures = {};
+    // Un débutant très lent, il y a longtemps.
+    for (let i = 0; i < 20; i++)
+      m = enregistrer(m, 'decouverte', rapport({ lettres: 10, ms: 60_000 }));
+    for (let i = 0; i < LECONS_OBSERVEES; i++)
+      m = enregistrer(m, 'decouverte', rapport({ lettres: 100, ms: 60_000 }));
+    const c = cumulRecent(serieDe(m, 'decouverte'));
+    expect(c).not.toBeNull();
+    // 100 lettres par minute = 20 mots/min. Les vieilles leçons ne tirent pas vers le bas.
+    expect(vitesse(c!)).toBe(20);
+  });
+
+  it('le cumul récent ne mélange jamais les deux parcours', () => {
+    let m: Mesures = {};
+    m = enregistrer(m, 'decouverte', rapport({ lettres: 100, ms: 60_000 }));
+    m = enregistrer(m, 'dactylo', rapport({ lettres: 10, ms: 60_000 }));
+    expect(vitesse(cumulRecent(serieDe(m, 'decouverte'))!)).toBe(20);
+    expect(vitesse(cumulRecent(serieDe(m, 'dactylo'))!)).toBe(2);
+  });
+
+  it('un parcours jamais joué n’a pas de cumul — et surtout pas un zéro', () => {
+    expect(cumulRecent(serieDe({}, 'dactylo'))).toBeNull();
+  });
+
+  it('la précision se lit sur le cumul, pas leçon par leçon', () => {
+    let m: Mesures = {};
+    m = enregistrer(m, 'dactylo', rapport({ lettres: 90, fautes: 10 }));
+    m = enregistrer(m, 'dactylo', rapport({ lettres: 100, fautes: 0 }));
+    expect(precision(cumulRecent(serieDe(m, 'dactylo'))!)).toBeCloseTo(190 / 200);
+  });
+
+  it('le seuil de passage à Dactylo est de quinze mots par minute (§7.1)', () => {
+    expect(SEUIL_VITESSE_DECOUVERTE).toBe(15);
+    // 70 lettres en une minute = 14 mots/min : l'enfant peut rester.
+    const sous = enregistrer({}, 'decouverte', rapport({ lettres: 70, ms: 60_000 }));
+    // 75 lettres = 15 mots/min : c'est le moment de proposer Dactylo.
+    const au = enregistrer({}, 'decouverte', rapport({ lettres: 75, ms: 60_000 }));
+    expect(alarmePassageDactylo(sous)).toBe(false);
+    expect(alarmePassageDactylo(au)).toBe(true);
+  });
+
+  it('un enfant rapide en DACTYLO ne déclenche pas la proposition de passer à Dactylo', () => {
+    // Le garde-fou §7.1 ne parle que de Découverte : l'index qui s'installe.
+    const m = enregistrer({}, 'dactylo', rapport({ lettres: 200, ms: 60_000 }));
+    expect(alarmePassageDactylo(m)).toBe(false);
+  });
+
+  it('sans aucune leçon, aucune alarme ne se déclenche', () => {
+    expect(alarmePassageDactylo({})).toBe(false);
   });
 });
 
@@ -351,11 +408,17 @@ describe('rien de tout cela n’atteint l’enfant', () => {
      écran, et il est le seul à connaître le verdict, le barreau atteint et la
      propreté d'une position. Ce qu'il produit ne fait que TRAVERSER la vue,
      qui ne le lit pas — ce que le reste de ce test continue de vérifier. */
+  /* `V9Compte.tsx` est l'espace PARENT, et #63 lui donne la lecture des deux
+     séries : c'est le lecteur que §4.7 réclamait depuis le début. Il n'est pas
+     sur le chemin de l'enfant — on n'y arrive que par les réglages, et rien de
+     ce qu'il affiche ne redescend vers V1, V4 ou V5. Le garde-fou n'a pas
+     sauté : il dit maintenant « aucun écran VU PAR L'ENFANT ». */
   const AUTORISES = new Set([
     'src/state.tsx',
     'src/core/storage.ts',
     'src/core/mesures.ts',
     'src/core/lecon.ts',
+    'src/views/V9Compte.tsx',
   ]);
 
   function fichiers(dossier: string): string[] {
@@ -366,7 +429,7 @@ describe('rien de tout cela n’atteint l’enfant', () => {
     });
   }
 
-  it('aucune vue, aucun composant n’importe mesures.ts', () => {
+  it('aucun écran vu par l’enfant n’importe mesures.ts', () => {
     const coupables = fichiers('src').filter(
       (f) => !AUTORISES.has(f) && /from '[^']*\/mesures'/.test(readFileSync(f, 'utf8')),
     );
