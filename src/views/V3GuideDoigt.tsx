@@ -1,4 +1,4 @@
-import { ensembleTouches } from '../core/paliers';
+import { ensembleTouches } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { MainSchematique } from '../ui/MainSchematique';
 import { useApp, useEnvoi } from '../state';
@@ -26,7 +26,7 @@ export function V3GuideDoigt() {
           </div>
           <Keyboard
             id={app.disposition}
-            ensemble={ensembleTouches(app.disposition, app.palier)}
+            ensemble={ensembleTouches(app.parcours, app.disposition, app.etape)}
             taille="clamp(16px, 4.4vw, 54px)"
             espace={{ etat: 'ouvert', pouce: 'gauche' }}
           />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ensembleTouches, PALIER_MAX } from './paliers';
+import { ensembleTouches, ETAPE_MAX } from './parcours';
 import {
   disposition,
   estProposable,
@@ -271,7 +271,7 @@ describe('matrice physique exhaustive', () => {
 
   it('toute touche du curriculum reste atteignable après complétion des tables', () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
-      for (const c of ensembleTouches(id, PALIER_MAX)) {
+      for (const c of ensembleTouches('decouverte', id, ETAPE_MAX)) {
         if (c === ' ') continue;
         expect(toucheDe(id, c), `${c} introuvable en ${id}`).toBeDefined();
       }

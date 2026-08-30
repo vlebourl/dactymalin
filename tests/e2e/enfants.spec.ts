@@ -80,13 +80,13 @@ test('renommer un enfant conserve sa progression', async ({ page }) => {
      prénom ne doit rien lui coûter. */
   await ouvrir(page, 'fr-FR', 4, false, 'Timo');
   await espaceParent(page);
-  await expect(page.getByText('palier 4')).toBeVisible();
+  await expect(page.getByText('étape 4')).toBeVisible();
 
   await page.getByLabel('Prénom de Timo').fill('Timothée');
   await page.getByRole('button', { name: 'Renommer' }).click();
 
   await expect(page.getByLabel('Prénom de Timothée')).toBeVisible();
-  await expect(page.getByText('palier 4')).toBeVisible();
+  await expect(page.getByText('étape 4')).toBeVisible();
   expect((await sauvegarde(page)).palier).toBe(4);
 
   await page.reload();

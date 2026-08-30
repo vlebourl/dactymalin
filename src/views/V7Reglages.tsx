@@ -1,11 +1,21 @@
 import { useMemo } from 'react';
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
+import { NOM_PARCOURS, type IdParcours } from '../core/parcours';
 import { chargerIndex, CLE_CHOISIR, progressionEnCache } from '../core/profils';
 import type { Reglages } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
 import { MiniClavier } from '../ui/MiniClavier';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
+
+/* La phrase est écrite POUR LE PARENT : c'est lui qui choisit (cahier §4.2), et
+   c'est le seul endroit de l'app où le choix se fait. Elle dit la différence de
+   contenu ET l'indépendance des deux progressions — sans quoi le parent croit
+   qu'il va perdre ce que son enfant a fait. */
+const EXPLICATION_PARCOURS =
+  'Découverte apprend les deux moitiés du clavier avec les index. Dactylo apprend les dix doigts. Les deux progressent séparément.';
+
+const PARCOURS: IdParcours[] = ['decouverte', 'dactylo'];
 
 const INTERRUPTEURS: Array<{ cle: keyof Reglages; libelle: string; detail: string }> = [
   { cle: 'sons', libelle: 'Sons', detail: 'Un petit son quand la touche est la bonne.' },
@@ -84,6 +94,31 @@ export function V7Reglages() {
             </button>
           </div>
 
+          {/* Le choix du PARENT (#42). Les deux parcours sont parallèles :
+              basculer ne perd aucune progression, et rien ne se débloque. */}
+          <div className={[v.ligneReglage, v.ligneClaviers].join(' ')}>
+            <span>
+              <b>Parcours</b>
+              <br />
+              <span className={v.promessePalier}>{EXPLICATION_PARCOURS}</span>
+            </span>
+            <div className={v.choixClaviers} role="radiogroup" aria-label="Parcours">
+              {PARCOURS.map((p) => (
+                <button
+                  key={p}
+                  role="radio"
+                  aria-checked={app.parcours === p}
+                  className={[v.carteClavier, app.parcours === p ? v.carteClavierChoisie : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => envoi({ type: 'parcours', parcours: p })}
+                >
+                  <span>{NOM_PARCOURS[p]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Radios ILLUSTRÉS : on choisit un clavier en le reconnaissant. */}
           <div className={[v.ligneReglage, v.ligneClaviers].join(' ')}>
             <span>
@@ -148,9 +183,6 @@ export function V7Reglages() {
         <div className={v.liens}>
           <button className={u.lien} onClick={() => envoi({ type: 'vue', vue: 'V3' })}>
             Revoir : où mettre mes doigts
-          </button>
-          <button className={u.lien} onClick={() => envoi({ type: 'vue', vue: 'V4' })}>
-            Refaire une leçon à quatre doigts
           </button>
           <button
             className={u.lien}

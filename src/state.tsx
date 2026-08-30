@@ -1,12 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
 import type { Liste } from './core/listes';
-import { BLOC_MAX, charger, demanderPersistance, sauver, type Reglages, type Sauvegarde } from './core/storage';
+import {
+  BLOC_MAX,
+  charger,
+  cleProgression,
+  demanderPersistance,
+  miroirLegacy,
+  MODELE,
+  progressionDe,
+  sauver,
+  type Progressions,
+  type Reglages,
+  type Sauvegarde,
+} from './core/storage';
 import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
 import { cleDe } from './core/profils';
-import { estMaitrisee, noterOccurrence, palierFranchi } from './core/progression';
-import { PALIER_MAX } from './core/paliers';
+import { estMaitrisee, noterOccurrence } from './core/progression';
+import { etapeFinie, ETAPE_MAX, LECONS_PAR_ETAPE, parcoursFini, type IdParcours } from './core/parcours';
 import { encouragementSuivant } from './core/encouragements';
+import { enregistrer, type RapportLecon } from './core/mesures';
 
 export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V9';
 
@@ -21,17 +34,53 @@ export type BilanBloc = {
   aRevoir: string[];
   /** items réellement validés pendant ce bloc, dans l'ordre */
   items: string[];
+  /**
+   * Ce que la leçon a OBSERVÉ (§4.7), ou rien si la vue ne compte pas encore.
+   * Optionnel à dessein : l'observation ne doit jamais être une condition pour
+   * que la leçon se termine et que la progression s'enregistre.
+   */
+  mesures?: RapportLecon;
+  /**
+   * Instant EPOCH où la leçon s'est close. C'est lui, et rien d'autre, qui
+   * date la dernière leçon dans la sauvegarde : sans lui, la révision du
+   * retour (§7.4) ne se déclenchait jamais ailleurs que dans ses tests.
+   */
+  fin: number;
 };
 
-export type EtatApp = Sauvegarde & {
+/**
+ * L'état de SESSION parle le vocabulaire de la v2 — étape, leçon — là où la
+ * `Sauvegarde` garde le sien : ses noms sont le format de fil que des clients
+ * plus anciens savent lire, et les renommer casserait leur lecture. Les trois
+ * champs concernés sont donc retirés puis redéclarés ici, et `aSauvegarder`
+ * fait la traduction dans un seul endroit.
+ */
+export type EtatApp = Omit<Sauvegarde, 'palier' | 'blocsSurPalier' | 'bloc'> & {
+  /** Étape courante du parcours joué. */
+  etape: number;
+  /** Leçons déjà faites dans cette étape. */
+  leconsSurEtape: number;
+  /** Numéro de la prochaine leçon, monotone : sert à répartir les occurrences. */
+  lecon: number;
+  /**
+   * Le parcours JOUÉ, choisi par le parent en V7 (#42). Il n'est plus
+   * optionnel ici : dans l'état de session, il y a toujours un parcours en
+   * cours, et `etape` / `leconsSurEtape` sont l'étape et les leçons DE
+   * CELUI-LÀ — plus forcément celles de Découverte.
+   */
+  parcours: IdParcours;
   vue: Vue;
   raisonVue?: RaisonVue;
-  /** blocs enchaînés sans repasser par l'accueil */
-  blocsConsecutifs: number;
   etoilesDuBloc: number;
   titreEncouragement: string;
   /** palier que ce bloc vient d'ouvrir, pour l'illumination de V5 */
-  palierOuvert: number | null;
+  etapeOuverte: number | null;
+  /** Le parcours vient d'être terminé À L'INSTANT : V5 le fête une fois.
+      Transitoire — un rechargement ne doit pas rejouer la célébration. */
+  parcoursTermineMaintenant: boolean;
+  /** Étape que l'enfant a choisi de rejouer, ou `null` pour son étape courante.
+      Jamais persistée : c'est un choix du moment, pas un acquis. */
+  etapeRejouee: number | null;
   aReinjecter: string[];
   /** items validés dans le bloc qui vient de se terminer (gain lexical de V5) */
   itemsDuBloc: string[];
@@ -64,8 +113,13 @@ export type Action =
   | { type: 'listes'; listes: Liste[] }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }
+  | { type: 'parcours'; parcours: IdParcours }
+  /* Rejouer une étape DÉJÀ FINIE, à l'initiative de l'enfant. C'est un choix,
+     jamais un verdict : rien n'est retiré, rien n'est compté, et l'app ne le
+     propose pas d'elle-même. */
+  | { type: 'rejouerEtape'; etape: number }
   | { type: 'guideDoigtVu' }
-  | { type: 'blocTermine'; bilan: BilanBloc }
+  | { type: 'leconTerminee'; bilan: BilanBloc }
   | { type: 'verrMaj'; actif: boolean };
 
 export function reducer(etat: EtatApp, action: Action): EtatApp {
@@ -75,7 +129,6 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ...etat,
         vue: action.vue,
         raisonVue: action.raison,
-        blocsConsecutifs: action.vue === 'V1' ? 0 : etat.blocsConsecutifs,
       };
 
     case 'commencer':
@@ -83,11 +136,28 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ...etat,
         vue: 'V4',
         premierLancement: false,
-        palierOuvert: null,
+        etapeOuverte: null,
+    parcoursTermineMaintenant: false,
         /* Appuyer sur une carte impose SA liste ; « On commence ! » passe
            `null` et revient au parcours ; « On continue ! » n'envoie rien et
            rejoue ce qui était en cours. */
         listeJouee: action.liste !== undefined ? action.liste : etat.listeJouee,
+        /* « On commence ! » revient au parcours, donc à l'étape courante : une
+           étape rejouée ne survit pas au retour à l'accueil. */
+        etapeRejouee: action.liste !== undefined ? null : etat.etapeRejouee,
+      };
+
+    /* Une étape rejouée ne touche NI la progression, NI les leçons faites : on
+       la joue « à côté », et la séance suivante repart d'où l'enfant en était.
+       Sans cela, rejouer serait une régression déguisée. */
+    case 'rejouerEtape':
+      return {
+        ...etat,
+        vue: 'V4',
+        etapeRejouee: action.etape,
+        listeJouee: null,
+        etapeOuverte: null,
+    parcoursTermineMaintenant: false,
       };
 
     case 'listes':
@@ -101,16 +171,43 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         dispositionChoisieALaMain: action.manuel || etat.dispositionChoisieALaMain,
         // la maîtrise est indexée par caractère : changer de clavier repart proprement
         maitrise: change ? {} : etat.maitrise,
-        palier: change ? Math.min(etat.palier, PALIER_MAX) : etat.palier,
+        /* Le parcours v2 compte DIX étapes ; borner ici sur l'ancien maximum
+           de sept rétrogradait un enfant arrivé aux chiffres dès qu'il changeait
+           de clavier. `PALIER_MAX` ne vaut plus que pour le miroir destiné aux
+           clients d'avant, jamais pour la progression vécue. */
+        etape: change ? Math.min(etat.etape, ETAPE_MAX) : etat.etape,
         /* Les blocs déjà joués l'ont été sur l'AUTRE clavier : les garder au
            compteur ouvrait le palier suivant par le plafond anti-mur alors que
            rien n'avait été prouvé sur la nouvelle disposition. */
-        blocsSurPalier: change ? 0 : etat.blocsSurPalier,
+        leconsSurEtape: change ? 0 : etat.leconsSurEtape,
       };
     }
 
     case 'reglage':
       return { ...etat, reglages: { ...etat.reglages, [action.cle]: action.valeur } };
+
+    /* Les deux parcours sont indépendants et parallèles (cahier §4.2). Basculer
+       n'est donc ni une reprise ni une remise à zéro : on RANGE la progression
+       du parcours qu'on quitte dans son couple, et on SORT celle du parcours
+       qu'on prend. Rien ne s'écrase, dans aucun des deux sens. */
+    case 'parcours': {
+      if (action.parcours === etat.parcours) return etat;
+      const progressions = rangerProgression(etat);
+      const p = progressionDe({ progressions }, action.parcours, etat.disposition);
+      return {
+        ...etat,
+        parcours: action.parcours,
+        progressions,
+        etape: p.etape,
+        leconsSurEtape: p.leconsSurEtape,
+        /* Les items à revoir viennent de la leçon de l'AUTRE parcours : les
+           réinjecter ici ferait taper des touches que celui-ci n'a pas encore
+           ouvertes. */
+        aReinjecter: [],
+        etapeOuverte: null,
+    parcoursTermineMaintenant: false,
+      };
+    }
 
     case 'guideDoigtVu':
       return { ...etat, guideDoigtVu: true };
@@ -118,7 +215,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
     case 'verrMaj':
       return etat.verrMaj === action.actif ? etat : { ...etat, verrMaj: action.actif };
 
-    case 'blocTermine': {
+    case 'leconTerminee': {
       /* Une LISTE est hors parcours : on tape les mots de la maison pour le
          plaisir, sans avancer ni compter dans le palier. Elle peut contenir
          des lettres que l'enfant n'a pas apprises — rien de ce qu'il tape là
@@ -127,34 +224,76 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         return {
           ...etat,
           vue: 'V5',
-          bloc: Math.min(etat.bloc + 1, BLOC_MAX),
-          blocsConsecutifs: etat.blocsConsecutifs + 1,
+          /* Une liste ne compte pas dans le parcours, mais l'enfant a bien tapé
+             aujourd'hui : le faire réviser demain comme après quinze jours
+             d'absence serait faux. */
+          derniereLecon: action.bilan.fin,
+          lecon: Math.min(etat.lecon + 1, BLOC_MAX),
           etoilesDuBloc: action.bilan.etoiles,
           titreEncouragement: encouragementSuivant(etat.titreEncouragement),
           aReinjecter: [],
           itemsDuBloc: action.bilan.items,
           touchesNouvelles: [],
-          palierOuvert: null,
+          etapeOuverte: null,
+    parcoursTermineMaintenant: false,
         };
       }
       let maitrise = etat.maitrise;
       const dejaMaitrisees = new Set(Object.keys(maitrise).filter((c) => estMaitrisee(maitrise, c)));
-      for (const c of action.bilan.propres) maitrise = noterOccurrence(maitrise, c, etat.bloc);
+      for (const c of action.bilan.propres) maitrise = noterOccurrence(maitrise, c, etat.lecon);
       // Ce que ce bloc-ci a fait basculer, et rien d'autre.
       const franchies = Object.keys(maitrise).filter(
         (c) => !dejaMaitrisees.has(c) && estMaitrisee(maitrise, c),
       );
-      const blocsSurPalier = etat.blocsSurPalier + 1;
-      const franchi = palierFranchi(etat.disposition, etat.palier, maitrise, blocsSurPalier);
+      /* #38 : l'étape est finie après sept leçons, et par rien d'autre.
+         Le critère de maîtrise ne commande plus le passage — il compose le
+         contenu (#39). Le plafond anti-mur disparaît avec lui : sans porte, il
+         n'y a plus de mur à forcer. */
+      const leconsSurEtape = etat.leconsSurEtape + 1;
+      /* REJOUER n'est pas rattraper. L'étape rejouée se joue « à côté » : elle
+         ne compte pas dans le quota de l'étape courante, sans quoi un enfant à
+         6 leçons sur 7 de l'étape 5 débloquerait l'étape 6 en refaisant
+         l'étape 2 — la progression avancerait sur un contenu déjà acquis.
+         Ce qu'il a tapé reste vrai pour autant : la maîtrise et les mesures
+         enregistrent ce qui s'est passé, sous le numéro de l'étape JOUÉE. */
+      const rejoue = etat.etapeRejouee !== null;
+      /* L'étiquette de parcours et l'étape sont posées ICI, pas par la vue :
+         c'est l'état qui sait dans quelle série la leçon doit tomber, et une
+         vue qui se tromperait d'étiquette mélangerait les deux courbes — le
+         seul accident que §4.7 interdit absolument. */
+      const mesures = action.bilan.mesures
+        ? enregistrer(etat.mesures ?? {}, etat.parcours, {
+            ...action.bilan.mesures,
+            etape: etat.etapeRejouee ?? etat.etape,
+          })
+        : etat.mesures;
+      const franchi = !rejoue && etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;
+      /* À la DIXIÈME étape il n'y a pas d'étape suivante à ouvrir, et le
+         compteur montait donc à 8, 9, 10 sans fin : le parcours ne se
+         terminait jamais, et la carte, qui ne dit « finie » que d'une étape
+         dépassée, laissait l'étape 10 éternellement courante et jamais
+         rejouable. On plafonne, et le plafond EST la fin. */
+      const leconsRetenues = rejoue
+        ? etat.leconsSurEtape
+        : franchi
+          ? 0
+          : etat.etape >= ETAPE_MAX
+            ? Math.min(leconsSurEtape, LECONS_PAR_ETAPE)
+            : leconsSurEtape;
+      const termineMaintenant =
+        parcoursFini(etat.etape, leconsRetenues) &&
+        !parcoursFini(etat.etape, etat.leconsSurEtape);
       return {
         ...etat,
         vue: 'V5',
         maitrise,
-        bloc: Math.min(etat.bloc + 1, BLOC_MAX),
-        blocsSurPalier: franchi ? 0 : blocsSurPalier,
-        palier: franchi ? etat.palier + 1 : etat.palier,
-        palierOuvert: franchi ? etat.palier + 1 : null,
-        blocsConsecutifs: etat.blocsConsecutifs + 1,
+        mesures,
+        derniereLecon: action.bilan.fin,
+        lecon: Math.min(etat.lecon + 1, BLOC_MAX),
+        leconsSurEtape: leconsRetenues,
+        etape: franchi ? etat.etape + 1 : etat.etape,
+        etapeOuverte: franchi ? etat.etape + 1 : null,
+        parcoursTermineMaintenant: termineMaintenant,
         etoilesDuBloc: action.bilan.etoiles,
         titreEncouragement: encouragementSuivant(etat.titreEncouragement),
         aReinjecter: action.bilan.aRevoir,
@@ -168,21 +307,44 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
   }
 }
 
+/** La progression en cours, rangée dans le couple (parcours, disposition). */
+function rangerProgression(etat: EtatApp): Progressions {
+  return {
+    ...etat.progressions,
+    [cleProgression(etat.parcours, etat.disposition)]: {
+      etape: etat.etape,
+      leconsSurEtape: etat.leconsSurEtape,
+    },
+  };
+}
+
 /** Ce qui est réellement écrit sur disque, extrait de l'état de session. */
 export function aSauvegarder(etat: EtatApp): Sauvegarde {
+  const progressions = rangerProgression(etat);
+  /* Le miroir legacy reste celui de DÉCOUVERTE, et il est recalculé depuis les
+     progressions plutôt que recopié de `etat.etape`. Y verser l'étape de
+     Dactylo ne serait pas qu'un affichage faux chez les anciens clients :
+     `progressionsNormalisees` refusionne le miroir dans le couple Découverte
+     à chaque relecture, et l'avance changerait de parcours pour de bon. */
+  const miroir = miroirLegacy(progressionDe({ progressions }, 'decouverte', etat.disposition));
   return {
     version: 1,
+    modele: MODELE,
+    parcours: etat.parcours,
     disposition: etat.disposition,
     dispositionChoisieALaMain: etat.dispositionChoisieALaMain,
-    palier: etat.palier,
-    blocsSurPalier: etat.blocsSurPalier,
+    palier: miroir.palier,
+    blocsSurPalier: miroir.blocsSurPalier,
     /* Le compteur de blocs est PERSISTÉ tel quel : le reconstruire depuis la
        seule maîtrise resservait le numéro d'un bloc joué sans aucune frappe
        propre, et deux blocs distincts comptaient alors pour un seul. */
-    bloc: etat.bloc,
+    bloc: etat.lecon,
     maitrise: etat.maitrise,
+    mesures: etat.mesures,
+    derniereLecon: etat.derniereLecon,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,
+    progressions,
   };
 }
 
@@ -198,16 +360,25 @@ function retourDeRattachement(): boolean {
 
 export function etatDeDepart(cle?: string): EtatApp {
   const sauve = charger(cle);
+  /* `palier` relu est le MIROIR de Découverte : il ne dit rien du parcours
+     choisi. La progression jouée se lit dans son couple à elle. */
+  const parcours = sauve.parcours ?? 'decouverte';
+  const progression = progressionDe(sauve, parcours, sauve.disposition);
   return {
     ...sauve,
+    parcours,
+    etape: progression.etape,
+    leconsSurEtape: progression.leconsSurEtape,
+    lecon: sauve.bloc,
+    etapeRejouee: null,
     /* Au tout premier lancement, on passe par le choix du clavier (cahier 4.1)
        — sauf si l'on revient de chez Google : le parent a demandé quelque
        chose, il doit en voir le résultat là où il l'a demandé. */
     vue: retourDeRattachement() ? 'V9' : sauve.dispositionChoisieALaMain ? 'V1' : 'V2',
-    blocsConsecutifs: 0,
     etoilesDuBloc: 0,
     titreEncouragement: encouragementSuivant(undefined),
-    palierOuvert: null,
+    etapeOuverte: null,
+    parcoursTermineMaintenant: false,
     aReinjecter: [],
     itemsDuBloc: [],
     touchesNouvelles: [],

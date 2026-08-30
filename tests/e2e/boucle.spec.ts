@@ -3,14 +3,18 @@ import { motCourant, ouvrir } from './helpers/app';
 import { taper } from './helpers/keyboard';
 
 test.describe('boucle V1 → V4 → V5 → V4', () => {
-  test('un bloc entier se joue au clavier et rend la main sur V5', async ({ page }) => {
+  /* « Un bloc entier » n'existe plus : la leçon dure un TEMPS, et son nombre
+     d'exercices dépend de la vitesse de l'enfant. Ce que le test doit tenir,
+     c'est que la boucle se ferme — la leçon finit d'elle-même, l'écran de fin
+     annonce ce qui a été joué, et « Encore » ramène à une leçon. */
+  test('une leçon se joue au clavier et rend la main sur V5', async ({ page }) => {
     test.slow();
     await ouvrir(page, 'fr-FR');
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
     const joues: string[] = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 60; i++) {
       if ((await page.locator('body').getAttribute('data-vue')) === 'V5') break;
       const mot = await motCourant(page);
       if (!mot) break;
@@ -26,8 +30,9 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
       );
     }
 
-    expect(joues.length).toBeGreaterThanOrEqual(8);
-    expect(joues.length).toBeLessThanOrEqual(12);
+    /* Aucune borne sur le nombre d'exercices : c'est tout l'objet du
+       changement. On exige seulement que la leçon ait vraiment eu lieu. */
+    expect(joues.length).toBeGreaterThan(0);
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V5');
 
     // Le gain lexical est tiré du bloc réellement joué, pas d'une phrase figée.
@@ -50,9 +55,16 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
         return corps.innerText;
       })
     ).toLowerCase();
-    for (const interdit of ['wpm', 'score', 'précision', 'vitesse', '%', 'erreur']) {
+    /* `erreur` a quitté la liste : le lexique gradué contient le mot, et un
+       enfant peut légitimement avoir « erreurs » à taper. Ce qui est interdit
+       est un COMPTEUR d'erreurs, pas le mot — la garde le cherche donc sous sa
+       forme comptée. */
+    for (const interdit of ['wpm', 'score', 'précision', 'vitesse', '%']) {
       expect(texte).not.toContain(interdit);
     }
+    expect(texte).not.toMatch(/\d+\s*(erreur|faute)/);
+    // « bloc » est du vocabulaire d'implémentation : il ne se montre pas (§4.4)
+    expect(texte).not.toContain('bloc');
   });
 
   test('Tab garde la main : les boutons restent atteignables au clavier', async ({ page }) => {
@@ -62,5 +74,40 @@ test.describe('boucle V1 → V4 → V5 → V4', () => {
     for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
     const focalise = await page.evaluate(() => document.activeElement?.tagName ?? '');
     expect(focalise).toBe('BUTTON');
+  });
+});
+
+/* LA PROPOSITION D'ARRÊT (#57).
+ *
+ * Elle attendait quatre blocs enchaînés — un héritage de la v1, où un bloc
+ * durait 60-90 s. Une leçon en dure douze : l'enfant ne s'entendait proposer
+ * une pause qu'après trois quarts d'heure de frappe. La décision 17 la place à
+ * la fin de la leçon, qui EST désormais la séance.
+ */
+test.describe("la proposition d'arrêt", () => {
+  test('arrive dès la fin de la première leçon', async ({ page }) => {
+    test.slow();
+    await ouvrir(page, 'fr-FR');
+    await page.getByRole('button', { name: 'On commence !' }).click();
+
+    for (let i = 0; i < 60; i++) {
+      if ((await page.locator('body').getAttribute('data-vue')) === 'V5') break;
+      const mot = await motCourant(page);
+      if (!mot) break;
+      await taper(page, 'fr-FR', mot);
+      await page.waitForFunction(
+        (precedent) =>
+          document.body.dataset.vue === 'V5' ||
+          document.querySelector('[data-mot]')?.getAttribute('data-mot') !== precedent,
+        mot,
+        { timeout: 4000 },
+      );
+    }
+
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V5');
+    /* Une proposition, jamais un verdict : les deux boutons restent là, et
+       « Encore » n'a pas disparu. */
+    await expect(page.getByText("On peut s'arrêter là")).toBeVisible();
+    await expect(page.getByRole('button', { name: /Encore|Commencer l'étape/ })).toBeVisible();
   });
 });

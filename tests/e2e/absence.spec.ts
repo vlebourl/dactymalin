@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ouvrir } from './helpers/app';
+import { jouerBlocParfait, ouvrir, sauvegarde } from './helpers/app';
 import { DELAI_INACTIVITE } from '../../src/core/aide';
 
 /**
@@ -33,4 +33,18 @@ test.describe('fenêtre laissée de côté', () => {
     expect(await pulse(page).count(), "l'aide était déjà là au retour").toBe(0);
     await expect(pulse(page).first()).toBeVisible({ timeout: DELAI_INACTIVITE + 2000 });
   });
+});
+
+/**
+ * #60 : rien n'écrivait `derniereLecon`. La révision du retour (§7.4) était
+ * complète et testée, et ne pouvait pas se déclencher une seule fois en vrai —
+ * l'enfant qui revient après quinze jours reprenait son étape à froid.
+ */
+test('une leçon finie date la sauvegarde', async ({ page }) => {
+  await ouvrir(page, 'fr-FR');
+  const avant = Date.now();
+  await page.getByRole('button', { name: 'On commence !' }).click();
+  await jouerBlocParfait(page, 'fr-FR');
+  const { derniereLecon } = await sauvegarde(page);
+  expect(derniereLecon, 'la leçon finie n’a rien daté').toBeGreaterThanOrEqual(avant);
 });

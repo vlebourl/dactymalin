@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
-import { creerEtat, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
-import { composerBloc, composerBlocDeListe, pouceDeLEspace } from '../core/generator';
+import { creerEtat, dureeLecon, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
+import { composerBlocDeListe, pouceDeLEspace } from '../core/generator';
+import { creerSession } from '../core/session';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -12,13 +13,13 @@ import {
 } from '../core/layouts';
 import { doitProposerV2, frappeCoherente } from '../core/detect';
 import { mainDeLaMaj } from '../core/maj';
-import { ensembleTouches, libellesEnsemble, PALIER_MAX, PALIER_MAX_DEBUTANT } from '../core/paliers';
-import { CONSIGNES, type Doigt } from '../core/doigts';
+import { CONSIGNES, imageMain, type Doigt } from '../core/doigts';
+import { doigtDe, ensembleTouches, etapes, ETAPE_MAX, type IdParcours } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
 import { useKeyInput } from '../hooks/useKeyInput';
-import { avancementPalier, PLAFOND_BLOCS } from '../core/progression';
+import { avancementEtape } from '../core/progression';
 import { nomProfilActif } from '../core/profils';
 import { useApp, useEnvoi, type BilanBloc } from '../state';
 import { MainSchematique } from '../ui/MainSchematique';
@@ -30,6 +31,11 @@ import v from './vues.module.css';
  * pédagogique. On lui rend la main — mais seulement pour une activation au
  * pointeur (`detail > 0`), pour ne pas casser la navigation au clavier.
  */
+/** Douze pastilles fixes : elles disent la part de la leçon écoulée, jamais un
+    nombre d'exercices — qui n'est ni connu d'avance ni le même d'un enfant à
+    l'autre. */
+const PASTILLES_LECON = 12;
+
 function rendreLeClavier(ev: MouseEvent<HTMLButtonElement>): void {
   if (ev.detail > 0) ev.currentTarget.blur();
 }
@@ -38,28 +44,73 @@ export function V4Lecon() {
   const app = useApp();
   const envoi = useEnvoi();
   const id: IdDisposition = app.disposition;
-  const debutant = app.palier <= PALIER_MAX_DEBUTANT;
+  /* P6 : c'est DÉCOUVERTE dont la latence est plafonnée à zéro — ce parcours
+     entraîne le placement des mains, pas le rappel en mémoire. Le déduire du
+     numéro d'étape faisait que les six premières étapes de Dactylo se
+     comportaient comme Découverte : la cible apparaissait immédiatement, et la
+     fenêtre de rappel n'existait pas là où elle a un sens. */
+  const debutant = app.parcours === 'decouverte';
+  /* Où la Majuscule s'enseigne dépend du parcours : tôt en Dactylo pour ouvrir
+     les phrases, tard en Découverte. La vue ne le sait pas, le parcours si. */
+  const etapeMajuscule = etapes(app.parcours, id).find((e) => e.genre === 'majuscule')?.n;
 
-  const items = useMemo(
+  /* Une LISTE de la maison garde son lot fixe : elle a une fin — les mots que
+     la famille a écrits — et s'arrêter au chrono la couperait au milieu.
+     Le PARCOURS, lui, dure un temps : son flux se recharge. */
+  /* L'étape RÉELLEMENT jouée : celle que l'enfant a choisi de rejouer, sinon la
+     sienne. Rejouer ne fait pas avancer la progression — c'est un choix, pas un
+     rattrapage. */
+  const etapeJouee = app.etapeRejouee ?? app.etape;
+
+  const session = useMemo(
     () =>
       app.listeJouee
-        ? composerBlocDeListe(app.listeJouee.mots, id)
-        : composerBloc({ id, palier: app.palier, aReinjecter: app.aReinjecter }),
-    // un nouveau bloc à chaque entrée dans la vue
+        ? null
+        : creerSession({
+            id,
+            parcours: app.parcours,
+            etape: etapeJouee,
+            aReinjecter: app.aReinjecter,
+            /* §7.4 : après plusieurs jours sans jouer, la première vague révise
+               l'étape précédente. Sans ces deux-là, `creerSession` ne pouvait
+               pas savoir qu'il y avait eu une absence, et la révision du retour
+               ne se déclenchait jamais en vrai. */
+            derniereLecon: app.derniereLecon,
+            maintenant: Date.now(),
+          }),
+    // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.palier, app.bloc, app.listeJouee],
+    [id, app.parcours, etapeJouee, app.lecon, app.listeJouee],
   );
 
-  // Latence de départ 0 : en débutant elle y reste plafonnée (P6).
-  const [e, envoyer] = useReducer(reducer, undefined, () => creerEtat(items, performance.now(), 0));
+  const items = useMemo(
+    () => (app.listeJouee ? composerBlocDeListe(app.listeJouee.mots, id) : session!.items()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, app.listeJouee, id],
+  );
+
+  // Latence de départ 0 : en Découverte elle y reste plafonnée (P6).
+  const [e, envoyer] = useReducer(reducer, undefined, () =>
+    creerEtat(items, performance.now(), 0, session ? dureeLecon() : undefined),
+  );
+
+  /* On rallonge la file AVANT qu'elle ne se vide : une file épuisée finirait la
+     leçon au milieu, alors que c'est le chrono qui doit décider. */
+  useEffect(() => {
+    if (!session || e.fini) return;
+    if (!session.aRecharger(e.i)) return;
+    const avant = session.items().length;
+    session.recharger();
+    envoyer({ type: 'ajouter', items: session.items().slice(avant) });
+  }, [session, e.i, e.fini]);
 
   /* Une liste peut employer des lettres pas encore enseignées — le clavier les
      allume quand même : savoir où poser ses doigts n'attend pas le programme. */
   const ensemble = useMemo(() => {
-    const base = ensembleTouches(id, app.palier);
+    const base = ensembleTouches(app.parcours, id, etapeJouee);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
-  }, [id, app.palier, app.listeJouee, items]);
+  }, [id, app.etape, app.listeJouee, items]);
   const item = e.items[e.i];
   const attendu = item?.texte[e.curseur] ?? '';
   const enCelebration = e.celebration !== null;
@@ -86,14 +137,19 @@ export function V4Lecon() {
       ? MAJ_GAUCHE
       : MAJ_DROITE
     : undefined;
+  /* Le doigt à MONTRER n'est pas une propriété de la touche : il dépend du
+     parcours suivi (index de la main en Découverte, doigt définitif en
+     Dactylo). `parcours.doigtDe` en décide seul — la leçon ne le recalcule
+     pas.
+     Le parcours vient de l'état : c'est le parent qui l'a choisi en V7 (#42). */
+  const parcours: IdParcours = app.parcours;
   const doigt: Doigt =
     attendu === ' '
       ? mainCible === 'gauche'
         ? 'pouce_gauche'
         : 'pouce_droit'
-      : mainCible === 'gauche'
-        ? 'index_gauche'
-        : 'index_droit';
+      : (doigtDe(parcours, id, attendu) ??
+        (mainCible === 'gauche' ? 'index_gauche' : 'index_droit'));
 
   /* --------------------------------------------------- un seul rAF (STACK) */
   const refEnvoyer = useRef(envoyer);
@@ -187,8 +243,14 @@ export function V4Lecon() {
       propres: e.propres,
       aRevoir: e.aRevoir,
       items: e.valides,
+      /* Ce que la leçon a observé, tel que le reducer l'a compté. La vue ne le
+         lit pas et ne le montre pas : elle le fait suivre, rien de plus (P1). */
+      mesures: e.rapport,
+      /* L'horloge du MUR, pas celle de la page : `performance.now()` repart de
+         zéro à chaque chargement et ne saurait pas dire « il y a quinze jours ». */
+      fin: Date.now(),
     };
-    envoi({ type: 'blocTermine', bilan });
+    envoi({ type: 'leconTerminee', bilan });
   }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ------------------------------------ surveillance de disposition (F7)
@@ -224,20 +286,45 @@ export function V4Lecon() {
   /* Le bandeau annonce l'ensemble CUMULÉ, pas les seules nouveautés du palier :
      c'est lui la référence de ce qui peut être proposé (P5). Les capitales
      accentuées sont exclues à la source (`libellesEnsemble`). */
-  const touchesLecon = libellesEnsemble(id, app.palier);
+  /* Le bandeau annonçait encore le jeu de touches de la table v1 pendant que
+     le générateur servait celui de la v2 : l'enfant lisait `e f j n s t u` et
+     tapait des mots faits d'autres lettres. */
+  const touchesLecon = [...ensembleTouches(app.parcours, id, etapeJouee)]
+    .filter((c) => c !== ' ')
+    .map((c) => c.toUpperCase());
+
+  /* Ce que les pastilles montrent : la part de la leçon écoulée. Le temps est
+     lu au tic du reducer, qui est déjà la seule horloge de l'écran. */
+  /* 92 vw d'espace utile, un caractère occupant environ 0,62 em à cette
+     graisse : la taille tenable est donc ~148/n en vw. Le plancher de six
+     caractères empêche un mot très court de devenir énorme. */
+  const tailleMot = Math.floor(148 / Math.max(6, item?.texte.length ?? 6));
+
+  const partEcoulee =
+    e.finLe === null
+      ? // une liste de la maison a une fin connue : on suit les items
+        e.items.length === 0
+        ? 0
+        : e.i / e.items.length
+      : Math.min(1, Math.max(0, 1 - (e.finLe - e.maintenant) / dureeLecon()));
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
-  const avance = avancementPalier(id, app.palier, app.maitrise, app.blocsSurPalier);
-  /* On nomme le chemin qui commande RÉELLEMENT la barre, sinon le texte et la
-     jauge racontent deux histoires différentes. */
-  const detailLecon =
-    avance.chemin === 'dernier'
-      ? 'dernière leçon'
-      : avance.chemin === 'touches'
-        ? `${avance.maitrisees} touches sur ${avance.total}`
-        : `${app.blocsSurPalier} blocs finis sur ${PLAFOND_BLOCS}`;
-  const etiquetteLecon = `Leçon ${app.palier} sur ${PALIER_MAX} — ${detailLecon}`;
+  /* « {n} blocs finis sur 6 » a disparu : il montrait à l'enfant le plafond de
+     secours que le produit devait garder silencieux — et ce plafond n'existe
+     plus. Reste un décompte lisible d'avance, dans les mots de l'enfant. */
+  const avance = avancementEtape(app.leconsSurEtape);
+  /* Un REJEU n'est pas dans le quota : depuis #58 le compteur ne bouge plus
+     pendant, si bien qu'un « Leçon 7 sur 7 » figé s'afficherait à chaque
+     rejeu. Le chiffre serait faux, et l'idée aussi — rejouer n'avance pas.
+     L'étiquette parlée disait par-dessus le marché l'étape COURANTE alors que
+     le texte visible, lui, nommait déjà l'étape jouée : un lecteur d'écran
+     entendait « Étape 5 » sur le contenu de l'étape 2. */
+  const rejeu = app.etapeRejouee !== null;
+  const numeroLecon = Math.min(avance.leconsFaites + 1, avance.total);
+  const etiquetteLecon = rejeu
+    ? `Étape ${etapeJouee} · tu la rejoues`
+    : `Étape ${etapeJouee} · Leçon ${numeroLecon} sur ${avance.total}`;
   const clavierMasque = e.masque && !e.fini;
 
   return (
@@ -253,34 +340,46 @@ export function V4Lecon() {
               en était, ni qu'il venait d'avancer. */}
           <p className={v.bandeauLecon}>
             <strong>
-              Leçon {app.palier} sur {PALIER_MAX}
+              Étape {etapeJouee} sur {ETAPE_MAX}
             </strong>
-            <span
-              className={v.jaugeLecon}
-              role="img"
-              aria-label={etiquetteLecon}
-              title={etiquetteLecon}
-            >
-              <span className={v.jaugeLeconPleine} style={{ width: `${avance.part * 100}%` }} />
-            </span>
-            <span className={v.detailLecon}>{detailLecon}</span>
+            {rejeu ? (
+              <span className={v.detailLecon} aria-label={etiquetteLecon}>
+                tu la rejoues
+              </span>
+            ) : (
+              <>
+                <span
+                  className={v.jaugeLecon}
+                  role="img"
+                  aria-label={etiquetteLecon}
+                  title={etiquetteLecon}
+                >
+                  <span
+                    className={v.jaugeLeconPleine}
+                    style={{ width: `${avance.part * 100}%` }}
+                  />
+                </span>
+                <span className={v.detailLecon}>{`Leçon ${numeroLecon} sur ${avance.total}`}</span>
+              </>
+            )}
           </p>
           <p className={v.bandeauTouches}>
             Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>
           </p>
           <div className={v.ligneBloc}>
-            <span className={v.detailLecon}>Bloc {app.blocsSurPalier + 1} de cette leçon</span>
-            <div
-              className={v.avancement}
-              role="img"
-              aria-label={`Bloc ${app.blocsSurPalier + 1} de cette leçon : ${e.i} sur ${e.items.length}`}
-            >
-              {e.items.map((it, k) => (
+
+            {/* Les pastilles suivent le TEMPS, pas les exercices. Une pastille
+                par exercice supposait de connaître le total d'avance — ce qui
+                n'a plus de sens dans une leçon qui dure douze minutes et dont
+                le nombre d'exercices dépend de la vitesse de l'enfant. Elles
+                restent une image : aucun chiffre, aucune durée écrite. */}
+            <div className={v.avancement} role="img" aria-label="Avancement de la leçon">
+              {Array.from({ length: PASTILLES_LECON }, (_, k) => (
                 <span
-                  key={it.texte}
+                  key={k}
                   className={[
                     v.pastilleAvancement,
-                    k < e.i || (k === e.i && enCelebration) ? v.pastilleAvancementPleine : '',
+                    k < Math.round(partEcoulee * PASTILLES_LECON) ? v.pastilleAvancementPleine : '',
                   ].join(' ')}
                 />
               ))}
@@ -319,6 +418,11 @@ export function V4Lecon() {
           <span
             className={v.mot}
             key={`${e.i}`}
+            /* La taille du mot suit sa LONGUEUR, pas l'étape. Depuis que les
+               phrases existent, « Une princesse travaille. » débordait l'écran
+               à 375 px alors qu'un mot de six lettres y tenait sans peine :
+               c'est le nombre de caractères qui décide, jamais le programme. */
+            style={{ fontSize: `min(clamp(28px, 6.2vw, 72px), ${tailleMot}vw)` }}
             data-mot={item?.texte}
             data-curseur={e.curseur}
             aria-hidden="true"
@@ -352,8 +456,6 @@ export function V4Lecon() {
           {item ? `${item.texte} — ${CONSIGNES[doigt].join(', ')}` : ''}
         </p>
 
-        {item?.genre === 'syllabe' && <p className={v.etiquetteSyllabe}>on lit et on tape</p>}
-
         {/* Piège Maj : seul cas où DEUX touches sont mises en avant ensemble. */}
         {besoinMaj && (
           <p
@@ -377,30 +479,28 @@ export function V4Lecon() {
         )}
 
         <div className={v.zoneClavier}>
-          {/* Le mot de la main à employer, en GROS, juste au-dessus du clavier
-              et du côté concerné : l'enfant n'a pas à lever les yeux. */}
-          {!enCelebration && (
-            <p className={v.motMainHaut} aria-hidden="true">
-              <span data-cote-main={mainCible}>
-                {mainCible === 'gauche' ? 'GAUCHE' : 'DROITE'}
-              </span>
-            </p>
-          )}
           <div className={[v.deuxCotes, clavierMasque ? v.clavierMasque : ''].filter(Boolean).join(' ')}>
-            {/* Les deux mains encadrent le clavier À CHAQUE TOUR ; seule celle
-                qui doit taper est allumée. */}
+            {/* Les deux mains dessinées encadrent le clavier À CHAQUE TOUR : le
+                doigt à employer est surligné sur celle qui joue, l'autre reste
+                au repos, aucun doigt marqué. C'est le dessin qui porte le
+                DOIGT — mais le libellé de niveau MAIN reste affiché à côté de
+                la main active, comme P4 l'exige. Le supprimer laissait l'enfant
+                sans aucun mot pour ce qu'il voit. */}
             <div className={v.coteMain} data-main="gauche" data-main-active={mainCible === 'gauche' && !enCelebration ? 'oui' : 'non'}>
-              <MainSchematique cote="gauche" largeur={110} tendu={false} />
+              <img src={imageMain('gauche', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
+              {mainCible === 'gauche' && !enCelebration && (
+                <span className={v.consigneMain}>{CONSIGNES[doigt].join(' · ')}</span>
+              )}
             </div>
             <Keyboard
               id={id}
               ensemble={ensemble}
               cible={enCelebration ? undefined : cible}
               cibleMaj={cibleMaj}
-              /* Les Maj sont dessinées au palier qui les enseigne, mais aussi
+              /* Les Maj sont dessinées dès l'étape qui les enseigne, et aussi
                  dès que la cible en réclame une — sans quoi la consigne
                  désignait une touche absente du clavier. */
-              avecMaj={app.palier >= PALIER_MAX_DEBUTANT + 1 || besoinMaj}
+              avecMaj={etapeMajuscule !== undefined && app.etape >= etapeMajuscule || besoinMaj}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
               espace={{
@@ -414,10 +514,13 @@ export function V4Lecon() {
               }}
               /* La rangée Maj ajoute 3,4 unités de largeur : au palier qui la
                  dessine, la touche rétrécit pour que rien ne déborde. */
-              taille={app.palier >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
+              taille={app.etape >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
             <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration ? 'oui' : 'non'}>
-              <MainSchematique cote="droite" largeur={110} tendu={false} />
+              <img src={imageMain('droite', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
+              {mainCible === 'droite' && !enCelebration && (
+                <span className={v.consigneMain}>{CONSIGNES[doigt].join(' · ')}</span>
+              )}
             </div>
             {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />

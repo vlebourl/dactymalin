@@ -1,6 +1,7 @@
 import { disposition } from '../core/layouts';
 import { estJouable } from '../core/listes';
-import { ensembleTouches } from '../core/paliers';
+import { ensembleTouches, parcoursFini } from '../core/parcours';
+import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
@@ -56,17 +57,29 @@ export function V1Accueil() {
         {/* Illustration à plat, sans mains ni personnage. */}
         <Keyboard
           id={app.disposition}
-          ensemble={ensembleTouches(app.disposition, app.palier)}
+          ensemble={ensembleTouches(app.parcours, app.disposition, app.etape)}
           taille="clamp(13px, 2.7vw, 38px)"
           espace={{ etat: 'ouvert', pouce: 'gauche' }}
         />
 
-        <button
-          className={[u.bouton, u.primaire, u.geant].join(' ')}
-          onClick={() => envoi({ type: 'commencer', liste: null })}
-        >
-          On commence !
-        </button>
+        {/* Parcours fini : « On commence ! » lancerait une huitième leçon de
+            l'étape 10, qui n'existe pas. On renvoie au choix, sans rien
+            relancer tout seul. */}
+        {parcoursFini(app.etape, app.leconsSurEtape) ? (
+          <button
+            className={[u.bouton, u.primaire, u.geant].join(' ')}
+            onClick={() => envoi({ type: 'vue', vue: 'V6' })}
+          >
+            Choisir une étape
+          </button>
+        ) : (
+          <button
+            className={[u.bouton, u.primaire, u.geant].join(' ')}
+            onClick={() => envoi({ type: 'commencer', liste: null })}
+          >
+            On commence !
+          </button>
+        )}
 
         {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
             saisit rien : il reconnaît la carte de sa dictée et appuie. */}
@@ -87,6 +100,14 @@ export function V1Accueil() {
             ))}
           </ul>
         )}
+
+        {/* Le parcours en cours, DIT : le parent l'a choisi dans les réglages,
+            et sans cette ligne rien à l'écran ne permet de savoir lequel des
+            deux tourne. Pas de bouton ici — ce choix n'est pas celui de
+            l'enfant. */}
+        <p className={v.ligneClavier}>
+          Ton parcours : <b>{NOM_PARCOURS[app.parcours]}</b>
+        </p>
 
         <p className={v.ligneClavier}>
           Ton clavier : <b>{d.nom}</b>

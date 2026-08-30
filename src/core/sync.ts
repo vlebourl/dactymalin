@@ -40,6 +40,30 @@ export const CLE_LISTES = 'tapeavecmoi.listes';
 
 type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
 
+/**
+ * File de repli EN MÉMOIRE, pour la session en cours (#55).
+ *
+ * Quand le stockage refuse d'écrire — quota saturé, navigation privée —, la
+ * file relue depuis `CLE_FILE` est vide : l'envoi n'était pas différé, il
+ * n'existait plus, et `enAttente()` annonçait zéro au parent. Ce qui n'a pas pu
+ * être persisté reste donc ici, envoyable et COMPTÉ, jusqu'au rechargement.
+ */
+let fileMemoire: EnAttente[] | null = null;
+
+/** La file : celle de la mémoire tant que le stockage n'en a pas voulu. */
+const lireFile = (): EnAttente[] => fileMemoire ?? lire<EnAttente[]>(CLE_FILE, []);
+
+/**
+ * Repart d'une session vierge. La file de repli n'appartient qu'à la session
+ * en cours : la déconnexion la jette, et un test qui change de stockage aussi.
+ */
+export const oublierFileMemoire = (): void => void (fileMemoire = null);
+
+/** Écrit la file, et la garde en mémoire si le stockage l'a refusée. */
+function ecrireFile(file: EnAttente[]): void {
+  fileMemoire = ecrire(CLE_FILE, file) ? null : file;
+}
+
 function lire<T>(cle: string, defaut: T): T {
   try {
     const brut = localStorage.getItem(cle);
@@ -49,11 +73,17 @@ function lire<T>(cle: string, defaut: T): T {
   }
 }
 
-function ecrire(cle: string, valeur: unknown): void {
+/** `true` si l'écriture a bien eu lieu. Le retour COMPTE : un stockage plein
+    avalait l'erreur, et l'appelant croyait avoir persisté (#55). */
+function ecrire(cle: string, valeur: unknown): boolean {
   try {
     localStorage.setItem(cle, JSON.stringify(valeur));
-  } catch {
-    /* navigation privée : la session continue sans file persistée */
+    return true;
+  } catch (erreur) {
+    /* Aucune trace, nulle part : c'était le premier problème. Le parent ne lit
+       pas la console, mais celui qui cherche la panne, si. */
+    console.warn(`[tapeavecmoi] écriture refusée sur ${cle}`, erreur);
+    return false;
   }
 }
 
@@ -65,13 +95,30 @@ function effacer(cle: string): void {
   }
 }
 
-/** `true` si ce profil a une progression en cache sur cet appareil. */
+/**
+ * `true` si ce profil a une progression LISIBLE en cache sur cet appareil.
+ *
+ * « La clé existe » ne suffit pas (#54) : une écriture interrompue laisse une
+ * clé tronquée, sans backup — `sauver` n'en écrit un que si le précédent était
+ * intact. `charger` retombe alors sur les DÉFAUTS, et le garde-fou d'en
+ * dessous, qui existe exactement pour ce cas, était contourné : les défauts
+ * partaient au serveur comme un choix du parent et écrasaient sa disposition
+ * sur tous ses appareils.
+ */
 function copieLocale(cle: string): boolean {
-  try {
-    return localStorage.getItem(cle) !== null || localStorage.getItem(`${cle}.backup`) !== null;
-  } catch {
-    return false;
-  }
+  return estIntact(lire<unknown>(cle, null)) || estIntact(lire<unknown>(`${cle}.backup`, null));
+}
+
+/**
+ * Oublie l'horodatage local d'un profil. `CLE_MAJ` est une clé SÉPARÉE : elle
+ * survit à la sauvegarde qu'elle datait, et la laisser ferait passer pour
+ * « récent » ce qui n'est plus qu'un repli sur les valeurs par défaut.
+ */
+function oublierMaj(id: string): void {
+  const tout = lire<Record<string, string>>(CLE_MAJ, {});
+  if (!(id in tout)) return;
+  delete tout[id];
+  ecrire(CLE_MAJ, tout);
 }
 
 /** Horodatage de la dernière écriture locale d'un profil, ou `null`. */
@@ -278,6 +325,9 @@ export const connecter = (email: string, motDePasse: string) =>
  */
 function oublierTout(): void {
   oublierLeCompte();
+  /* La file de repli part avec le reste : la donner à la session suivante,
+     c'est donner le travail d'un enfant au compte d'une autre famille. */
+  oublierFileMemoire();
   effacer(CLE_FILE);
   effacer(CLE_MAJ);
   oublierProfils();
@@ -411,7 +461,7 @@ export function viderLaFile(): Promise<void> {
 }
 
 async function vidange(): Promise<void> {
-  let file = lire<EnAttente[]>(CLE_FILE, []);
+  let file = lireFile();
   while (file.length > 0) {
     const [premier, ...reste] = file;
     try {
@@ -425,7 +475,7 @@ async function vidange(): Promise<void> {
       if (statut !== 400 && statut !== 404) return; // hors ligne : on réessaiera
     }
     file = reste;
-    ecrire(CLE_FILE, file);
+    ecrireFile(file);
   }
 }
 
@@ -445,14 +495,14 @@ export function pousser(idProfil: string, etat: Sauvegarde): Promise<void> {
   ecrire(CLE_MAJ, { ...lire<Record<string, string>>(CLE_MAJ, {}), [idProfil]: majLe });
   /* Une seule entrée par profil : la plus récente remplace la précédente,
      inutile de rejouer dix états intermédiaires. */
-  const file = lire<EnAttente[]>(CLE_FILE, []).filter((e) => e.profilDistant !== idProfil);
+  const file = lireFile().filter((e) => e.profilDistant !== idProfil);
   file.push({ profilDistant: idProfil, etat, majLe });
-  ecrire(CLE_FILE, file);
+  ecrireFile(file);
   return viderLaFile();
 }
 
 /** Nombre d'envois encore en attente : affiché au parent, jamais à l'enfant. */
-export const enAttente = (): number => lire<EnAttente[]>(CLE_FILE, []).length;
+export const enAttente = (): number => lireFile().length;
 
 /**
  * REPRISE, une seule fois, de la progression d'AVANT les identifiants serveur.
@@ -521,32 +571,45 @@ async function reconcilier(): Promise<void> {
   remplacerIndex(distants.map((d) => ({ id: d.id, nom: d.prenom })));
 
   for (const d of distants) {
-    const cle = cleDe(d.id);
-    const majIci = majLocale(d.id);
-
-    /* Aucune copie ici : le serveur fait foi, sans fusion — fusionner avec des
-       valeurs par défaut effacerait ses préférences. */
-    if (!copieLocale(cle)) {
-      if (d.etat) sauver(d.etat, cle);
-      continue;
+    try {
+      await reconcilierUn(d);
+    } catch (erreur) {
+      /* Un profil en difficulté ne coûte RIEN aux suivants (#53). L'exception
+         — `empreinte` qui déborde la pile sur une entrée pathologique, par
+         exemple — arrêtait la boucle : le premier enfant en travers privait
+         toute la fratrie de synchronisation, sans un message. */
+      console.warn(`[tapeavecmoi] profil ${d.id} non réconcilié`, erreur);
     }
-
-    const ici = charger(cle);
-    if (!d.etat || !d.majLe) {
-      await pousser(d.id, ici);
-      continue;
-    }
-
-    /* Une copie locale SANS horodatage (clé perdue, stockage plein au mauvais
-       moment) est datée « très vieille » plutôt qu'écrasée : ses acquis sont
-       gardés, et ce sont les préférences du serveur qui gagnent. */
-    const fusionne = fusionner(
-      { etat: ici, majLe: majIci ?? 0 },
-      { etat: d.etat, majLe: Date.parse(d.majLe) },
-    );
-    sauver(fusionne, cle);
-    /* On ne renvoie que ce que le serveur ne sait pas déjà : au démarrage,
-       trois appareils identiques n'ont rien à se dire. */
-    if (empreinte(fusionne) !== empreinte(d.etat)) await pousser(d.id, fusionne);
   }
+}
+
+async function reconcilierUn(d: ProfilDistant): Promise<void> {
+  const cle = cleDe(d.id);
+  const majIci = majLocale(d.id);
+
+  /* Aucune copie LISIBLE ici : le serveur fait foi, sans fusion — fusionner
+     avec des valeurs par défaut effacerait ses préférences. */
+  if (!copieLocale(cle)) {
+    if (d.etat) sauver(d.etat, cle);
+    oublierMaj(d.id);
+    return;
+  }
+
+  const ici = charger(cle);
+  if (!d.etat || !d.majLe) {
+    await pousser(d.id, ici);
+    return;
+  }
+
+  /* Une copie locale SANS horodatage (clé perdue, stockage plein au mauvais
+     moment) est datée « très vieille » plutôt qu'écrasée : ses acquis sont
+     gardés, et ce sont les préférences du serveur qui gagnent. */
+  const fusionne = fusionner(
+    { etat: ici, majLe: majIci ?? 0 },
+    { etat: d.etat, majLe: Date.parse(d.majLe) },
+  );
+  sauver(fusionne, cle);
+  /* On ne renvoie que ce que le serveur ne sait pas déjà : au démarrage,
+     trois appareils identiques n'ont rien à se dire. */
+  if (empreinte(fusionne) !== empreinte(d.etat)) await pousser(d.id, fusionne);
 }

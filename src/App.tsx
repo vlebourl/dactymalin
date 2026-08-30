@@ -19,7 +19,7 @@ export function App() {
       return <V3GuideDoigt />;
     case 'V4':
       // clé sur le n° de bloc : chaque bloc repart d'un état de leçon neuf
-      return <V4Lecon key={app.bloc} />;
+      return <V4Lecon key={app.lecon} />;
     case 'V5':
       return <V5FinDeBloc />;
     case 'V6':

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { motsNouveaux } from '../core/corpus';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
-import { ensembleTouches, nouvellesTouches, PALIER_MAX } from '../core/paliers';
+import { ensembleTouches, ETAPE_MAX, NOM_PARCOURS, nouvellesTouches } from '../core/parcours';
+import { nouveaute } from '../core/contenu';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
@@ -19,10 +19,17 @@ export function V5FinDeBloc() {
      vient d'ouvrir uniquement si le bloc n'a rien laissé (bloc abandonné). */
   const gains = useMemo(() => {
     const joues = [...new Set(app.itemsDuBloc)];
-    const source = joues.length >= 3 ? joues : motsNouveaux(id, app.palierOuvert ?? app.palier);
+    /* Repli sur ce que l'étape vient d'ouvrir, calculé par le générateur de
+       données et non plus par une liste écrite à la main. */
+    const etape = app.etapeOuverte ?? app.etape;
+    const source =
+      joues.length >= 3 ? joues : nouveaute(
+        ensembleTouches(app.parcours, id, Math.max(1, etape - 1)),
+        ensembleTouches(app.parcours, id, etape),
+      );
     return [...source].sort(() => Math.random() - 0.5).slice(0, 3);
     // un tirage par arrivée sur la vue, pas à chaque rendu
-  }, [app.itemsDuBloc, app.bloc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [app.itemsDuBloc, app.lecon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seules les touches NOUVELLEMENT maîtrisées s'allument.
   const illuminees = new Set(
@@ -30,32 +37,55 @@ export function V5FinDeBloc() {
       .map((c) => (toucheDirecte(id, c) ?? toucheMaj(id, c))?.code)
       .filter((c): c is string => !!c),
   );
-  const proposePause = app.blocsConsecutifs >= 4;
+  /* La proposition d'arrêt attendait QUATRE blocs d'affilée. Un bloc durait
+     60-90 s en v1 ; une leçon en dure douze minutes. L'enfant n'entendait donc
+     parler de pause qu'après trois quarts d'heure de frappe.
+     La décision 17 tranche : la leçon EST la séance, et la proposition passe à
+     sa fin. Une liste de la maison n'est pas une séance — c'est du jeu, souvent
+     trente secondes : on ne propose pas de s'arrêter à quelqu'un qui vient de
+     commencer. */
+  const proposePause = !app.listeJouee;
 
   /* Franchir un palier était MUET : le même titre d'encouragement que pour un
      bloc ordinaire, le même bouton « Encore ». L'état portait pourtant déjà
      l'information — `palierOuvert` vaut le nouveau palier à cet instant précis
      et ne servait qu'à choisir les touches à illuminer. On la dit. */
-  const nouvelleLecon = app.palierOuvert;
+  /* `palierOuvert` porte le numéro de la nouvelle ÉTAPE. L'appeler « leçon »
+     ici contredisait la phrase juste en dessous, qui disait « étape ». */
+  const nouvelleEtape = app.etapeOuverte;
+  /* La FIN du parcours, fêtée une seule fois. « Terminé » dit un fait de
+     calendrier — soixante-dix leçons faites — et jamais une performance : ni
+     vitesse, ni précision, ni « parfait ». */
+  const termine = app.parcoursTermineMaintenant;
   /* Ce que la leçon APPORTE, pas tout ce qu'elle contient : `libellesEnsemble`
      rend le cumul depuis le palier 1 et aurait annoncé des touches déjà
      acquises comme des nouveautés. L'espace n'est pas une nouveauté à fêter. */
-  const touchesDeLaLecon = nouvelleLecon
-    ? nouvellesTouches(id, nouvelleLecon).filter((c) => c !== ' ')
+  const touchesDeLaLecon = nouvelleEtape
+    ? nouvellesTouches(app.parcours, id, nouvelleEtape).filter((c) => c !== ' ')
     : [];
 
   return (
     <div className={v.ecran}>
       <div className={v.centre}>
         <h1 className={v.titre}>
-          {nouvelleLecon ? `Leçon ${nouvelleLecon} débloquée !` : app.titreEncouragement}
+          {termine
+            ? `Tu as terminé le parcours ${NOM_PARCOURS[app.parcours]} !`
+            : nouvelleEtape
+              ? `Étape ${nouvelleEtape} débloquée !`
+              : app.titreEncouragement}
         </h1>
+
+        {termine && (
+          <p className={v.gainLexical}>
+            Tu connais maintenant les {ETAPE_MAX} étapes de ce parcours.
+          </p>
+        )}
 
         <Stars nombre={app.etoilesDuBloc} />
 
-        {nouvelleLecon && (
+        {nouvelleEtape && (
           <p className={v.gainLexical}>
-            Tu passes à la leçon <b>{nouvelleLecon}</b> sur {PALIER_MAX}. Elle t'apporte :{' '}
+            Tu passes à l'étape <b>{nouvelleEtape}</b> sur {ETAPE_MAX}. Elle t'apporte :{' '}
             <b>{touchesDeLaLecon.join(' ')}</b>
           </p>
         )}
@@ -68,7 +98,7 @@ export function V5FinDeBloc() {
 
         <Keyboard
           id={id}
-          ensemble={ensembleTouches(id, app.palier)}
+          ensemble={ensembleTouches(app.parcours, id, app.etape)}
           illuminees={illuminees}
           taille="clamp(13px, 3.4vw, 42px)"
         />
@@ -77,10 +107,16 @@ export function V5FinDeBloc() {
 
         <div className={v.deuxBoutons}>
           <button
-            className={[u.bouton, proposePause ? '' : u.primaire].join(' ')}
-            onClick={() => envoi({ type: 'commencer' })}
+            className={[u.bouton, proposePause && !termine ? '' : u.primaire].join(' ')}
+            onClick={() =>
+              termine ? envoi({ type: 'vue', vue: 'V6' }) : envoi({ type: 'commencer' })
+            }
           >
-            {nouvelleLecon ? `Commencer la leçon ${nouvelleLecon}` : 'Encore'}
+            {termine
+              ? 'Choisir une étape à rejouer'
+              : nouvelleEtape
+                ? `Commencer l'étape ${nouvelleEtape}`
+                : 'Encore'}
           </button>
           <button
             className={[u.bouton, proposePause ? u.primaire : ''].join(' ')}
