@@ -4,6 +4,7 @@ import {
   avecProgression,
   DEFAUTS,
   progressionDe,
+  estIntact,
   valider,
   type Sauvegarde,
 } from './storage';
@@ -147,5 +148,96 @@ describe('fusion des progressions par parcours et disposition', () => {
     const une = fusionner({ etat: a, majLe: 1000 }, { etat: b, majLe: 2000 });
     expect(fusionner({ etat: b, majLe: 2000 }, { etat: a, majLe: 1000 })).toEqual(une);
     expect(fusionner({ etat: une, majLe: 3000 }, { etat: une, majLe: 3000 })).toEqual(une);
+  });
+});
+
+/**
+ * #43 — la fusion reçoit du BRUT. `sync.reconcilier` lui passe `d.etat` tel
+ * que l'API l'a rendu, et le seul filtre en amont est `estIntact`, qui tolère
+ * `bloc`, `modele` et `progressions` absents : c'est le contrat qui laisse un
+ * appareil resté à l'ancien bundle continuer à pousser. Les entrées de
+ * `fusionner` ne sont donc PAS des `Sauvegarde` complètes, et les traiter
+ * comme telles perd — silencieusement — la progression d'un enfant.
+ */
+describe('fusion de deux appareils qui ne portent pas le même modèle', () => {
+  /* Exactement ce qu'un client d'avant `bloc` sait écrire, et que le serveur
+     accepte : ni `bloc`, ni `modele`, ni `progressions`. */
+  const v1 = (p: Partial<Sauvegarde> = {}): Sauvegarde =>
+    ({
+      version: 1,
+      disposition: 'fr-FR',
+      dispositionChoisieALaMain: false,
+      palier: 6,
+      blocsSurPalier: 2,
+      guideDoigtVu: true,
+      maitrise: { e: [1, 2] },
+      reglages: { sons: true, texteEspace: false, animationsDouces: true },
+      ...p,
+    }) as unknown as Sauvegarde;
+
+  it('le compteur de blocs reste un ENTIER quand un côté n\'en porte pas', () => {
+    /* `Math.max(undefined, 7)` vaut NaN. L'état fusionné repartait alors au
+       serveur, qui le refusait en 400 — et un 400 fait jeter l'envoi DÉFINI-
+       TIVEMENT (`sync.vidange`). La perte était silencieuse et irréversible. */
+    const r = fusionner({ etat: v1(), majLe: 1000 }, A({ bloc: 7 }, 2000));
+    expect(Number.isInteger(r.bloc)).toBe(true);
+    expect(r.bloc).toBe(7);
+  });
+
+  it('l\'état fusionné est toujours accepté par le serveur', () => {
+    expect(estIntact(fusionner({ etat: v1(), majLe: 1000 }, A({ bloc: 7 }, 2000)))).toBe(true);
+  });
+
+  it('une maîtrise absente ne fait pas tomber la réconciliation entière', () => {
+    /* `reconcilier` fusionne les profils EN BOUCLE : une exception ici les
+       prive tous de synchronisation, pas seulement celui qui l'a déclenchée. */
+    const sansMaitrise = { ...v1(), maitrise: undefined } as unknown as Sauvegarde;
+    expect(() => fusionner({ etat: sansMaitrise, majLe: 1000 }, A({}, 2000))).not.toThrow();
+  });
+
+  it('une sauvegarde v1 et une sauvegarde migrée ne se perdent ni l\'une ni l\'autre', () => {
+    /* Le v1 ne connaît que Découverte — c'est le seul parcours qu'il ait pu
+       jouer. Le migré porte en plus une avance en Dactylo. Aucune des deux
+       n'a le droit d'effacer l'autre, dans un sens comme dans l'autre. */
+    const migre = avecProgression(valider(DEFAUTS), 'dactylo', 'fr-FR', {
+      etape: 4,
+      leconsSurEtape: 3,
+    });
+    for (const [x, y] of [
+      [{ etat: v1(), majLe: 1000 }, { etat: migre, majLe: 2000 }],
+      [{ etat: migre, majLe: 2000 }, { etat: v1(), majLe: 1000 }],
+    ] as const) {
+      const r = fusionner(x, y);
+      expect(progressionDe(r, 'decouverte', 'fr-FR')).toEqual({ etape: 6, leconsSurEtape: 2 });
+      expect(progressionDe(r, 'dactylo', 'fr-FR')).toEqual({ etape: 4, leconsSurEtape: 3 });
+    }
+  });
+});
+
+describe('fusion de deux appareils horodatés à la même milliseconde', () => {
+  /* Ce n'est pas un cas d'école : `reconcilier` date « très vieille » toute
+     copie locale sans horodatage, c'est-à-dire 0. Deux appareils dans ce cas
+     arrivent EXACTEMENT à égalité, et `a.majLe <= b.majLe` faisait alors de
+     l'ordre des arguments l'arbitre des préférences. */
+  const gauche = () =>
+    valider({ ...DEFAUTS, disposition: 'fr-FR', parcours: 'decouverte', reglages: { ...DEFAUTS.reglages, sons: true } });
+  const droite = () =>
+    valider({ ...DEFAUTS, disposition: 'fr-CH', parcours: 'dactylo', reglages: { ...DEFAUTS.reglages, sons: false } });
+
+  it('reste commutative : l\'ordre des arguments ne décide de rien', () => {
+    const a = { etat: gauche(), majLe: 0 };
+    const b = { etat: droite(), majLe: 0 };
+    expect(fusionner(a, b)).toEqual(fusionner(b, a));
+  });
+
+  it('tranche pour un seul appareil, jamais pour un panachage des deux', () => {
+    /* Départager arbitrairement est acceptable — personne ne peut savoir qui a
+       parlé en dernier. Prendre le clavier de l'un et le parcours de l'autre
+       ne l'est pas : la famille se retrouverait avec un réglage qu'aucun des
+       deux appareils n'a jamais porté. */
+    const r = fusionner({ etat: gauche(), majLe: 0 }, { etat: droite(), majLe: 0 });
+    const attendu = r.disposition === 'fr-FR' ? gauche() : droite();
+    expect(r.parcours).toBe(attendu.parcours);
+    expect(r.reglages).toEqual(attendu.reglages);
   });
 });
