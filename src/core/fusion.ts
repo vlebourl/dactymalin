@@ -7,6 +7,7 @@ import {
   type Sauvegarde,
 } from './storage';
 import type { Maitrise } from './progression';
+import type { IdParcours } from './parcours';
 
 /**
  * Réconciliation de deux progressions du MÊME enfant, faites sur deux
@@ -62,11 +63,8 @@ export function fusionner(
        gagne, c'est le dernier choix de la famille. */
     disposition,
     /* Le parcours suit la même règle : c'est le parent qui l'a posé, et son
-       geste le plus récent est celui qui vaut. Il se lit sur le BRUT : une
-       sauvegarde d'avant le sélecteur (#42) n'en porte pas, et `valider` y
-       répond Découverte — ce qui effacerait le choix, pourtant explicite, de
-       l'autre appareil. */
-    parcours: recent.brut.parcours ?? ancien.brut.parcours,
+       geste le plus récent est celui qui vaut. */
+    parcours: choixDeParcours(recent) ?? choixDeParcours(ancien),
     dispositionChoisieALaMain:
       recent.etat.dispositionChoisieALaMain || ancien.etat.dispositionChoisieALaMain,
     reglages: recent.etat.reglages,
@@ -103,11 +101,68 @@ function ordonner<T extends { etat: Sauvegarde; majLe: number }>(a: T, b: T): [T
   return JSON.stringify(a.etat) < JSON.stringify(b.etat) ? [a, b] : [b, a];
 }
 
-/** Union par caractère des numéros de bloc, dédoublonnés et triés. */
+/**
+ * Le choix de parcours d'un appareil, ou `undefined` s'il n'en porte pas.
+ *
+ * Il se lit sur le BRUT, parce que `valider` répond Découverte aussi bien à
+ * « pas de choix » qu'à « Découverte choisie » : confondre les deux effacerait
+ * le geste explicite fait sur l'autre appareil (#42).
+ *
+ * Mais il n'est RETENU que s'il a survécu à la validation à l'identique.
+ * `estIntact` ne regarde jamais ce champ — le serveur accepte donc n'importe
+ * quelle chaîne — et le recopier tel quel laissait une valeur hors domaine
+ * chasser un choix valide, après quoi chaque appareil retombait sur Découverte
+ * en relisant : le geste du parent était perdu partout à la fois.
+ */
+function choixDeParcours(x: { brut: Sauvegarde; etat: Sauvegarde }): IdParcours | undefined {
+  return x.brut.parcours !== undefined && x.brut.parcours === x.etat.parcours
+    ? x.etat.parcours
+    : undefined;
+}
+
+/**
+ * Union par caractère des occurrences propres, triée.
+ *
+ * `Maitrise` est un MULTI-ENSEMBLE, et c'est tout le sujet : `noterOccurrence`
+ * empile une entrée PAR FRAPPE PROPRE — répétitions dans un même bloc
+ * comprises — et `estMaitrisee` exige `blocs.length >= OCCURRENCES_REQUISES`
+ * ET `new Set(blocs).size >= BLOCS_DISTINCTS_REQUIS`. Les DEUX.
+ *
+ * Dédoublonner ici détruisait donc le premier des deux critères : une touche
+ * acquise cessait de l'être à la première synchronisation, et il n'y fallait
+ * même pas deux appareils — fusionner la copie locale avec sa propre copie
+ * serveur, identique, suffisait. `reconcilier` écrivait ensuite l'état amputé
+ * en local ET sur le serveur, sans un mot et sans retour possible. C'était la
+ * négation directe de ce que cette fonction promet plus haut : « Acquis : ils
+ * ne se perdent pas. »
+ *
+ * L'union est donc celle des multi-ensembles : le MAXIMUM des multiplicités,
+ * jamais leur somme. La somme doublerait les occurrences à chaque
+ * synchronisation, et cette inflation-là est aussi fausse que l'érosion — elle
+ * casserait l'idempotence, qui n'est pas une élégance mais un critère (#43).
+ * Le maximum dit « ce qu'a vu le mieux informé des deux appareils », ce qui est
+ * exactement la règle du module.
+ */
 export function fusionnerMaitrise(a: Maitrise, b: Maitrise): Maitrise {
   const sortie: Maitrise = {};
   for (const cle of new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])) {
-    sortie[cle] = [...new Set([...(a?.[cle] ?? []), ...(b?.[cle] ?? [])])].sort((x, y) => x - y);
+    sortie[cle] = unionMultiensemble(a?.[cle] ?? [], b?.[cle] ?? []);
+  }
+  return sortie;
+}
+
+function unionMultiensemble(a: number[], b: number[]): number[] {
+  const multiplicites = (v: number[]) => {
+    const m = new Map<number, number>();
+    for (const n of v) m.set(n, (m.get(n) ?? 0) + 1);
+    return m;
+  };
+  const ici = multiplicites(a);
+  const la = multiplicites(b);
+  const sortie: number[] = [];
+  for (const bloc of [...new Set([...a, ...b])].sort((x, y) => x - y)) {
+    const combien = Math.max(ici.get(bloc) ?? 0, la.get(bloc) ?? 0);
+    for (let i = 0; i < combien; i++) sortie.push(bloc);
   }
   return sortie;
 }
