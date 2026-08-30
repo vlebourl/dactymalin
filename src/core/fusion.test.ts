@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fusionner, fusionnerMaitrise } from './fusion';
+import { estMaitrisee, type Maitrise } from './progression';
 import {
   avecProgression,
   DEFAUTS,
@@ -9,8 +10,8 @@ import {
   type Sauvegarde,
 } from './storage';
 
-const etat = (p: Partial<Sauvegarde>): Sauvegarde => ({ ...DEFAUTS, ...p });
-const A = (e: Partial<Sauvegarde>, t = 1000) => ({ etat: etat(e), majLe: t });
+const etat0 = (p: Partial<Sauvegarde>): Sauvegarde => ({ ...DEFAUTS, ...p });
+const A = (e: Partial<Sauvegarde>, t = 1000) => ({ etat: etat0(e), majLe: t });
 
 describe('fusion de deux progressions du même enfant', () => {
   it('garde le palier le plus AVANCÉ, même s\'il est le plus ancien', () => {
@@ -33,7 +34,7 @@ describe('fusion de deux progressions du même enfant', () => {
     expect(fusionner(A({ bloc: 42 }), A({ bloc: 7 })).bloc).toBe(42);
   });
 
-  it('unit les maîtrises, caractère par caractère, sans doublon', () => {
+  it('unit les maîtrises, caractère par caractère', () => {
     const r = fusionner(A({ maitrise: { e: [1, 2], f: [3] } }), A({ maitrise: { e: [2, 5], j: [1] } }));
     expect(r.maitrise).toEqual({ e: [1, 2, 5], f: [3], j: [1] });
   });
@@ -77,6 +78,90 @@ describe('fusion de deux progressions du même enfant', () => {
 describe('fusion des maîtrises', () => {
   it('trie les numéros de bloc', () => {
     expect(fusionnerMaitrise({ e: [5, 1] }, { e: [3] })).toEqual({ e: [1, 3, 5] });
+  });
+
+  /**
+   * `maitrise` est un MULTI-ENSEMBLE, et c'est tout le sujet : `noterOccurrence`
+   * empile une entrée PAR FRAPPE PROPRE, répétitions comprises, et
+   * `estMaitrisee` exige `blocs.length >= OCCURRENCES_REQUISES` ET
+   * `new Set(blocs).size >= BLOCS_DISTINCTS_REQUIS`. Dédoublonner à la fusion
+   * détruisait donc le premier des deux critères : une touche acquise cessait
+   * de l'être à la première synchronisation, y compris en fusionnant un état
+   * avec sa propre copie serveur identique. Un seul appareil suffisait.
+   */
+  it('garde les frappes RÉPÉTÉES dans le même bloc', () => {
+    expect(fusionnerMaitrise({ e: [5, 5, 6] }, {})).toEqual({ e: [5, 5, 6] });
+  });
+
+  it('ne rabote pas un acquis en le fusionnant avec lui-même', () => {
+    const acquise: Maitrise = { e: [5, 5, 6] };
+    expect(estMaitrisee(acquise, 'e')).toBe(true);
+    expect(estMaitrisee(fusionnerMaitrise(acquise, acquise), 'e')).toBe(true);
+  });
+
+  /* Union de multi-ensembles : le MAXIMUM des multiplicités, jamais leur
+     somme. La somme doublerait les occurrences à chaque synchronisation —
+     l'inflation est aussi fausse que l'érosion, et elle casserait
+     l'idempotence exigée par #43. */
+  it('prend le maximum des multiplicités, pas leur somme', () => {
+    expect(fusionnerMaitrise({ e: [5, 5] }, { e: [5, 5] })).toEqual({ e: [5, 5] });
+    expect(fusionnerMaitrise({ e: [5, 5] }, { e: [5, 5, 5] })).toEqual({ e: [5, 5, 5] });
+  });
+
+  it('réunit deux appareils qui ont travaillé sur des blocs différents', () => {
+    expect(fusionnerMaitrise({ e: [5, 5, 6] }, { e: [11, 11, 12] })).toEqual({
+      e: [5, 5, 6, 11, 11, 12],
+    });
+  });
+
+  it('reste commutative et associative sur trois appareils', () => {
+    const a: Maitrise = { e: [1, 1, 2] };
+    const b: Maitrise = { e: [1, 2, 2], f: [3] };
+    const c: Maitrise = { f: [3, 3], j: [9] };
+    expect(fusionnerMaitrise(a, b)).toEqual(fusionnerMaitrise(b, a));
+    expect(fusionnerMaitrise(fusionnerMaitrise(a, b), c)).toEqual(
+      fusionnerMaitrise(a, fusionnerMaitrise(b, c)),
+    );
+  });
+});
+
+describe('un acquis ne se perd pas à la synchronisation', () => {
+  /* Le scénario minimal, et il ne demande même pas deux appareils : l'app
+     redémarre, `sync.reconcilier` fusionne la copie locale avec la copie
+     serveur IDENTIQUE, et la touche cesse d'être acquise. Aucun conflit,
+     aucun message, aucun retour en arrière possible — `reconcilier` écrit
+     ensuite l'état amputé en local ET sur le serveur. */
+  it('une touche acquise le reste après une fusion avec sa propre copie', () => {
+    const joue = A({ maitrise: { e: [5, 5, 6] } }, 1000);
+    expect(estMaitrisee(joue.etat.maitrise, 'e')).toBe(true);
+    const apres = fusionner(joue, { etat: joue.etat, majLe: 2000 });
+    expect(estMaitrisee(apres.maitrise, 'e')).toBe(true);
+  });
+
+  it('et il y résiste autant de fois qu\'on synchronise', () => {
+    let etat = etat0({ maitrise: { e: [5, 5, 6], a: [2, 3, 3] } });
+    for (let i = 0; i < 5; i++) etat = fusionner({ etat, majLe: i }, { etat, majLe: i });
+    expect(estMaitrisee(etat.maitrise, 'e')).toBe(true);
+    expect(estMaitrisee(etat.maitrise, 'a')).toBe(true);
+  });
+});
+
+describe('le parcours choisi par le parent est contrôlé, pas seulement recopié', () => {
+  /* `estIntact` ne regarde JAMAIS `parcours` : le serveur accepte donc
+     n'importe quelle chaîne. La lire sur le brut sans contrôle de domaine
+     laissait une valeur hors domaine écraser le choix VALIDE de l'autre
+     appareil — après quoi `valider` répond Découverte partout, et le geste du
+     parent est perdu sur tous les appareils à la fois. */
+  it('une valeur hors domaine ne chasse pas un choix valide', () => {
+    const sain = A({ parcours: 'dactylo' }, 1000);
+    const abime = { etat: { ...etat0({}), parcours: 'Dactylo' } as unknown as Sauvegarde, majLe: 9000 };
+    expect(fusionner(sain, abime).parcours).toBe('dactylo');
+  });
+
+  it('mais une absence de choix laisse encore parler l\'autre appareil', () => {
+    const choisi = A({ parcours: 'dactylo' }, 1000);
+    const sansChoix = { etat: { ...etat0({}), parcours: undefined } as Sauvegarde, majLe: 9000 };
+    expect(fusionner(choisi, sansChoix).parcours).toBe('dactylo');
   });
 });
 
@@ -228,6 +313,18 @@ describe('fusion de deux appareils horodatés à la même milliseconde', () => {
     const a = { etat: gauche(), majLe: 0 };
     const b = { etat: droite(), majLe: 0 };
     expect(fusionner(a, b)).toEqual(fusionner(b, a));
+  });
+
+  /* L'associativité ne tient PAS à horodatages égaux, et ce test grave la
+     propriété qui compte en production : trois appareils réels portent trois
+     horodatages distincts — le côté serveur en porte toujours un vrai. */
+  it('reste associative dès que les horodatages diffèrent', () => {
+    const a = { etat: gauche(), majLe: 1000 };
+    const b = { etat: droite(), majLe: 2000 };
+    const c = { etat: valider({ ...DEFAUTS, disposition: 'fr-FR', parcours: 'dactylo' }), majLe: 3000 };
+    const gd = fusionner({ etat: fusionner(a, b), majLe: 2000 }, c);
+    const dg = fusionner(a, { etat: fusionner(b, c), majLe: 3000 });
+    expect(gd).toEqual(dg);
   });
 
   it('tranche pour un seul appareil, jamais pour un panachage des deux', () => {
