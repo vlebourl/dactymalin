@@ -99,11 +99,10 @@ test.describe('touches dessinables mais non proposables', () => {
     for (const code of ['Equal', 'BracketRight', 'Minus']) {
       await expect(page.locator(`[data-code="${code}"]`)).toHaveAttribute('data-etat', 'eteinte');
     }
-    // les chiffres, eux, sont ouverts dès le palier 1 : ni cadenas ni extinction
-    expect(await page.locator('[data-code="Digit4"]').getAttribute('data-etat')).not.toBe(
-      'eteinte',
-    );
-    await expect(page.locator('[data-code="Digit4"] svg')).toHaveCount(0);
+    /* Les chiffres ne sont plus ouverts dès la première étape en CH-FR : la v2
+       les place à la même étape pour les deux dispositions. Ils sont donc
+       dessinés et cadenassés — annoncés, pas absents. */
+    await expect(page.locator('[data-code="Digit4"] svg')).toHaveCount(1);
     // le Retour arrière a été retiré du dessin : plus aucune trace
     await expect(page.locator('[data-code="Backspace"]')).toHaveCount(0);
   });

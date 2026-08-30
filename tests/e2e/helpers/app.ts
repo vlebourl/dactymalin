@@ -98,26 +98,44 @@ function graineProfil(page: Page, id: string, nom: string) {
 }
 
 /** Progression déjà en place : on démarre sur V1, pas sur l'onboarding. */
+/**
+ * Place l'enfant à une étape donnée, dans un parcours donné.
+ *
+ * Écrit le format v2 : la progression y est indexée par couple
+ * parcours × disposition et va jusqu'à la dixième étape. Le champ `palier`
+ * n'est plus qu'un MIROIR pour les clients d'avant, borné au septième — s'en
+ * servir pour placer l'enfant le ramenait silencieusement à l'étape 7, et
+ * aucun test ne pouvait atteindre les chiffres ni la ponctuation.
+ */
 export async function ouvrir(
   page: Page,
   id: IdDisposition = 'fr-FR',
-  palier = 1,
+  etape = 1,
   sons = false,
   prenom = 'Joueur 1',
+  parcours: 'decouverte' | 'dactylo' = 'decouverte',
+  lecons = 0,
 ): Promise<void> {
   await assureConnexion(page);
   const idProfil = await assureProfil(page, prenom);
   await graineProfil(page, idProfil, prenom);
   await page.addInitScript(
-    ([cle, disposition, niveau, avecSons]) => {
+    ([cle, disposition, niveau, avecSons, quelParcours, dejaFaites]) => {
+      const cleProgression = `${quelParcours}:${disposition}`;
       localStorage.setItem(
         cle as string,
         JSON.stringify({
           version: 1,
+          modele: 2,
+          parcours: quelParcours,
           disposition,
           dispositionChoisieALaMain: true,
-          palier: niveau,
-          blocsSurPalier: 0,
+          progressions: {
+            [cleProgression]: { etape: niveau, leconsSurEtape: dejaFaites },
+          },
+          // miroir pour un client resté sur l'ancien bundle
+          palier: Math.min(niveau as number, 7),
+          blocsSurPalier: dejaFaites,
           bloc: 1,
           maitrise: {},
           guideDoigtVu: true,
@@ -132,7 +150,14 @@ export async function ouvrir(
         JSON.stringify({ [String(cle).replace('tapeavecmoi.v1.', '')]: new Date().toISOString() }),
       );
     },
-    [cleProfil(page), id, palier, sons] as [string, IdDisposition, number, boolean],
+    [cleProfil(page), id, etape, sons, parcours, lecons] as [
+      string,
+      IdDisposition,
+      number,
+      boolean,
+      string,
+      number,
+    ],
   );
   await page.goto('/');
   await page.waitForSelector('body[data-vue="V1"]');

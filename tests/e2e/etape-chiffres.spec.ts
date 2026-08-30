@@ -5,12 +5,12 @@ import { toucheDe } from '../../src/core/layouts';
 
 /**
  * Régression itération 002, point critique n°2 et majeur n°3.
- * Au palier 7, `mainDe()` ne consultait que la table des caractères DIRECTS :
+ * À l'étape des chiffres, `mainDe()` ne consultait que la table des caractères DIRECTS :
  * les dix chiffres FR-FR n'avaient aucune touche cible et la bande de doigts
  * annonçait systématiquement « main gauche ». Le piège Maj, lui, n'allumait
  * aucune touche au lieu des DEUX exigées (porteuse + Maj contralatérale).
  */
-test.describe('palier 7 : chiffres et piège Maj', () => {
+test.describe('étape des chiffres : le piège de la Majuscule', () => {
   test.beforeEach(async ({ page }) => {
     await ouvrir(page, 'fr-FR', 8);
     await page.getByRole('button', { name: 'On commence !' }).click();
@@ -32,7 +32,7 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
     }
 
     const mot = await motCourant(page);
-    expect(mot, 'aucun item numérique servi au palier 7').toMatch(/^[0-9]/);
+    expect(mot, "aucun item numérique servi à l'étape des chiffres").toMatch(/^[0-9]/);
     const chiffre = mot![0];
 
     const cibles = page.locator('[data-etat="cible"]');
@@ -90,7 +90,7 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
       }
       await page.waitForTimeout(820);
     }
-    throw new Error('aucun item numérique servi au palier 7');
+    throw new Error("aucun item numérique servi à l'étape des chiffres");
   });
 
   /* Régression gate Codex n°5 : le hook n'exposait qu'un booléen `avecMaj`.
@@ -128,13 +128,13 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
       }
       await page.waitForTimeout(820);
     }
-    throw new Error('aucun item numérique servi au palier 7');
+    throw new Error("aucun item numérique servi à l'étape des chiffres");
   });
 
-  /* Régression itération 003, point 5 : le palier 7 ne servait QUE des chiffres,
+  /* Régression itération 003, point 5 : l'ancien palier 7 ne servait QUE des chiffres,
      alors que V6 promet « les nombres et les majuscules » et que le point
      s'écrit lui aussi avec Maj en FR-FR. */
-  test('le palier sert aussi des capitales, et la capitale se tape bien avec Maj', async ({
+  test("l'étape sert aussi des capitales, et la capitale se tape bien avec Maj", async ({
     page,
   }) => {
     test.slow();
@@ -162,6 +162,6 @@ test.describe('palier 7 : chiffres et piège Maj', () => {
       }
       await page.waitForTimeout(820);
     }
-    throw new Error('aucun item à capitale servi au palier 7');
+    throw new Error("aucun item à capitale servi à l'étape des chiffres");
   });
 });
