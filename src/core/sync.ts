@@ -136,6 +136,48 @@ export const googleDisponible = (): Promise<boolean> =>
  */
 export const CHEMIN_GOOGLE = '/api/auth/sign-in/social';
 
+/**
+ * Ce qui, dans l'adresse, dit qu'on revient d'un rattachement. Google nous
+ * ramène à la racine ; sans ce marqueur, l'application n'aurait aucun moyen de
+ * savoir qu'il faut rouvrir l'espace parent et dire ce qui s'est passé.
+ */
+export const MARQUEUR_RATTACHEMENT = 'rattachement';
+
+/**
+ * Les méthodes par lesquelles ce compte peut s'ouvrir. Better Auth appelle
+ * « compte » ce que nous appelons une MÉTHODE : une ligne par fournisseur, plus
+ * `credential` pour le mot de passe.
+ */
+export const methodesDeConnexion = (): Promise<string[]> =>
+  json<{ providerId: string }[]>('/api/auth/list-accounts').then((m) =>
+    m.map((c) => c.providerId),
+  );
+
+/**
+ * Rattache Google au compte DÉJÀ OUVERT (#32). C'est le « déjà ouvert » qui
+ * fait toute la sûreté : il faut être dans le compte pour y ajouter une
+ * méthode, donc personne ne rattache ce à quoi il n'a pas accès.
+ *
+ * La session est exigée par le serveur (`requireHeaders`), et l'adresse du
+ * compte Google devra correspondre à celle du compte ouvert.
+ */
+export const rattacherGoogle = async (): Promise<void> => {
+  const { url } = await json<{ url: string }>('/api/auth/link-social', {
+    method: 'POST',
+    body: JSON.stringify({
+      provider: 'google',
+      callbackURL: `/?${MARQUEUR_RATTACHEMENT}=fait`,
+      /* SANS ce `errorCallbackURL`, un refus — une adresse Google qui n'est
+         pas la sienne, par exemple — emmenait le parent sur la page d'erreur
+         de Better Auth, HORS de l'application. Il n'avait plus qu'un bouton
+         « retour » pour comprendre. Il revient maintenant ici, avec le motif
+         en paramètre. */
+      errorCallbackURL: `/?${MARQUEUR_RATTACHEMENT}=echec`,
+    }),
+  });
+  location.href = url;
+};
+
 export const partirVersGoogle = async (): Promise<void> => {
   const { url } = await json<{ url: string }>(CHEMIN_GOOGLE, {
     method: 'POST',

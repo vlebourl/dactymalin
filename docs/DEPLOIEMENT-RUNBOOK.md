@@ -100,17 +100,25 @@ cocher :
 | 2 | Cliquer le bouton | redirection vers `accounts.google.com`, pas une page d'erreur |
 | 3 | Choisir un compte Google | retour sur `typing.tiarkaerell.com`, connecté |
 | 4 | Créer un enfant, jouer un bloc | la progression est bien enregistrée |
-| 5 | Se déconnecter, créer un compte par ADRESSE avec une *autre* adresse, s'en déconnecter, puis cliquer « Continuer avec Google » et choisir le compte Google dont l'adresse est celle-là | **refus explicite** : retour au portail avec « Cette adresse a déjà un compte avec mot de passe… ». C'est le comportement VOULU — la liaison automatique est désactivée (#7), et `user.email` est unique : une adresse n'ouvre jamais deux comptes |
+| 5 | Se déconnecter, créer un compte par ADRESSE avec l'adresse de ton compte Google, s'en déconnecter, puis cliquer « Continuer avec Google » | **refus explicite** : retour au portail avec « Cette adresse a déjà un compte avec mot de passe… rattachez Google depuis l'espace parent ». C'est le comportement VOULU (#7) |
+| 6 | Se reconnecter par mot de passe, ouvrir l'espace parent, « Rattacher Google » | départ vers Google, retour connecté, et la ligne Google passe à « rattaché » (#32) |
+| 7 | Se déconnecter, puis « Continuer avec Google » | on entre dans le MÊME compte : mêmes enfants, mêmes listes |
 
 **Si le bouton n'apparaît pas** : les deux variables `GOOGLE_CLIENT_ID` et
 `GOOGLE_CLIENT_SECRET` ne sont pas toutes les deux posées dans Coolify.
 `GET /api/config` répond `{"google":false}` — c'est le diagnostic le plus court.
 
 **Attendu, pas un défaut** : un compte Google et un compte mot de passe de même
-adresse ne coexistent pas. La seconde tentative est refusée, dans un sens comme
-dans l'autre. C'est le prix assumé de « pas de liaison sans vérification
-d'adresse » — et la vérification d'adresse exige un envoi de courriels qui
-n'existe pas.
+adresse ne coexistent pas, et ne se rejoignent pas TOUT SEULS. Le rattachement
+se demande depuis l'espace parent, une fois connecté (#32) — c'est ce « une fois
+connecté » qui empêche un inconnu d'attirer à lui le titulaire d'une adresse
+qu'il ne possède pas.
+
+**À ne jamais « simplifier »** : `accountLinking.requireLocalEmailVerified` doit
+rester à sa valeur par défaut (`true`). C'est lui, et lui seul, qui ferme la
+liaison automatique — nos comptes mot de passe ont `emailVerified = false`. Le
+poser à `false` rouvrirait la prise de compte. Un test le verrouille
+(`server/src/__tests__/liaison.test.ts`).
 
 **Si Google répond `redirect_uri_mismatch`** : l'URI déclarée dans la console
 ne correspond pas au chemin réel, qui est
