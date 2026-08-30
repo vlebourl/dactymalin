@@ -59,3 +59,29 @@ test.describe('progression explicite', () => {
     await expect(page.getByText(/Elle t'apporte/)).toBeVisible();
   });
 });
+
+/* REJOUER (#62).
+ *
+ * Le bandeau était construit sur l'étape COURANTE et sur un quota qui, depuis
+ * #58, ne bouge plus pendant un rejeu. Un enfant à l'étape 5 rejouant l'étape
+ * 2 lisait donc « Leçon 7 sur 7 » — un chiffre faux, et une idée fausse :
+ * rejouer n'avance pas. Le lecteur d'écran, lui, entendait « Étape 5 » sur le
+ * contenu de l'étape 2. */
+test.describe('rejouer une étape', () => {
+  test("nomme l'étape rejouée et n'annonce aucun quota", async ({ page }) => {
+    await ouvrir(page, 'fr-FR', 5, false, 'Lila', 'decouverte', LECONS_PAR_ETAPE - 1);
+    await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
+
+    await page
+      .locator('div', { hasText: /^Étape 2 —/ })
+      .getByRole('button', { name: 'La rejouer' })
+      .first()
+      .click();
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+
+    await expect(page.getByText(`Étape 2 sur ${ETAPE_MAX}`)).toBeVisible();
+    await expect(page.getByLabel('Étape 2 · tu la rejoues')).toBeVisible();
+    /* Ni le quota de l'étape courante, ni aucun autre. */
+    await expect(page.getByText(/Leçon \d+ sur \d+/)).toHaveCount(0);
+  });
+});
