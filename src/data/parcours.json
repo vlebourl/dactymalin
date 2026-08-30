@@ -166,8 +166,12 @@
      "genre": "majuscule",
      "titre": "Majuscule et le point",
      "promesse": "Tu écris les noms avec une grande lettre.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "."
+     ],
+     "doigts": {
+      ".": "majeur_droit"
+     },
      "doigtsOuverts": null,
      "items": null
     },
@@ -176,8 +180,30 @@
      "genre": "chiffres",
      "titre": "Les chiffres",
      "promesse": "Tu écris les nombres.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9"
+     ],
+     "doigts": {
+      "0": "auriculaire_droit",
+      "1": "auriculaire_gauche",
+      "2": "annulaire_gauche",
+      "3": "majeur_gauche",
+      "4": "index_gauche",
+      "5": "index_gauche",
+      "6": "index_droit",
+      "7": "index_droit",
+      "8": "majeur_droit",
+      "9": "annulaire_droit"
+     },
      "doigtsOuverts": null,
      "items": null
     },
@@ -186,8 +212,20 @@
      "genre": "ponctuation",
      "titre": "La ponctuation",
      "promesse": null,
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      ",",
+      ";",
+      ":",
+      "!",
+      "?"
+     ],
+     "doigts": {
+      ",": "index_droit",
+      ";": "majeur_droit",
+      ":": "annulaire_droit",
+      "!": "auriculaire_droit",
+      "?": "index_droit"
+     },
      "doigtsOuverts": null,
      "items": null
     },
@@ -365,8 +403,12 @@
      "genre": "majuscule",
      "titre": "Majuscule et le point",
      "promesse": "Tu écris les noms avec une grande lettre.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "."
+     ],
+     "doigts": {
+      ".": "annulaire_droit"
+     },
      "doigtsOuverts": null,
      "items": null
     },
@@ -375,8 +417,30 @@
      "genre": "chiffres",
      "titre": "Les chiffres",
      "promesse": "Tu écris les nombres.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9"
+     ],
+     "doigts": {
+      "0": "auriculaire_droit",
+      "1": "auriculaire_gauche",
+      "2": "annulaire_gauche",
+      "3": "majeur_gauche",
+      "4": "index_gauche",
+      "5": "index_gauche",
+      "6": "index_droit",
+      "7": "index_droit",
+      "8": "majeur_droit",
+      "9": "annulaire_droit"
+     },
      "doigtsOuverts": null,
      "items": null
     },
@@ -385,8 +449,18 @@
      "genre": "ponctuation",
      "titre": "La ponctuation",
      "promesse": null,
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      ",",
+      ";",
+      ":",
+      "?"
+     ],
+     "doigts": {
+      ",": "majeur_droit",
+      ";": "majeur_droit",
+      ":": "annulaire_droit",
+      "?": "auriculaire_droit"
+     },
      "doigtsOuverts": null,
      "items": null
     },
@@ -482,8 +556,12 @@
      "genre": "majuscule",
      "titre": "Majuscule et le point",
      "promesse": "Tu écris les noms avec une grande lettre.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "."
+     ],
+     "doigts": {
+      ".": "majeur_droit"
+     },
      "doigtsOuverts": [
       "index_gauche",
       "index_droit",
@@ -639,8 +717,30 @@
      "genre": "chiffres",
      "titre": "Les chiffres",
      "promesse": "Tu écris les nombres.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9"
+     ],
+     "doigts": {
+      "0": "auriculaire_droit",
+      "1": "auriculaire_gauche",
+      "2": "annulaire_gauche",
+      "3": "majeur_gauche",
+      "4": "index_gauche",
+      "5": "index_gauche",
+      "6": "index_droit",
+      "7": "index_droit",
+      "8": "majeur_droit",
+      "9": "annulaire_droit"
+     },
      "doigtsOuverts": [
       "index_gauche",
       "index_droit",
@@ -658,8 +758,20 @@
      "genre": "ponctuation",
      "titre": "La ponctuation",
      "promesse": null,
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      ",",
+      ";",
+      ":",
+      "!",
+      "?"
+     ],
+     "doigts": {
+      ",": "index_droit",
+      ";": "majeur_droit",
+      ":": "annulaire_droit",
+      "!": "auriculaire_droit",
+      "?": "index_droit"
+     },
      "doigtsOuverts": [
       "index_gauche",
       "index_droit",
@@ -771,8 +883,12 @@
      "genre": "majuscule",
      "titre": "Majuscule et le point",
      "promesse": "Tu écris les noms avec une grande lettre.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "."
+     ],
+     "doigts": {
+      ".": "annulaire_droit"
+     },
      "doigtsOuverts": [
       "index_gauche",
       "index_droit",
@@ -924,8 +1040,30 @@
      "genre": "chiffres",
      "titre": "Les chiffres",
      "promesse": "Tu écris les nombres.",
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9"
+     ],
+     "doigts": {
+      "0": "auriculaire_droit",
+      "1": "auriculaire_gauche",
+      "2": "annulaire_gauche",
+      "3": "majeur_gauche",
+      "4": "index_gauche",
+      "5": "index_gauche",
+      "6": "index_droit",
+      "7": "index_droit",
+      "8": "majeur_droit",
+      "9": "annulaire_droit"
+     },
      "doigtsOuverts": [
       "index_gauche",
       "index_droit",
@@ -943,8 +1081,18 @@
      "genre": "ponctuation",
      "titre": "La ponctuation",
      "promesse": null,
-     "nouvelles": [],
-     "doigts": {},
+     "nouvelles": [
+      ",",
+      ";",
+      ":",
+      "?"
+     ],
+     "doigts": {
+      ",": "majeur_droit",
+      ";": "majeur_droit",
+      ":": "annulaire_droit",
+      "?": "auriculaire_droit"
+     },
      "doigtsOuverts": [
       "index_gauche",
       "index_droit",

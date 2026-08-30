@@ -12,7 +12,6 @@ import {
    leur source de vérité si. */
 import { ensembleTouches, nouvellesTouches } from './parcours';
 import { OCCURRENCES_REQUISES } from './progression';
-import { chiffresDisponibles } from './corpus';
 
 const graines = [1, 2, 3, 7, 11, 42, 99, 1234];
 
@@ -50,8 +49,7 @@ describe('générateur de bloc', () => {
     }
   });
 
-  it('FR-FR sous le palier 7 : aucun nombre, les chiffres ne sont pas ouverts', () => {
-    expect(chiffresDisponibles('fr-FR', 6)).toEqual([]);
+  it('aucun nombre avant l’étape des chiffres, sur les deux dispositions', () => {
     for (const graine of graines) {
       const bloc = composerBloc({ id: 'fr-FR', parcours: 'decouverte', etape: 1, graine });
       expect(bloc.some((i) => i.genre === 'nombre')).toBe(false);
@@ -121,10 +119,11 @@ describe('générateur de bloc', () => {
 
   /* Régression itération 003, point 5 : le palier 7 ne servait que des chiffres
      alors que V6 promet « les nombres ET les majuscules ».
-     EN ATTENTE : l'étape Majuscule n'ouvre pas encore ses touches — le point
-     et la capitale arrivent avec #44, les chiffres avec #45. L'invariant reste
-     à vérifier, il ne peut simplement pas l'être aujourd'hui. */
-  it.skip('étape Majuscule : chaque bloc mêle une capitale et un point aux chiffres', () => {
+     Régression #38 bis : en migrant vers `parcours`, les étapes 7 à 10 se sont
+     retrouvées sans aucune touche — un enfant déjà arrivé là perdait les
+     majuscules, les phrases et les nombres. Une étape sans touche n'est pas une
+     étape en attente, c'est une régression. */
+  it('étape Majuscule : les phrases à capitale et point apparaissent', () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (const graine of graines) {
         const bloc = composerBloc({ id, parcours: 'decouverte', etape: 7, graine });

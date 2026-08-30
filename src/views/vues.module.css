@@ -284,12 +284,6 @@
   min-width: 0.5em;
 }
 
-.etiquetteSyllabe {
-  font-size: 13px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--encre-doux);
-}
 
 /* Rappel du piège Maj : une quasi-réussite, jamais une correction. */
 .rappelMaj {
@@ -979,4 +973,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Le libellé de niveau main, sous la main qui joue (P4). Il ne nomme jamais le
+   doigt seul : « Main gauche · ton index », jamais « index gauche ». */
+.consigneMain {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--encre-douce, #5b5347);
 }

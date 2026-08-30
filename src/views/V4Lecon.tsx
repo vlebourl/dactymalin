@@ -388,9 +388,14 @@ export function V4Lecon() {
             {/* Les deux mains dessinées encadrent le clavier À CHAQUE TOUR : le
                 doigt à employer est surligné sur celle qui joue, l'autre reste
                 au repos, aucun doigt marqué. C'est le dessin qui porte le
-                doigt — plus aucun mot ne le dit (P4). */}
+                DOIGT — mais le libellé de niveau MAIN reste affiché à côté de
+                la main active, comme P4 l'exige. Le supprimer laissait l'enfant
+                sans aucun mot pour ce qu'il voit. */}
             <div className={v.coteMain} data-main="gauche" data-main-active={mainCible === 'gauche' && !enCelebration ? 'oui' : 'non'}>
               <img src={imageMain('gauche', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
+              {mainCible === 'gauche' && !enCelebration && (
+                <span className={v.consigneMain}>{CONSIGNES[doigt].join(' · ')}</span>
+              )}
             </div>
             <Keyboard
               id={id}
@@ -418,6 +423,9 @@ export function V4Lecon() {
             />
             <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration ? 'oui' : 'non'}>
               <img src={imageMain('droite', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
+              {mainCible === 'droite' && !enCelebration && (
+                <span className={v.consigneMain}>{CONSIGNES[doigt].join(' · ')}</span>
+              )}
             </div>
             {e.barreau === 3 && !enCelebration && !e.majManquante && (
               <AideBarreau3 main={mainCible} lettre={attendu} />
