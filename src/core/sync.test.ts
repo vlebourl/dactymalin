@@ -664,3 +664,47 @@ describe('sauvegarde locale illisible : le serveur n’est jamais appauvri', () 
     expect(JSON.parse(localStorage.getItem(CLE_MAJ)!).d1).toBeUndefined();
   });
 });
+
+/* ------------------------------------------------------------------ #53 */
+
+describe('un profil en difficulté ne coûte rien aux suivants', () => {
+  it('une exception sur le premier profil n’interrompt pas la synchronisation', async () => {
+    /* Entrée pathologique venue du serveur : `empreinte` la parcourt sans
+       fin et déborde la pile. L'exception ne doit pas franchir l'itération. */
+    const cyclique = { ...valider({ ...DEFAUTS, palier: 3 }) } as Record<string, unknown>;
+    cyclique.moi = cyclique;
+
+    sauver(valider({ ...DEFAUTS, palier: 2 }), cleDe('d1'));
+    sauver(valider({ ...DEFAUTS, palier: 7 }), cleDe('d2'));
+    localStorage.setItem(
+      CLE_MAJ,
+      JSON.stringify({ d1: '2026-08-01T10:00:00.000Z', d2: '2026-08-01T10:00:00.000Z' }),
+    );
+
+    const puts: { id: string; etat: Sauvegarde }[] = [];
+    const distants = [
+      { id: 'd1', prenom: 'Timo', etat: cyclique, majLe: '2026-08-02T10:00:00.000Z' },
+      { id: 'd2', prenom: 'Zoé', etat: null, majLe: null },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const progression = url.match(/^\/api\/profils\/(.+)\/progression$/);
+        if (progression && init?.method === 'PUT') {
+          puts.push({ id: progression[1], ...JSON.parse(String(init.body)) });
+          return rep({ majLe: 'ok' });
+        }
+        /* Pas de `JSON.stringify` ici : le corps est cyclique, c'est le sujet. */
+        if (url === '/api/profils') {
+          return { ok: true, json: async () => ({ profils: distants }) } as unknown as Response;
+        }
+        return rep({ ok: true });
+      }),
+    );
+
+    await synchroniserProfils();
+
+    expect(puts.map((p) => p.id)).toEqual(['d2']);
+    expect(puts[0].etat.palier).toBe(7);
+  });
+});
