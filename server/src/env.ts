@@ -12,7 +12,23 @@ const schema = z.object({
   DATABASE_URL: z.string().url().optional(),
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().optional(),
-  FRONTEND_URL: z.string().url().optional(),
+  /**
+   * Les origines de navigateur autorisées à parler à cette API. PLUSIEURS,
+   * séparées par des virgules : deux domaines servent la même application, et
+   * celui qui n'était pas déclaré ici recevait un 403 « Invalid origin » sur
+   * TOUTE connexion — création de compte comprise. Une seule valeur reste
+   * valide, c'est le cas ordinaire.
+   */
+  FRONTEND_URL: z
+    .string()
+    .transform((v) =>
+      v
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.string().url()))
+    .optional(),
   /**
    * Client OAuth Google. Les DEUX ou AUCUNE : un fournisseur déclaré à moitié
    * afficherait un bouton qui mène à une erreur. Absentes, l'application
