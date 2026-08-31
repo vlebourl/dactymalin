@@ -238,8 +238,11 @@ export function composerBloc(o: OptionsBloc): Item[] {
     vus.add(texte);
     items.push({ texte, genre });
   };
+  /* Depuis l'étape 9, une phrase ne finit pas forcément par un point : « Qui
+     joue ? » et « Un chat dort ! » en sont. Les classer « mot » faussait les
+     quotas de composition d'un bloc. */
   const genreDe = (texte: string): GenreItem =>
-    /^[0-9]+$/.test(texte) ? 'nombre' : texte.includes('.') ? 'phrase' : 'mot';
+    /^[0-9]+$/.test(texte) ? 'nombre' : /[.!?]/.test(texte) ? 'phrase' : 'mot';
 
   const nombres = tirer(nombresDisponibles(ensemble));
   const phrases = tirer(phrasesTypables(ensemble));

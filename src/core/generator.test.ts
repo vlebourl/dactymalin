@@ -3,7 +3,6 @@ import {
   composerBloc,
   COUVERTURE_MIN,
   couvertureCible,
-  type GenreItem,
   LECONS_SANS_REPETITION,
   ORDRE_PREFERENCE,
   pouceDeLEspace,
@@ -291,15 +290,24 @@ describe('ordre de préférence du générateur (P5)', () => {
     expect(new Set(rangs).size).toBe(ORDRE_PREFERENCE.length); // les trois genres sont là
   });
 
-  it('à l’étape de la ponctuation, le remplissage sert des mots, jamais des phrases en surnombre', () => {
+  /* Ce test disait l'inverse jusqu'à #99, et il avait raison de le dire : tant
+     qu'aucune entrée du lexique ne portait `, ; : ! ?`, la couverture de
+     l'étape 9 n'avait rien à couvrir et le remplissage servait des mots. Les
+     phrases ponctuées ajoutées la remettent au travail. La préférence P5
+     arbitre entre contenus ÉQUIVALENTS ; elle ne dicte pas ce qu'une étape
+     enseigne, et un signe de ponctuation ne vit que dans une phrase. */
+  it('à l’étape de la ponctuation, chaque signe neuf est réellement servi', () => {
     for (const graine of graines) {
       const bloc = composerBloc({ id: 'fr-FR', parcours: 'decouverte', etape: 9, graine });
-      const compte = (g: GenreItem) => bloc.filter((i) => i.genre === g).length;
-      /* Toutes les touches sont ouvertes : mots, nombres et phrases sont tous
-         jouables. Le remplissage sert alors les vrais mots — nombres et
-         phrases ne restent que par la couverture des touches neuves et par
-         leurs planchers. */
-      expect(compte('mot')).toBeGreaterThan(compte('nombre') + compte('phrase'));
+      const texte = bloc.map((i) => i.texte).join(' ');
+      for (const c of nouvellesTouches('decouverte', 'fr-FR', 9)) {
+        expect(texte, `graine ${graine} : « ${c} » absent du bloc`).toContain(c);
+      }
+      /* Et ce qui porte ces signes est bien classé « phrase » : un item en
+         « ! » ou « ? » comptait pour un mot avant #99. */
+      for (const i of bloc.filter((i) => /[,;:!?]/.test(i.texte))) {
+        expect(i.genre, i.texte).toBe('phrase');
+      }
     }
   });
 
