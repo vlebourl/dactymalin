@@ -49,7 +49,10 @@
 .entete {
   width: 100%;
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  /* `auto` plutôt que `44px` : depuis #79 le bouton de sortie de la leçon
+     porte un MOT en plus de son dessin, et une colonne fixe le rognait. Le
+     plancher garde la mise en page des écrans dont le bouton est resté rond. */
+  grid-template-columns: minmax(44px, auto) 1fr minmax(44px, auto);
   align-items: center;
   gap: 14px;
   padding: 10px clamp(12px, 3vw, 34px) 6px;
@@ -71,6 +74,92 @@
 .retour:hover,
 .engrenage:hover {
   border-color: var(--teal-vif);
+}
+
+/* Quitter la leçon (#79). La flèche seule ne se lisait pas : le mot
+   l'accompagne, et le bouton devient une pilule plutôt qu'un rond. Encre
+   neutre — ni teal ni orange : sur cet écran ces deux teintes ne veulent dire
+   qu'une chose, la main gauche et la main droite. */
+.quitter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px 7px 12px;
+  border-radius: var(--r-bouton);
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  color: var(--encre);
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.quitter:hover {
+  background: var(--fond-creux);
+}
+
+/* La question de sortie : un voile sur toute la leçon, pour qu'aucun autre
+   contrôle ne réponde à la place de l'enfant. */
+.voileQuitter {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(31, 42, 45, 0.55);
+  z-index: 20;
+}
+
+.carteQuitter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 46ch;
+  padding: clamp(20px, 3vw, 30px);
+  border: 2px solid var(--liseré-fort);
+  border-radius: var(--r-bloc);
+  background: var(--fond-carte);
+  box-shadow: var(--ombre-carte);
+  text-align: center;
+}
+
+.titreQuitter {
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 600;
+}
+
+.texteQuitter {
+  color: var(--encre-mot);
+}
+
+.boutonsQuitter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.boutonQuitter {
+  padding: 13px 24px;
+  border-radius: var(--r-bouton);
+  border: 2px solid var(--liseré-fort);
+  background: var(--fond-carte);
+  color: var(--encre);
+  font-weight: 500;
+  letter-spacing: var(--interlettrage);
+}
+
+/* Rester est le choix par défaut : il est le plus lourd à l'œil, sans emprunter
+   une couleur qui appartient déjà aux mains. */
+.boutonRester {
+  background: var(--encre);
+  border-color: var(--encre);
+  color: var(--fond-carte);
+  font-weight: 600;
+}
+
+.boutonQuitter:hover {
+  transform: translateY(-1px);
 }
 
 .bandeauTouches {
