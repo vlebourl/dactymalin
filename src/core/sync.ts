@@ -171,6 +171,27 @@ export const googleDisponible = (): Promise<boolean> =>
     .catch(() => false);
 
 /**
+ * Ce qui tourne, en une ligne, pour l'adulte qui a l'appareil sous les yeux
+ * (#105). Le numéro du paquet ne suffit pas : c'est l'heure de démarrage qui
+ * change d'un déploiement à l'autre, et le commit qui dit lequel.
+ *
+ * Serveur muet — hors ligne, ou client servi sans API — : chaîne vide, et le
+ * pied de page disparaît. Une version inventée serait pire que pas de version.
+ */
+export const versionServeur = (): Promise<string> =>
+  json<{ version: string; commit: string | null; demarre: string }>('/api/health')
+    .then(({ version, commit, demarre }) => {
+      const heure = new Date(demarre);
+      const quand = Number.isNaN(heure.getTime())
+        ? null
+        : heure.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+      return ['version ' + version, commit, quand && 'en ligne depuis le ' + quand]
+        .filter(Boolean)
+        .join(' · ');
+    })
+    .catch(() => '');
+
+/**
  * Part vers Google. Ce n'est PAS une simple adresse à mettre dans un lien : il
  * n'existe pas de `GET /sign-in/google`. Better Auth attend un POST sur
  * `/sign-in/social`, avec le fournisseur en corps, et répond l'adresse chez

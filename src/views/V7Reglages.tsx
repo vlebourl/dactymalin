@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TOUTES_DISPOSITIONS } from '../core/layouts';
 import { NOM_PARCOURS, PARCOURS } from '../core/parcours';
 import { questionAdulte, reponseJuste, type QuestionAdulte } from '../core/porte-adulte';
 import { chargerIndex, CLE_CHOISIR, progressionEnCache } from '../core/profils';
 import type { Reglages } from '../core/storage';
+import { versionServeur } from '../core/sync';
 import { useApp, useEnvoi } from '../state';
 import { MiniClavier } from '../ui/MiniClavier';
 import v from './vues.module.css';
@@ -55,6 +56,18 @@ export function V7Reglages() {
     setSaisie('');
     setRate(true);
   };
+
+  /* Ce qui tourne, demandé au serveur (#105). Sans réponse — hors ligne, ou
+     serveur muet — la chaîne reste vide et le pied de page ne s'affiche pas :
+     rien à inventer. */
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    let vivant = true;
+    versionServeur().then((v) => vivant && setVersion(v));
+    return () => {
+      vivant = false;
+    };
+  }, []);
 
   /* Les enfants DU COMPTE, lus dans le cache et non au réseau : les réglages
      s'ouvrent aussi dans le train. Un enfant que cet appareil n'a jamais vu
@@ -275,6 +288,15 @@ export function V7Reglages() {
             Changer de joueur
           </button>
         </div>
+
+        {/* Pour l'adulte seulement, et seulement ici : discret, gris, en pied
+            de page. L'enfant en train de jouer ne voit jamais cette ligne, et
+            elle ne s'adresse pas à lui. */}
+        {version && (
+          <p className={v.piedVersion} data-testid="version-app">
+            {version}
+          </p>
+        )}
       </div>
     </div>
   );
