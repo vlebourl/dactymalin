@@ -34,11 +34,25 @@ depuis l'extérieur ».
 
 ```sh
 curl -s http://192.168.1.48:3003/api/health
-# {"ok":true,"status":"healthy","version":"0.1.0","db":"ok"}
+# {"ok":true,"status":"healthy","version":"0.1.0","commit":"c03a379",
+#  "demarre":"2026-08-31T15:45:10.412Z","db":"ok"}
 ```
 
 `db: "ok"` = la base répond. `db: "absente"` = l'application tourne sans
 `DATABASE_URL` : les comptes sont indisponibles, mais l'app reste jouable.
+
+**Savoir si un déploiement a pris** : `commit` vient de `SOURCE_COMMIT`, que
+Coolify pose dans l'environnement du conteneur au démarrage, et `demarre` est
+l'instant de démarrage du processus — c'est lui qui change même quand on
+reconstruit deux fois le même code. La même ligne s'affiche en pied de l'écran
+des réglages, pour l'adulte qui a l'appareil sous les yeux.
+
+`SOURCE_COMMIT` n'atteint **pas** le `docker build` : Coolify n'émet un
+`--build-arg` que pour les variables déclarées de l'application (vérifié dans la
+commande `docker build` des logs de déploiement). Toute date inscrite dans
+l'image serait par ailleurs figée par le cache de couches. D'où la lecture à
+l'exécution : un identifiant qui a l'air juste en mentant serait pire que le
+`0.1.0` d'avant (#105).
 
 ## Déployer
 

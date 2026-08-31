@@ -1163,3 +1163,14 @@
   overflow-wrap: anywhere;
   text-align: center;
 }
+
+/* #105 — ce qui tourne, en pied des réglages. Il s'adresse à l'adulte : il doit
+   se laisser trouver sans jamais attirer l'œil, donc plus petit et plus éteint
+   que tout le reste de l'écran. Ni teal ni orange : ces deux teintes disent
+   « main gauche » et « main droite » partout ailleurs. */
+.piedVersion {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--encre-eteinte);
+}
