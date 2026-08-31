@@ -15,10 +15,15 @@ const layouts = await import(
   fileURLToPath(new URL('../../src/core/layouts.ts', import.meta.url))
 );
 
+/* Un verdict PAR POSITION, comme `layouts.ts` : la base et la Maj d'une même
+   touche ne sont pas proposables ensemble — le `!` suisse vit sous Maj d'une
+   touche dont la base est morte (#98). */
+const PROPOSABLE = { base: layouts.estProposable, maj: layouts.estProposableEnMaj };
+
 const proposables = (id, champ) =>
   layouts
     .touches(id)
-    .filter((t) => layouts.estProposable(t) && t[champ])
+    .filter((t) => PROPOSABLE[champ](t) && t[champ])
     .map((t) => ({ car: t[champ], main: t.main, code: t.code }));
 
 const out = { dispositions: {} };

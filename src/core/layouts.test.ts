@@ -3,6 +3,7 @@ import { ensembleTouches, ETAPE_MAX } from './parcours';
 import {
   disposition,
   estProposable,
+  estProposableEnMaj,
   exigeMaj,
   legendes,
   MAJ_DROITE,
@@ -245,6 +246,43 @@ describe('matrice physique exhaustive', () => {
     expect(morte('fr-CH', 'BracketRight')).toBe(true); // ¨ tréma
   });
 
+  /* Le drapeau qui rouvre la position Maj est une EXCEPTION nommée : une seule
+     touche le porte, et les deux touches doublement mortes ne l'ont pas. */
+  it('seule la touche du ! suisse déclare une position Maj vivante', () => {
+    const avecMaj = TOUTES_DISPOSITIONS.flatMap((d) =>
+      d.rangees.flat().filter((t) => t.majVivante).map((t) => `${d.id}/${t.code}`),
+    );
+    expect(avecMaj).toEqual(['fr-CH/BracketRight']);
+  });
+
+  /* MORTE décrit une POSITION, pas la touche. Sur le clavier suisse, `Maj + ¨`
+     écrit un `!` immédiat : écarter la touche entière privait tout le public
+     suisse du point d'exclamation à l'étape 9 (#98). */
+  it('CH-FR : le ! est atteignable sous Maj, alors que sa base ¨ reste morte', () => {
+    expect(toucheMaj('fr-CH', '!')?.code).toBe('BracketRight');
+    expect(toucheDe('fr-CH', '!')?.code).toBe('BracketRight');
+    expect(exigeMaj('fr-CH', '!')).toBe(true);
+    expect(toucheDirecte('fr-CH', '¨')).toBeUndefined();
+    expect(toucheDe('fr-CH', '¨')).toBeUndefined();
+  });
+
+  /* L'autre moitié de la distinction : là où les DEUX positions sont mortes,
+     rien ne doit devenir atteignable — sinon le correctif de #98 aurait fait
+     entrer une séquence morte dans le parcours. */
+  it('les touches dont les deux positions sont mortes restent hors curriculum', () => {
+    for (const [id, base, maj] of [
+      ['fr-FR', '^', '¨'],
+      ['fr-CH', '^', '`'],
+    ] as const) {
+      expect(toucheDirecte(id, base)).toBeUndefined();
+      expect(toucheMaj(id, base)).toBeUndefined();
+      expect(toucheDirecte(id, maj)).toBeUndefined();
+      expect(toucheMaj(id, maj)).toBeUndefined();
+      expect(toucheDe(id, base)).toBeUndefined();
+      expect(toucheDe(id, maj)).toBeUndefined();
+    }
+  });
+
   it('CH-FR déclare bien la touche apostrophe et le ^ mort', () => {
     expect(toucheDirecte('fr-CH', "'")?.code).toBe('Minus');
     expect(toucheMaj('fr-CH', '?')?.code).toBe('Minus');
@@ -258,13 +296,18 @@ describe('matrice physique exhaustive', () => {
     expect(legendes(t('Equal'))).toEqual({ bas: '=', haut: '+' });
   });
 
-  /* DESSINABLE ≠ PROPOSABLE : une touche morte ou inerte est rendue, jamais visée. */
-  it('aucune touche morte, inerte ou modificatrice ne peut devenir une cible', () => {
+  /* DESSINABLE ≠ PROPOSABLE : une touche morte ou inerte est rendue, jamais
+     visée — POSITION PAR POSITION. La version d'avant #98 jugeait la touche
+     entière et interdisait donc le `!` suisse, qui vit sous Maj. */
+  it('aucune position morte, inerte ou modificatrice ne peut devenir une cible', () => {
     for (const d of TOUTES_DISPOSITIONS) {
       for (const t of d.rangees.flat()) {
-        if (estProposable(t)) continue;
-        if (t.base) expect(toucheDirecte(d.id, t.base), `${t.code} proposée`).toBeUndefined();
-        if (t.maj) expect(toucheMaj(d.id, t.maj), `${t.code} proposée sous Maj`).toBeUndefined();
+        if (!estProposable(t) && t.base) {
+          expect(toucheDirecte(d.id, t.base), `${t.code} proposée`).toBeUndefined();
+        }
+        if (!estProposableEnMaj(t) && t.maj) {
+          expect(toucheMaj(d.id, t.maj), `${t.code} proposée sous Maj`).toBeUndefined();
+        }
       }
     }
   });
