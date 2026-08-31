@@ -137,6 +137,25 @@ describe('retour d’onglet', () => {
     e = reducer(e, { type: 'tic', maintenant: 60_000 });
     expect(e.barreau).toBe(2);
   });
+
+  /* #79 : la question « tu veux arrêter ? » immobilise la leçon. Le temps
+     qu'elle dure n'appartient pas à l'enfant — il lui est RENDU, sinon
+     répondre « non » lui aurait coûté des secondes de chronomètre. */
+  it('rend à la leçon le temps pendant lequel elle était figée', () => {
+    const e = creerEtat(items('un'), 0, 0, 10_000);
+    expect(e.finLe).toBe(10_000);
+    const repris = reducer(e, { type: 'reprise', maintenant: 3_000, pause: 2_500 });
+    expect(repris.finLe).toBe(12_500);
+    // la durée MESURÉE de la leçon ne compte pas la pause non plus
+    expect(repris.debut).toBe(2_500);
+  });
+
+  it('une reprise sans pause laisse le chronomètre où il est', () => {
+    const e = creerEtat(items('un'), 0, 0, 10_000);
+    const repris = reducer(e, { type: 'reprise', maintenant: 3_000 });
+    expect(repris.finLe).toBe(10_000);
+    expect(repris.debut).toBe(0);
+  });
 });
 
 describe('Maj contralatérale', () => {
