@@ -41,6 +41,12 @@ export const DUREE_CELEBRATION = 700; // 0,5 à 1 s
 
 export type EtatLecon = {
   items: Item[];
+  /**
+   * La taille de chaque SÉRIE servie, dans l'ordre de service (#76). La file
+   * est cumulée ; ce sont ces bornes qui disent où la série en cours commence,
+   * et donc ce que l'entête dessine.
+   */
+  series: number[];
   i: number;
   curseur: number;
   aide: EtatAide;
@@ -144,6 +150,9 @@ export function creerEtat(
 ): EtatLecon {
   return {
     items,
+    /* Une file vide n'a pas de série : rien à dessiner plutôt qu'une rangée
+       de zéro pastille annoncée comme une série. */
+    series: items.length ? [items.length] : [],
     i: 0,
     curseur: 0,
     aide: etatInitial(items[0]?.texte[0] ?? '', latence),
@@ -217,7 +226,15 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
        vague reste invisible : rien à l'écran ne la marque, sans quoi le
        « bloc » que le cahier chasse reviendrait sous un autre nom. */
     case 'ajouter':
-      return a.items.length === 0 ? e : { ...e, items: [...e.items, ...a.items] };
+      return a.items.length === 0
+        ? e
+        : {
+            ...e,
+            items: [...e.items, ...a.items],
+            /* La vague reste invisible EN TANT QUE VAGUE ; elle borne la
+               rangée de l'entête, qui la nomme « série ». */
+            series: [...e.series, a.items.length],
+          };
 
     case 'tic': {
       let suivant: EtatLecon = e.maintenant === a.maintenant ? e : { ...e, maintenant: a.maintenant };

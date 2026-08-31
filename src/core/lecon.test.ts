@@ -251,3 +251,29 @@ describe('ce que la leçon observe (§4.7)', () => {
     expect(e.rapport.ms).toBeGreaterThan(0);
   });
 });
+
+/* Régression #76 : la rangée de l'entête suit la SÉRIE servie. Le reducer est
+   le seul à savoir quand une série arrive — c'est lui qui en garde les bornes. */
+describe('les bornes des séries servies (#76)', () => {
+  it('la file de départ est la première série', () => {
+    expect(depart('la', 'le', 'li').series).toEqual([3]);
+    expect(creerEtat([], 0, 0).series).toEqual([]);
+  });
+
+  it('chaque rechargement ajoute une série, à sa taille réelle', () => {
+    const e = depart('la', 'le');
+    const apres = reducer(e, { type: 'ajouter', items: items('lo', 'lu', 'ly') });
+    expect(apres.series).toEqual([2, 3]);
+    expect(apres.items).toHaveLength(5);
+  });
+
+  it('un rechargement vide ne crée pas de série fantôme', () => {
+    const e = depart('la', 'le');
+    expect(reducer(e, { type: 'ajouter', items: [] }).series).toEqual([2]);
+  });
+
+  it("le temps qui passe n'ouvre aucune série", () => {
+    const e = depart('la', 'le');
+    expect(reducer(e, { type: 'tic', maintenant: 999_999 }).series).toEqual([2]);
+  });
+});
