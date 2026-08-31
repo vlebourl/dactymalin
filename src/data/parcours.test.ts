@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import parcours from './parcours.json';
 import lexique from './lexique-v3.json';
 import { toucheDe } from '../core/layouts';
+import { estTypable } from '../core/contenu';
 
 /* Les invariants du cahier v2 §4.5 et §4.9, vérifiés sur les données
    générées par `scripts/analyse/generer-lecons.py`. Ce fichier n'existe pas
@@ -19,6 +20,8 @@ type Etape = {
   doigts: Record<string, string>;
   doigtsOuverts: string[] | null;
   doigtsModificateur?: string[];
+  promesse: string | null;
+  exemples: string[];
   items: { mots: number; groupes: number; total: number } | null;
 };
 const etapesDe = (p: string, d: string): Etape[] =>
@@ -163,17 +166,90 @@ describe('contenu tapable', () => {
     }
   });
 
-  /* P3 : une phrase sans majuscule ni point est une phrase écrite faux. */
-  it('chaque phrase a une majuscule initiale et un point final', () => {
+  /* P3 : une phrase sans majuscule ni signe final est une phrase écrite faux.
+     Depuis l'étape 9, le signe final n'est plus forcément le point : une
+     interrogation et une exclamation en sont deux autres, tout aussi justes. */
+  it('chaque phrase a une majuscule initiale et un signe de fin', () => {
     for (const { t } of lexique.phrases) {
       expect(t[0]).toBe(t[0].toUpperCase());
-      expect(t.endsWith('.')).toBe(true);
+      expect(t, t).toMatch(/[.!?]$/);
     }
   });
 
   it('un mot simple ne contient ni espace ni ponctuation', () => {
     for (const { t } of lexique.mots) {
       expect(t).toMatch(/^[a-zà-ÿ]+$/);
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ #99 */
+describe("l'étape 9 enseigne vraiment la ponctuation", () => {
+  /* Le trou que ce test ferme : l'étape 9 s'appelait « La ponctuation » et
+     déclarait bien `, ; : ! ?`, mais aucune des 11 422 entrées du lexique ne
+     portait l'un de ces signes. L'enfant y retapait le contenu de l'étape 8.
+     Les deux garde-fous existants étaient aveugles : le plancher de 60 items
+     saute les étapes sans lettres, et « aucune étape vide » vérifie qu'une
+     étape DÉCLARE des touches, jamais qu'un item les PORTE. */
+
+  /** L'ensemble des caractères ouverts à la fin de l'étape `n`. */
+  const cumulJusqua = (p: string, d: string, n: number) =>
+    new Set(
+      etapesDe(p, d)
+        .filter((e) => e.n <= n)
+        .flatMap((e) => e.nouvelles),
+    );
+
+  const itemsDeLEtape9 = (p: string, d: string) => {
+    const ouverts = cumulJusqua(p, d, 9);
+    const tous = [...lexique.mots, ...lexique.groupes, ...lexique.phrases].map((x) => x.t);
+    return tous.filter((t) => estTypable(t, ouverts));
+  };
+
+  it('au moins un item porte CHACUNE des touches neuves de l\'étape 9', () => {
+    for (const p of PARCOURS) {
+      for (const d of DISPOS) {
+        const neuf = etapesDe(p, d).find((e) => e.n === 9)!;
+        const items = itemsDeLEtape9(p, d);
+        for (const c of neuf.nouvelles) {
+          const porteurs = items.filter((t) => t.includes(c));
+          expect(porteurs.length, `${p}/${d} : aucun item ne porte « ${c} »`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  /* Même exigence que le plancher des étapes de lettres : une leçon dure 50 à
+     60 exercices et aucun ne doit s'y répéter. Une étape qui n'aurait que dix
+     items ponctués les redirait six fois. */
+  it('au moins 60 items distincts portent une touche neuve de l\'étape 9', () => {
+    for (const p of PARCOURS) {
+      for (const d of DISPOS) {
+        const neuf = etapesDe(p, d).find((e) => e.n === 9)!;
+        const ponctues = itemsDeLEtape9(p, d).filter((t) =>
+          neuf.nouvelles.some((c) => t.includes(c)),
+        );
+        expect(new Set(ponctues).size, `${p}/${d}`).toBeGreaterThanOrEqual(PLANCHER);
+      }
+    }
+  });
+
+  /* P7 : « aucun défilement, un item = un écran ». La taille affichée vaut
+     148/n vw (V4Lecon) : au-delà de 28 caractères, un item tombe sous 20 px de
+     haut sur un écran de 375 px, et l'enfant ne le lit plus. */
+  it('aucun item ne dépasse 28 caractères', () => {
+    for (const { t } of [...lexique.mots, ...lexique.groupes, ...lexique.phrases]) {
+      expect(t.length, t).toBeLessThanOrEqual(28);
+    }
+  });
+
+  it("l'étape 9 annonce une promesse et des exemples non vides", () => {
+    for (const p of PARCOURS) {
+      for (const d of DISPOS) {
+        const neuf = etapesDe(p, d).find((e) => e.n === 9)!;
+        expect(neuf.promesse, `${p}/${d}`).toBeTruthy();
+        expect(neuf.exemples.length, `${p}/${d}`).toBeGreaterThan(0);
+      }
     }
   });
 });
