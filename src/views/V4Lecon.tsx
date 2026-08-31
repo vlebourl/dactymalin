@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
 import { creerEtat, dureeLecon, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
 import { composerBlocDeListe, pouceDeLEspace } from '../core/generator';
-import { creerSession } from '../core/session';
+import { creerSession, optionsDeSession } from '../core/session';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -66,18 +66,11 @@ export function V4Lecon() {
     () =>
       app.listeJouee
         ? null
-        : creerSession({
-            id,
-            parcours: app.parcours,
-            etape: etapeJouee,
-            aReinjecter: app.aReinjecter,
-            /* §7.4 : après plusieurs jours sans jouer, la première vague révise
-               l'étape précédente. Sans ces deux-là, `creerSession` ne pouvait
-               pas savoir qu'il y avait eu une absence, et la révision du retour
-               ne se déclenchait jamais en vrai. */
-            derniereLecon: app.derniereLecon,
-            maintenant: Date.now(),
-          }),
+        : /* Le passage de témoin est fait par une fonction PURE, et testée :
+             ce site d'appel a déjà perdu deux champs en silence — la date de
+             la dernière leçon (#47), puis la maîtrise (#71) — sans qu'aucun
+             test ne tombe, parce qu'ils vivaient dans une vue. */
+          creerSession(optionsDeSession(app, id, Date.now())),
     // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, app.parcours, etapeJouee, app.lecon, app.listeJouee],
