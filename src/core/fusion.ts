@@ -7,6 +7,7 @@ import {
   type Sauvegarde,
 } from './storage';
 import type { Maitrise } from './progression';
+import { LECONS_SANS_REPETITION } from './generator';
 import { fusionnerMesures } from './mesures';
 import type { IdParcours } from './parcours';
 
@@ -83,6 +84,21 @@ export function fusionner(
     (t): t is number => typeof t === 'number',
   );
 
+  /* Troisième champ à tomber dans le même trou, et il faut le dire : cette
+     fonction ne garde que ce qu'elle NOMME. Après les mesures et la date de la
+     dernière leçon, les exercices récents (#72).
+
+     Prendre la liste du dernier joueur et jeter l'autre perdait une leçon :
+     deux appareils qui jouent chacun de leur côté depuis un état commun
+     arrivaient avec un lot neuf chacun, et l'un des deux disparaissait — le
+     mot qu'il portait pouvait alors revenir avec UNE seule leçon d'écart au
+     lieu de trois. On réunit donc les lots, on jette les doublons, et on garde
+     les plus récents. */
+  const exercicesRecents = unionDesLots(
+    ancien.etat.exercicesRecents,
+    recent.etat.exercicesRecents,
+  );
+
   return {
     version: 1,
     modele: MODELE,
@@ -105,6 +121,7 @@ export function fusionner(
     guideDoigtVu: g.etat.guideDoigtVu || d.etat.guideDoigtVu,
     ...(Object.keys(mesures).length ? { mesures } : {}),
     ...(dernieres.length ? { derniereLecon: Math.max(...dernieres) } : {}),
+    ...(exercicesRecents?.length ? { exercicesRecents } : {}),
   };
 }
 
@@ -208,4 +225,37 @@ function unionMultiensemble(a: number[], b: number[]): number[] {
     for (let i = 0; i < combien; i++) sortie.push(bloc);
   }
   return sortie;
+}
+
+/**
+ * Réunit les souvenirs de leçons de deux appareils.
+ *
+ * Un « lot » est ce qu'une leçon a servi. Les lots n'ont pas de date : leur
+ * ordre est celui de la liste, du plus ancien au plus récent, et la seule chose
+ * qu'on sache d'un lot venu d'ailleurs est qu'il est plus récent que ceux de
+ * l'appareil qui a parlé en premier. On concatène donc dans cet ordre-là.
+ *
+ * Les doublons partent : sans quoi réconcilier deux fois de suite ferait
+ * grossir la liste, puis chasserait de vraies leçons hors de la fenêtre.
+ *
+ * LIMITE CONNUE, à dire plutôt qu'à laisser découvrir : un appareil resté au
+ * bundle d'avant #72 ignore ce champ. Il joue sans rien y inscrire, et ce qu'il
+ * a servi n'est donc jamais protégé ; pire, les lots déjà là ne vieillissent
+ * plus, faute de leçons neuves pour les chasser. Ils restent interdits jusqu'à
+ * ce qu'un appareil à jour termine deux leçons. Ce n'est pas corrigé ici : le
+ * plafond de `session.ecartSoutenable` borne déjà ce que l'interdiction peut
+ * coûter à une séance, et faire vieillir la liste sur le silence d'un pair
+ * l'effacerait aussi pour un appareil neuf qui n'a simplement jamais joué.
+ */
+function unionDesLots(ancien?: string[][], recent?: string[][]): string[][] | undefined {
+  if (!ancien?.length && !recent?.length) return undefined;
+  const vus = new Set<string>();
+  const sortie: string[][] = [];
+  for (const lot of [...(ancien ?? []), ...(recent ?? [])]) {
+    const cle = JSON.stringify(lot);
+    if (vus.has(cle)) continue;
+    vus.add(cle);
+    sortie.push(lot);
+  }
+  return sortie.slice(-(LECONS_SANS_REPETITION - 1));
 }

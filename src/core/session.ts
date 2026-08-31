@@ -1,4 +1,6 @@
 import { composerBloc, TAILLE_BLOC_MAX, type Item } from "./generator";
+import { groupesTypables, motsTypables } from "./contenu";
+import { ensembleTouches } from "./parcours";
 import type { IdDisposition } from "./layouts";
 import type { IdParcours } from "./parcours";
 import type { Maitrise } from "./progression";
@@ -74,6 +76,14 @@ export type OptionsSession = {
    * ce qui reste la bonne réponse pour un enfant qui commence.
    */
   maitrise?: Maitrise;
+  /**
+   * Les exercices déjà servis lors des leçons précédentes (§7.2). Ils
+   * attendent leur tour : ce qui revient, c'est la TOUCHE ratée, jamais le
+   * même exercice. Le générateur les écarte, sauf si le corpus de l'étape ne
+   * peut pas remplir la leçon autrement — c'est l'étape qu'on refait, pas la
+   * leçon qu'on ampute.
+   */
+  recemmentVus?: string[];
   graine?: number;
   /** Quand la dernière leçon a été close (`storage.derniereLecon`). */
   derniereLecon?: number;
@@ -107,6 +117,11 @@ export type EtatPourSession = {
   aReinjecter?: string[];
   maitrise: Maitrise;
   derniereLecon?: number;
+  /**
+   * Les exercices des leçons précédentes, une entrée par leçon, de la plus
+   * ancienne à la plus récente.
+   */
+  exercicesRecents?: string[][];
 };
 
 /**
@@ -136,8 +151,45 @@ export function optionsDeSession(
     aReinjecter: etat.aReinjecter,
     maitrise: etat.maitrise,
     derniereLecon: etat.derniereLecon,
+    /* Aplati : le compositeur n'a que faire du découpage par leçon, il lui
+       suffit de savoir ce qu'il ne doit pas resservir. Absent plutôt que vide,
+       pour qu'un enfant qui commence n'interdise rien. */
+    recemmentVus: etat.exercicesRecents?.flat(),
     maintenant,
   };
+}
+
+/**
+ * Quelle PART du vivier d'une étape la règle d'écart peut interdire.
+ *
+ * Mesuré, et c'est ce qui a rendu cette borne nécessaire : à l'étape 1 de
+ * Découverte, le vivier fait 254 items et une leçon de douze minutes en
+ * consomme presque autant. Interdire les deux leçons précédentes en entier n'y
+ * laissait plus rien — la séance passait de 252 exercices servis à 54, et
+ * s'arrêtait au bout de deux ou trois minutes au lieu de douze. Aux étapes
+ * suivantes, où le vivier se compte en milliers, la borne ne mord jamais.
+ *
+ * L'arbitrage est celui que le cahier pose déjà ailleurs : c'est l'étape qu'on
+ * refait, pas la leçon qu'on ampute (§7.2). La règle d'écart cède donc devant
+ * la durée de la séance, et jamais l'inverse.
+ */
+export const PART_INTERDITE_MAX = 1 / 3;
+
+/**
+ * Les exercices récents, rabotés à ce que le vivier de l'étape peut payer. On
+ * garde les PLUS RÉCENTS : ce sont ceux dont le retour se remarquerait le plus.
+ */
+export function ecartSoutenable(
+  recemmentVus: string[] | undefined,
+  parcours: IdParcours,
+  id: IdDisposition,
+  etape: number,
+): string[] | undefined {
+  if (!recemmentVus?.length) return undefined;
+  const ensemble = ensembleTouches(parcours, id, etape);
+  const vivier = motsTypables(ensemble).length + groupesTypables(ensemble).length;
+  const plafond = Math.floor(vivier * PART_INTERDITE_MAX);
+  return recemmentVus.slice(-plafond);
 }
 
 export function creerSession(o: OptionsSession): Session {
@@ -174,12 +226,15 @@ export function creerSession(o: OptionsSession): Session {
   };
 
   const composer = () => {
+    /* La vague de révision compose sur l'étape PRÉCÉDENTE : son vivier est plus
+       petit, et c'est donc le sien qui doit borner la règle d'écart. */
+    const etapeDeLaVague = revise && vague === 0 ? o.etape - 1 : o.etape;
     /* La graine dérive du numéro de vague : même graine de départ, même suite
        complète — c'est ce qui rend une leçon rejouable dans un test. */
     const lot = composerBloc({
       id: o.id,
       parcours: o.parcours,
-      etape: revise && vague === 0 ? o.etape - 1 : o.etape,
+      etape: etapeDeLaVague,
       /* Les items à revoir n'ont de sens qu'au début de l'étape COURANTE : les
          resservir à chaque vague les ferait revenir toutes les deux minutes,
          et les servir pendant la révision y ferait entrer des touches que
@@ -189,6 +244,7 @@ export function creerSession(o: OptionsSession): Session {
          touche faible est faible où qu'elle apparaisse. Elle ne fait entrer
          aucune touche nouvelle — le vivier reste celui de l'étape composée. */
       maitrise: o.maitrise,
+      recemmentVus: ecartSoutenable(o.recemmentVus, o.parcours, o.id, etapeDeLaVague),
       taille: TAILLE_VAGUE,
       graine: graine + vague * 7919,
     });

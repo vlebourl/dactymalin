@@ -23,6 +23,7 @@ import {
   type RapportLecon,
 } from './mesures';
 import { LECONS_PAR_ETAPE } from './parcours';
+import { LECONS_SANS_REPETITION } from './generator';
 import { creerEtat, reducer as reducerLecon, type ActionLecon } from './lecon';
 import type { Item } from './generator';
 import { CLE, DEFAUTS, charger, estIntact, sauver, valider } from './storage';
@@ -590,5 +591,72 @@ describe('rien de tout cela n’atteint l’enfant', () => {
       (f) => !AUTORISES.has(f) && /from '[^']*\/mesures'/.test(readFileSync(f, 'utf8')),
     );
     expect(coupables).toEqual([]);
+  });
+});
+
+describe("les exercices des leçons précédentes survivent (#72)", () => {
+  /* Sans persistance, la règle d'écart de §7.2 ne tenait qu'en mémoire : elle
+     tombait au premier rechargement, et ne franchissait aucun appareil. */
+  it("traversent une sauvegarde et sa relecture", () => {
+    sauver({ ...DEFAUTS, exercicesRecents: [["chat", "un rat"], ["pie"]] });
+    expect(charger().exercicesRecents).toEqual([["chat", "un rat"], ["pie"]]);
+  });
+
+  it("une sauvegarde d’avant ce champ reste lisible et ne perd rien", () => {
+    /* Écrite à la main, comme un client d'avant #72 l'aurait produite : partir
+       de DEFAUTS ne prouvait rien, puisque DEFAUTS n'a jamais porté ce champ. */
+    const avantLeChamp = {
+      version: 1,
+      modele: 2,
+      disposition: "fr-FR",
+      dispositionChoisieALaMain: true,
+      palier: 3,
+      blocsSurPalier: 2,
+      bloc: 5,
+      maitrise: { e: [1, 2, 3] },
+      guideDoigtVu: true,
+      reglages: { sons: true, texteEspace: false, animationsDouces: false },
+      progressions: { "decouverte:fr-FR": { etape: 3, leconsSurEtape: 2 } },
+    };
+    expect(estIntact(avantLeChamp)).toBe(true);
+    const relu = valider(avantLeChamp);
+    expect(relu.exercicesRecents).toBeUndefined();
+    // Et surtout : rien d'autre n'est perdu au passage.
+    expect(relu.maitrise).toEqual({ e: [1, 2, 3] });
+    expect(relu.progressions?.["decouverte:fr-FR"]).toEqual({ etape: 3, leconsSurEtape: 2 });
+  });
+
+  it("un champ abîmé fait préférer le backup, il ne passe pas pour sain", () => {
+    /* Sans ce contrôle, une clé principale corrompue court-circuitait un backup
+       sain : le souvenir repartait vide, et les mots de la veille revenaient
+       aussitôt. */
+    expect(estIntact({ ...DEFAUTS, exercicesRecents: [[42]] })).toBe(false);
+    expect(estIntact({ ...DEFAUTS, exercicesRecents: "n’importe quoi" })).toBe(false);
+    expect(estIntact({ ...DEFAUTS, exercicesRecents: [["chat"]] })).toBe(true);
+  });
+
+  it("un lot vide n’occupe pas une place du souvenir", () => {
+    const relu = valider({ ...DEFAUTS, exercicesRecents: [[], ["chat"], []] });
+    expect(relu.exercicesRecents).toEqual([["chat"]]);
+  });
+
+  it("des exercices illisibles sont jetés, jamais la progression", () => {
+    const abime = valider({ ...DEFAUTS, etape: 4, exercicesRecents: "n’importe quoi" });
+    expect(abime.exercicesRecents).toBeUndefined();
+    expect(abime.maitrise).toEqual({});
+  });
+
+  it("ne garde que les leçons les plus RÉCENTES, et rien d’infini", () => {
+    const trop = [["a"], ["b"], ["c"], ["d"]];
+    const garde = valider({ ...DEFAUTS, exercicesRecents: trop }).exercicesRecents ?? [];
+    expect(garde.length).toBeLessThanOrEqual(LECONS_SANS_REPETITION - 1);
+    // Ce sont les plus vieilles qui partent : la dernière leçon reste.
+    expect(garde[garde.length - 1]).toEqual(["d"]);
+  });
+
+  it("un exercice n’est pas un roman : la longueur est bornée", () => {
+    const long = "x".repeat(5_000);
+    const garde = valider({ ...DEFAUTS, exercicesRecents: [[long, "chat"]] }).exercicesRecents;
+    expect(garde).toEqual([["chat"]]);
   });
 });
