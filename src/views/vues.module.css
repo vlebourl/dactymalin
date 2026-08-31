@@ -201,10 +201,19 @@
   white-space: nowrap;
 }
 
+/* La jauge d'ÉTAPE et la rangée de points du dessous mesurent deux choses
+   d'échelles différentes, et rien ne les distinguait (#78). Elle est
+   désormais une BARRE franche — un rectangle continu cerné d'un trait — là où
+   la série est une suite de petits ronds séparés : deux formes, deux mesures.
+   Sa piste pâle se confondait avec le papier (1,7:1) ; le cerne d'encre douce
+   tient 5,1:1 sur --fond, au-delà du 3:1 exigé d'un élément non textuel.
+   Le remplissage quitte le teal : cette teinte dit « main gauche » dans toute
+   l'application et ne peut pas dire aussi « avancement ». */
 .jaugeLecon {
-  width: clamp(60px, 9vw, 120px);
-  height: 5px;
+  width: clamp(56px, 9vw, 120px);
+  height: 12px;
   border-radius: 3px;
+  border: 1.5px solid var(--encre-doux);
   background: var(--liseré);
   overflow: hidden;
   flex: none;
@@ -213,8 +222,8 @@
 .jaugeLeconPleine {
   display: block;
   height: 100%;
-  border-radius: 3px;
-  background: var(--teal-moyen);
+  border-radius: 1px;
+  background: var(--encre); /* 10:1 sur la piste de la jauge */
   transition: width 320ms ease;
 }
 
