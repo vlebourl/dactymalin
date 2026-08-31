@@ -48,9 +48,10 @@ export function V7Reglages() {
 
   const repondre = () => {
     if (porte && reponseJuste(porte, saisie)) return envoi({ type: 'vue', vue: 'V9' });
-    /* Une question NEUVE à chaque échec : la même reposée indéfiniment finirait
-       par céder à l'essai systématique. */
-    setPorte(questionAdulte());
+    /* Une question NEUVE à chaque échec, et jamais celle qu'on vient de rater :
+       la même reposée invite à réessayer au hasard sur la même cible, et donne
+       l'impression que la porte bégaie. */
+    setPorte(questionAdulte(Math.random, porte?.reponse));
     setSaisie('');
     setRate(true);
   };

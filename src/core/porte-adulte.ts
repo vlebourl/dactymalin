@@ -34,7 +34,25 @@ const entre = (min: number, max: number, alea: () => number) =>
  * figée finirait par s'apprendre par cœur, ce qui est exactement le contraire
  * du but.
  */
-export function questionAdulte(alea: () => number = Math.random): QuestionAdulte {
+export function questionAdulte(
+  alea: () => number = Math.random,
+  /** Le produit à ne pas reposer — celui de la question qu'on vient de rater. */
+  sauf?: number,
+): QuestionAdulte {
+  /* Reposer exactement la même question après un échec invite à réessayer au
+     hasard sur la même cible, et donne à l'enfant l'impression que la porte
+     bégaie. Il n'y a que 196 couples possibles : un tirage nu retombait sur le
+     même produit assez souvent pour rendre le test instable, ce qui était le
+     symptôme du vrai défaut.
+
+     La boucle est bornée : `sauf` n'écarte qu'une poignée de couples, et sortir
+     après vingt essais vaut mieux que tourner si un jour les bornes changent
+     au point de ne plus laisser d'alternative. */
+  for (let essai = 0; essai < 20; essai++) {
+    const a = entre(A_MIN, A_MAX, alea);
+    const b = entre(B_MIN, B_MAX, alea);
+    if (a * b !== sauf) return { a, b, reponse: a * b };
+  }
   const a = entre(A_MIN, A_MAX, alea);
   const b = entre(B_MIN, B_MAX, alea);
   return { a, b, reponse: a * b };
