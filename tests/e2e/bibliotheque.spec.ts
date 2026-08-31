@@ -58,7 +58,7 @@ test('le parent crée une liste, l’enfant la joue, le palier ne bouge pas', as
   await page.waitForSelector('body[data-vue="V5"]');
 
   // — des étoiles, oui ; du parcours, rien.
-  await expect(page.locator('[aria-label="Tes étoiles de ce bloc"] svg')).toHaveCount(2);
+  await expect(page.locator('[aria-label="Tes étoiles de cette leçon"] svg')).toHaveCount(2);
   const apres = await sauvegarde(page);
   expect(apres.palier).toBe(1);
   expect(apres.blocsSurPalier).toBe(0);

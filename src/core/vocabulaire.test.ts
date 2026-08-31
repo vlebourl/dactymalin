@@ -67,6 +67,18 @@ describe('le vocabulaire que lit un enfant', () => {
     }
   });
 
+  /* Un `aria-label` est du texte LU à l'enfant par la synthèse vocale : il
+     tombe sous la même règle que ce qui s'affiche, et la regex ci-dessus le
+     manquait (« Tes étoiles de ce bloc »). */
+  it("n'annonce jamais « bloc » dans un aria-label", () => {
+    for (const f of vues) {
+      const texte = texteVisible(readFileSync(f, 'utf8'));
+      const etiquettes = texte.match(/aria-label="[^"]*"/g) ?? [];
+      const fautives = etiquettes.filter((e) => /blocs?\b/i.test(e));
+      expect(fautives, `${f} annonce « bloc » : ${fautives.join(' | ')}`).toEqual([]);
+    }
+  });
+
   /* La contraction de #48 a supprimé la table v1 et la liste écrite à la main.
      Les réimporter ramènerait deux sources de vérité concurrentes. */
   it("n'importe plus les modules de la v1", () => {
