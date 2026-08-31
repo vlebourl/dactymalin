@@ -893,6 +893,12 @@
   vertical-align: -4px;
 }
 
+/* La barre d'espace est la seule touche large du clavier : la puce l'imite en
+   s'allongeant, sans emprunter une couleur qui dit « une main » ailleurs. */
+.puceEspace {
+  width: 34px;
+}
+
 /* ------------------------------------------------------------------- V3 */
 
 .etiquetteCote {

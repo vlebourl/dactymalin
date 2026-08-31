@@ -3,7 +3,7 @@ import s from './ui.module.css';
 /** Étoiles figuratives, jamais un chiffre. Une étoile n'est jamais retirée. */
 export function Stars({ nombre }: { nombre: number }) {
   return (
-    <div className={s.etoiles} role="img" aria-label="Tes étoiles de ce bloc">
+    <div className={s.etoiles} role="img" aria-label="Tes étoiles de cette leçon">
       {Array.from({ length: nombre }, (_, i) => (
         <svg
           key={i}
