@@ -1,4 +1,4 @@
-import { disposition, estProposable, type IdDisposition, type Main, type Touche } from '../core/layouts';
+import { disposition, estProposable, estProposableEnMaj, type IdDisposition, type Main, type Touche } from '../core/layouts';
 import { toutesLesTouches } from '../core/parcours';
 import { Key, type EtatTouche } from './Key';
 import s from './ui.module.css';
@@ -39,8 +39,11 @@ function etatDe(t: Touche, o: OptionsClavier): EtatTouche {
   // Une touche est de la leçon si ce qu'elle produit y est — directement OU
   // sous Maj : au palier 7, la rangée des chiffres AZERTY porte « 1 » en `maj`,
   // pas en `base`, et restait éteinte alors que la leçon la réclamait.
-  // Dessinable ≠ proposable : morte, inerte (Retour arrière, ²) ⇒ toujours éteinte.
-  if (!estProposable(t) || !t.base) return 'eteinte';
+  // Dessinable ≠ proposable : morte, inerte (Retour arrière, ²) ⇒ toujours
+  // éteinte. Le verdict se prend POSITION PAR POSITION : la touche du `!`
+  // suisse a une base morte mais une Maj vivante, et rester noire pendant
+  // que l'étape 9 enseigne son caractère l'aurait fait mentir (#98).
+  if ((!estProposable(t) && !estProposableEnMaj(t)) || !t.base) return 'eteinte';
   if (o.ensemble.has(t.base) || (t.maj && o.ensemble.has(t.maj))) return 'ouverte';
   return 'eteinte';
 }
