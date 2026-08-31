@@ -2,19 +2,19 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { creerApp, VERSION } from '../app';
+import { creerApp, IDENTIFIANT } from '../app';
 import { lireEnv } from '../env';
 
 const env = lireEnv({ NODE_ENV: 'test' } as NodeJS.ProcessEnv);
 
 describe('healthcheck', () => {
-  it('répond 200 avec la version, sans base branchée', async () => {
+  it("répond 200 avec l'identifiant de construction, sans base branchée", async () => {
     const r = await creerApp({ env }).request('/api/health');
     expect(r.status).toBe(200);
     await expect(r.json()).resolves.toEqual({
       ok: true,
       status: 'healthy',
-      version: VERSION,
+      ...IDENTIFIANT,
       db: 'absente',
     });
   });

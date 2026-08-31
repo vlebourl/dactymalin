@@ -7,6 +7,7 @@ import { routesCompte } from './routes/compte';
 import { routesListes } from './routes/listes';
 import { routesProfils } from './routes/profils';
 import type { Env } from './env';
+import { identifiantVersion } from './version';
 
 export type Deps = {
   env: Env;
@@ -27,17 +28,12 @@ export type Deps = {
   base?: Base;
 };
 
-/** Version du paquet, lue une fois : elle sert de repère de déploiement. */
-function versionApp(): string {
-  try {
-    const brut = readFileSync(new URL('../../package.json', import.meta.url), 'utf8');
-    return (JSON.parse(brut) as { version?: string }).version ?? 'inconnue';
-  } catch {
-    return 'inconnue';
-  }
-}
-
-export const VERSION = versionApp();
+/**
+ * L'identifiant de la construction en cours, figé au démarrage du processus :
+ * c'est justement son instant de démarrage qui le rend différent d'un
+ * déploiement à l'autre (#105, voir `version.ts`).
+ */
+export const IDENTIFIANT = identifiantVersion(process.env, new Date());
 
 export function creerApp(deps: Deps) {
   const app = new Hono();
@@ -49,7 +45,7 @@ export function creerApp(deps: Deps) {
    */
   app.get('/api/health', async (c) => {
     const db = deps.pingBase ? ((await deps.pingBase().catch(() => false)) ? 'ok' : 'ko') : 'absente';
-    return c.json({ ok: true, status: db === 'ko' ? 'degraded' : 'healthy', version: VERSION, db });
+    return c.json({ ok: true, status: db === 'ko' ? 'degraded' : 'healthy', ...IDENTIFIANT, db });
   });
 
   /**
