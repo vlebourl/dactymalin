@@ -1,6 +1,7 @@
 import { composerBloc, TAILLE_BLOC_MAX, type Item } from "./generator";
 import type { IdDisposition } from "./layouts";
 import type { IdParcours } from "./parcours";
+import type { Maitrise } from "./progression";
 
 /**
  * Le flux d'exercices d'une leçon qui dure un TEMPS et non un compte.
@@ -62,6 +63,17 @@ export type OptionsSession = {
   parcours: IdParcours;
   etape: number;
   aReinjecter?: string[];
+  /**
+   * La maîtrise réelle de l'enfant (décision 8). Elle ne commande aucun
+   * passage : elle PONDÈRE le tirage, pour que les touches mal acquises
+   * reviennent plus souvent dans les leçons suivantes de la même étape.
+   *
+   * Le générateur savait déjà le faire ; ce compositeur ne la lui passait pas,
+   * et le tirage restait uniforme en vrai — rater une touche n'avait aucune
+   * conséquence sur ce qu'on redonnait à taper. Absente ⇒ tirage uniforme,
+   * ce qui reste la bonne réponse pour un enfant qui commence.
+   */
+  maitrise?: Maitrise;
   graine?: number;
   /** Quand la dernière leçon a été close (`storage.derniereLecon`). */
   derniereLecon?: number;
@@ -81,6 +93,52 @@ export type Session = {
   /** Faut-il recharger maintenant, l'enfant étant à cet exercice-ci ? */
   aRecharger: (indexCourant: number) => boolean;
 };
+
+/**
+ * L'état de l'app, vu par le compositeur de séance. Volontairement STRUCTUREL
+ * et non `EtatApp` : ce module ne doit rien savoir de la vue, et un test doit
+ * pouvoir en fabriquer un sans monter toute l'application.
+ */
+export type EtatPourSession = {
+  parcours: IdParcours;
+  etape: number;
+  /** L'étape que l'enfant a choisi de rejouer, sinon `null`. */
+  etapeRejouee: number | null;
+  aReinjecter?: string[];
+  maitrise: Maitrise;
+  derniereLecon?: number;
+};
+
+/**
+ * Ce que l'état de l'app donne au compositeur de séance.
+ *
+ * Cette fonction existe parce que le site d'appel a déjà perdu deux champs sans
+ * que rien ne s'en aperçoive : `derniereLecon` (#47), sans quoi la révision du
+ * retour ne se déclenchait jamais en vrai, puis `maitrise` (#71), sans quoi le
+ * tirage restait uniforme et rater une touche n'avait aucune conséquence. Les
+ * deux fois, la logique était écrite et testée, et c'est le passage de témoin
+ * qui manquait — invisible pour toute la suite de tests, puisqu'il vivait dans
+ * une vue.
+ *
+ * Ici il est pur, et il a son test. Un champ qu'on oublie de transmettre fait
+ * désormais tomber la CI.
+ */
+export function optionsDeSession(
+  etat: EtatPourSession,
+  id: IdDisposition,
+  maintenant: number,
+): OptionsSession {
+  return {
+    id,
+    parcours: etat.parcours,
+    /* L'étape RÉELLEMENT jouée : celle qu'on rejoue, sinon la sienne. */
+    etape: etat.etapeRejouee ?? etat.etape,
+    aReinjecter: etat.aReinjecter,
+    maitrise: etat.maitrise,
+    derniereLecon: etat.derniereLecon,
+    maintenant,
+  };
+}
 
 export function creerSession(o: OptionsSession): Session {
   const graine = o.graine ?? Math.floor(Math.random() * 2 ** 31);
@@ -127,6 +185,10 @@ export function creerSession(o: OptionsSession): Session {
          et les servir pendant la révision y ferait entrer des touches que
          cette vague-là écarte exprès. */
       aReinjecter: vague === premiereVagueDeLEtape ? o.aReinjecter : undefined,
+      /* La pondération s'applique à TOUTES les vagues, révision comprise : une
+         touche faible est faible où qu'elle apparaisse. Elle ne fait entrer
+         aucune touche nouvelle — le vivier reste celui de l'étape composée. */
+      maitrise: o.maitrise,
       taille: TAILLE_VAGUE,
       graine: graine + vague * 7919,
     });

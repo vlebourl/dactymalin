@@ -37,6 +37,16 @@ describe('la question posée', () => {
     expect(questionAdulte(() => 0.999999)).toMatchObject({ a: A_MAX, b: B_MAX });
   });
 
+  it('ne repose jamais le produit qu’on vient de rater', () => {
+    /* Sans ça, la question retombait parfois à l'identique : l'enfant pouvait
+       réessayer au hasard sur la même cible, et la porte avait l'air de
+       bégayer. C'était aussi ce qui rendait le parcours de la porte instable. */
+    for (let i = 0; i < 300; i++) {
+      const q = questionAdulte();
+      expect(questionAdulte(Math.random, q.reponse).reponse).not.toBe(q.reponse);
+    }
+  });
+
   it('change d’une fois sur l’autre : une question figée finirait apprise par cœur', () => {
     const tirages = new Set(
       Array.from({ length: 50 }, () => {
