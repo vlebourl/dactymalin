@@ -255,15 +255,6 @@
   white-space: nowrap;
 }
 
-/* Combien de mots faits sur combien de servis. Un compte d'exercices, jamais
-   de fautes ni de vitesse : ces trois-là, le cahier les interdit ici. */
-.compteSerie {
-  font-size: clamp(12px, 1vw, 14px);
-  color: var(--encre-doux);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 /* Le prénom dit à qui appartient cette progression. La grille de l'en-tête
    réserve 44px à droite ; le nom doit pouvoir déborder sans pousser le reste. */
 .nomProfil {

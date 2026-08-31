@@ -433,9 +433,12 @@ export function V4Lecon() {
                 qui le dit : la rangée mesurait le TEMPS écoulé sur douze
                 pastilles figées, si bien qu'elle avançait toute seule pendant
                 que l'enfant ne tapait rien (#76). « Exercice » ne s'écrit
-                jamais à l'enfant — la série se dit en mots. Le compte est un
-                compte d'exercices FAITS, jamais de fautes : le cahier interdit
-                le second, pas le premier. */}
+                jamais à l'enfant — la série se dit en mots. Le compte reste
+                CHIFFRÉ pour les lecteurs d'écran seulement (#86) : le cahier
+                interdit tout compteur d'exercices sur cet écran (l. 588,
+                l. 1054), parce qu'un nombre devant les yeux transforme un
+                repère en score. Les points, eux, disent la même chose sans
+                rien chiffrer. */}
             <span className={v.libelleSerie}>Mots de cette série</span>
             <div
               className={v.avancement}
@@ -455,9 +458,6 @@ export function V4Lecon() {
                 />
               ))}
             </div>
-            <span className={v.compteSerie}>
-              {avancement.pleines} / {avancement.pastilles}
-            </span>
           </div>
         </div>
         <span className={v.nomProfil}>{prenom}</span>
