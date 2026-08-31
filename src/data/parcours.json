@@ -247,7 +247,7 @@
      "n": 9,
      "genre": "ponctuation",
      "titre": "La ponctuation",
-     "promesse": null,
+     "promesse": "Tu écris des questions et des exclamations.",
      "nouvelles": [
       ",",
       ";",
@@ -263,7 +263,11 @@
       "?": "index_droit"
      },
      "doigtsOuverts": null,
-     "exemples": [],
+     "exemples": [
+      "Qui dort ?",
+      "Qui mange ?",
+      "Qui joue ?"
+     ],
      "items": null
     },
     {
@@ -522,7 +526,7 @@
      "n": 9,
      "genre": "ponctuation",
      "titre": "La ponctuation",
-     "promesse": null,
+     "promesse": "Tu écris des questions et des exclamations.",
      "nouvelles": [
       ",",
       ";",
@@ -538,7 +542,11 @@
       "?": "auriculaire_droit"
      },
      "doigtsOuverts": null,
-     "exemples": [],
+     "exemples": [
+      "Qui dort ?",
+      "Qui mange ?",
+      "Qui joue ?"
+     ],
      "items": null
     },
     {
@@ -871,7 +879,7 @@
      "n": 9,
      "genre": "ponctuation",
      "titre": "La ponctuation",
-     "promesse": null,
+     "promesse": "Tu écris des questions et des exclamations.",
      "nouvelles": [
       ",",
       ";",
@@ -896,7 +904,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
-     "exemples": [],
+     "exemples": [
+      "Qui dort ?",
+      "Qui mange ?",
+      "Qui joue ?"
+     ],
      "items": null
     },
     {
@@ -1232,7 +1244,7 @@
      "n": 9,
      "genre": "ponctuation",
      "titre": "La ponctuation",
-     "promesse": null,
+     "promesse": "Tu écris des questions et des exclamations.",
      "nouvelles": [
       ",",
       ";",
@@ -1257,7 +1269,11 @@
       "auriculaire_gauche",
       "auriculaire_droit"
      ],
-     "exemples": [],
+     "exemples": [
+      "Qui dort ?",
+      "Qui mange ?",
+      "Qui joue ?"
+     ],
      "items": null
     },
     {
