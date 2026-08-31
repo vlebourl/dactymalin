@@ -72,6 +72,8 @@ export function MainSchematique({
     <svg
       viewBox="0 0 100 130"
       width={largeur}
+      data-main-schematique={cote}
+      data-tendu={tendu ? 'oui' : 'non'}
       style={{ transform: cote === 'droite' ? 'scaleX(-1)' : undefined }}
       aria-hidden="true"
     >
