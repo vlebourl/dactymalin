@@ -7,7 +7,7 @@ import { lireEnv } from '../env';
  * #66 — deux domaines servent la même application, et l'un des deux refusait
  * toute connexion.
  *
- * `dacty.tiarkaerell.com` et `typing.tiarkaerell.com` mènent au même serveur.
+ * `dacty.tiarkaerell.com` et `typing.tiarkaerell.com` menaient au même serveur.
  * Une seule origine pouvant être déclarée, l'autre recevait un 403
  * « Invalid origin » sur CHAQUE appel de compte, création comprise. Le parent
  * n'en voyait que « une erreur inattendue (403) », et sur le bouton Google
@@ -27,6 +27,10 @@ import { lireEnv } from '../env';
  * Reste la seule chose qui décide vraiment : la liste des origines de
  * confiance. C'est elle qui était incomplète, c'est elle qu'on verrouille.
  */
+/* `typing` a depuis été abandonné, et la production ne déclare plus que
+   `dacty`. Les deux restent ici parce que la propriété mesurée est « une
+   liste d'origines », pas « ces deux domaines-là » : le jour où un second
+   domaine reviendra, c'est ce test qui dira s'il est accepté. */
 const DACTY = 'https://dacty.tiarkaerell.com';
 const TYPING = 'https://typing.tiarkaerell.com';
 

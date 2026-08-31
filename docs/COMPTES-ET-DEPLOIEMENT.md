@@ -35,7 +35,7 @@ compte parent (Better Auth)
 | ORM | Drizzle | même outillage qu'ecoride, migrations versionnées |
 | Base | PostgreSQL, ressource Coolify séparée | idem ecoride, sauvegardes planifiées incluses |
 | Auth | Better Auth, email + mot de passe | socle éprouvé sur ecoride ; Google OAuth possible plus tard |
-| Hébergement | Coolify sur `192.168.1.48`, domaine `typing.tiarkaerell.com` | même instance, même proxy TLS |
+| Hébergement | Coolify sur `192.168.1.48`, domaine `dacty.tiarkaerell.com` | même instance, même proxy TLS |
 
 Un seul conteneur sert l'API **et** le `dist/` du client, comme ecoride.
 
@@ -76,9 +76,11 @@ Copie du modèle ecoride, vérifié le 2026-08-28 :
 
 - **Build pack** : Dockerfile multi-stage (build Vite + serveur), port 3000,
   healthcheck `GET /api/health`.
-- **Domaines** : `dacty.tiarkaerell.com` (canonique) et `typing.tiarkaerell.com`,
-  tous deux vivants, TLS par le proxy Coolify. Les deux sont déclarés dans
-  `FRONTEND_URL` : une origine oubliée vaut un 403 sur toute connexion (#66).
+- **Domaine** : `dacty.tiarkaerell.com`, seul domaine vivant, TLS par le proxy.
+  Il est le seul déclaré dans `FRONTEND_URL` — `typing.tiarkaerell.com`,
+  l'adresse d'origine, est abandonné. `FRONTEND_URL` accepte plusieurs origines
+  séparées par des virgules ; une origine oubliée vaut un 403 sur toute
+  connexion, et une origine morte qui traîne n'y a rien à faire (#66).
 - **Déclencheur** : GitHub Actions. Un push sur `main` de
   `vlebourl/dactymalin` lance `.github/workflows/deploy.yml` sur le runner
   auto-hébergé `homelab-runner`, qui appelle l'API Coolify en localhost. Même
@@ -326,7 +328,7 @@ Les sept étapes sont faites. Ce qui a changé par rapport au plan :
 - **Un seul workflow**, le déploiement. Les tests restent tenus par le hook
   `pre-push` versionné (`.githooks/pre-push`), qui refuse un push non vert :
   le filet passe donc AVANT le push, pas après.
-- **Nginx Proxy Manager** publie `typing.tiarkaerell.com` vers le port hôte
+- **Nginx Proxy Manager** publie `dacty.tiarkaerell.com` vers le port hôte
   **3003**. Coolify ne gère pas le TLS ici.
 - **`estIntact`** sert de validateur côté serveur : le plan disait « le même
   code que le client », c'est littéralement le même import.
