@@ -381,33 +381,46 @@ export function V4Lecon() {
               d'une leçon était un événement muet — l'enfant ne savait ni où il
               en était, ni qu'il venait d'avancer. */}
           <p className={v.bandeauLecon}>
-            <strong>
-              Étape {etapeJouee} sur {ETAPE_MAX}
-            </strong>
-            {rejeu ? (
-              <span className={v.detailLecon} aria-label={etiquetteLecon}>
-                tu la rejoues
-              </span>
+            {/* Une LISTE de la maison ne fait avancer ni l'étape ni la leçon :
+                afficher « Étape N sur 10 », la jauge de l'étape — libellé
+                compris — et « Leçon n sur 7 » promettait à l'enfant une
+                progression qui ne bougeait pas (#77). L'entête nomme alors ce
+                qu'il tape, et rien d'autre. */}
+            {app.listeJouee ? (
+              <strong className={v.nomListe}>Ta liste : {app.listeJouee.nom}</strong>
             ) : (
               <>
-                {/* Le libellé de la jauge d'étape n'existait qu'en `title`,
-                    donc au SURVOL : sur tablette, personne ne l'a jamais lu
-                    (#78). Il est désormais écrit à côté d'elle, et il dit ce
-                    qu'elle mesure — l'étape, pas la série de la rangée du
-                    dessous. */}
-                <span className={v.detailLecon}>Avancement de l&apos;étape</span>
-                <span
-                  className={v.jaugeLecon}
-                  role="img"
-                  aria-label={etiquetteLecon}
-                  title={etiquetteLecon}
-                >
-                  <span
-                    className={v.jaugeLeconPleine}
-                    style={{ width: `${avance.part * 100}%` }}
-                  />
-                </span>
-                <span className={v.detailLecon}>{`Leçon ${numeroLecon} sur ${avance.total}`}</span>
+                <strong>
+                  Étape {etapeJouee} sur {ETAPE_MAX}
+                </strong>
+                {rejeu ? (
+                  <span className={v.detailLecon} aria-label={etiquetteLecon}>
+                    tu la rejoues
+                  </span>
+                ) : (
+                  <>
+                    {/* Le libellé de la jauge d'étape n'existait qu'en `title`,
+                        donc au SURVOL : sur tablette, personne ne l'a jamais lu
+                        (#78). Il est désormais écrit à côté d'elle, et il dit ce
+                        qu'elle mesure — l'étape, pas la série de la rangée du
+                        dessous. */}
+                    <span className={v.detailLecon}>Avancement de l&apos;étape</span>
+                    <span
+                      className={v.jaugeLecon}
+                      role="img"
+                      aria-label={etiquetteLecon}
+                      title={etiquetteLecon}
+                    >
+                      <span
+                        className={v.jaugeLeconPleine}
+                        style={{ width: `${avance.part * 100}%` }}
+                      />
+                    </span>
+                    <span
+                      className={v.detailLecon}
+                    >{`Leçon ${numeroLecon} sur ${avance.total}`}</span>
+                  </>
+                )}
               </>
             )}
           </p>
