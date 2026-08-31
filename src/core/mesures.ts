@@ -26,6 +26,17 @@ export type ComptesTouche = { propres: number; total: number };
 /** Ce qu'une leçon laisse derrière elle, une fois close. */
 export type LeconMesuree = {
   etape: number;
+  /**
+   * Quand la leçon a été close, en millisecondes epoch.
+   *
+   * C'est ce qui donne son IDENTITÉ à une leçon, et donc ce qui permet de
+   * réunir les séries de deux appareils sans les dupliquer ni en jeter une
+   * (#64). Sans elle, deux listes de leçons ne peuvent qu'être départagées.
+   *
+   * Vaut 0 pour les leçons d'avant #64, qui n'en portaient pas : elles sont
+   * alors les plus anciennes, ce qui est vrai.
+   */
+  le: number;
   /** durée de la leçon, en millisecondes */
   ms: number;
   /** lettres écrites (une par position validée, espace compris) */
@@ -79,6 +90,9 @@ export const SERIE_VIDE: Serie = { touches: {}, lecons: [] };
 
 export const leconVierge = (etape: number): RapportLecon => ({
   etape,
+  /* Posée à la clôture par l'état, qui seul connaît l'heure : le reducer d'une
+     leçon est pur, et une date tirée ici changerait à chaque frappe. */
+  le: 0,
   ms: 0,
   lettres: 0,
   fautes: 0,
@@ -212,12 +226,13 @@ export function cumulRecent(serie: Serie, sur: number = LECONS_OBSERVEES): Lecon
   return recentes.reduce(
     (t, l) => ({
       etape: l.etape, // la plus récente : c'est celle où l'enfant en est
+      le: l.le,
       ms: t.ms + l.ms,
       lettres: t.lettres + l.lettres,
       fautes: t.fautes + l.fautes,
       barreau3: t.barreau3 + l.barreau3,
     }),
-    { etape: 0, ms: 0, lettres: 0, fautes: 0, barreau3: 0 },
+    { etape: 0, le: 0, ms: 0, lettres: 0, fautes: 0, barreau3: 0 },
   );
 }
 
@@ -232,4 +247,125 @@ export function alarmePassageDactylo(m: Mesures, sur: number = LECONS_OBSERVEES)
   const cumul = cumulRecent(serieDe(m, 'decouverte'), sur);
   const v = cumul && vitesse(cumul);
   return v !== null && v >= SEUIL_VITESSE_DECOUVERTE;
+}
+
+/**
+ * Réunit les mesures de DEUX appareils du même enfant.
+ *
+ * Le module refusait jusqu'ici de choisir : `storage.garderLesMesures` gardait
+ * la série la mieux fournie et jetait l'autre, faute de pouvoir distinguer deux
+ * leçons. La date de clôture le permet, et la règle devient une union — plus un
+ * départage, donc plus de perte.
+ *
+ * Trois propriétés, et ce ne sont pas des élégances :
+ * - **idempotente** : la réconciliation rejoue à chaque démarrage, et une
+ *   union qui empilerait ferait grossir l'historique sans fin ;
+ * - **commutative** : `fusion.ts` ne garantit pas quel appareil est passé en
+ *   premier ;
+ * - **par parcours** : aucune leçon ne franchit la frontière (§4.7).
+ *
+ * Les leçons de même date forment un lot, et c'est le lot le mieux fourni qui
+ * gagne — maximum des multiplicités, comme `fusionnerMaitrise`. Ça compte pour
+ * de vrai : toutes les leçons d'avant #64 portent la date 0, et les empiler les
+ * doublerait à chaque synchronisation.
+ */
+export function fusionnerMesures(a: Mesures, b: Mesures): Mesures {
+  const sortie: Mesures = {};
+  for (const parcours of Object.keys({ ...a, ...b }) as IdParcours[]) {
+    const ici = a[parcours];
+    const la = b[parcours];
+    if (!ici || !la) {
+      /* Un seul côté connaît ce parcours : rien à réunir, et surtout rien à
+         effacer — un appareil resté à l'ancien bundle n'en porte aucun. */
+      sortie[parcours] = ici ?? la;
+      continue;
+    }
+    sortie[parcours] = {
+      touches: fusionnerTouches(ici.touches, la.touches),
+      lecons: unionDesLecons(ici.lecons, la.lecons),
+    };
+  }
+  return sortie;
+}
+
+/**
+ * Le MAXIMUM par touche, jamais la somme.
+ *
+ * `touches` est un cumul sur toute la vie du parcours : additionner deux cumuls
+ * qui se recouvrent doublerait le compte à chaque synchronisation, et
+ * l'inflation ne s'arrêterait jamais — la réconciliation rejoue à chaque
+ * démarrage. Le maximum dit « ce qu'a vu le mieux informé des deux appareils ».
+ * Il sous-compte quand les deux ont joué des choses différentes : c'est le prix
+ * d'un cumul qui ne garde pas le détail de qui a vu quoi, et il est payé dans
+ * le bon sens.
+ *
+ * À noter pour qui viendra après : `proprete`, qui lit ce cumul, n'a encore
+ * AUCUN appelant. La décision 8 du cahier veut qu'il compose les leçons
+ * suivantes ; ce n'est pas branché. Ne pas justifier ce choix-ci par un lecteur
+ * qui n'existe pas.
+ */
+function fusionnerTouches(
+  a: Record<string, ComptesTouche>,
+  b: Record<string, ComptesTouche>,
+): Record<string, ComptesTouche> {
+  const sortie: Record<string, ComptesTouche> = {};
+  for (const touche of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    const x = a[touche] ?? { propres: 0, total: 0 };
+    const y = b[touche] ?? { propres: 0, total: 0 };
+    sortie[touche] = {
+      propres: Math.max(x.propres, y.propres),
+      total: Math.max(x.total, y.total),
+    };
+  }
+  return sortie;
+}
+
+/**
+ * Union des leçons de deux appareils, remise dans l'ordre, puis bornée.
+ *
+ * L'identité d'une leçon est son CONTENU, pas sa date — et ce n'est pas un
+ * détail de mise en œuvre. Un appareil resté au bundle d'avant #64 relit les
+ * leçons avec un `leconsValides` qui ne connaît pas `le` : il les repousse
+ * toutes datées de 0. Une union qui se fierait à la date verrait alors deux
+ * fois chaque leçon — une fois datée, une fois à zéro — et l'historique
+ * doublerait à chaque synchronisation jusqu'à saturer la mémoire de 500. Le
+ * parent lirait « 30 leçons » pour 5 réellement jouées.
+ *
+ * La clé est donc (étape, durée, lettres, fautes, barreau 3). La durée est
+ * comptée à la milliseconde sur une séance de douze minutes : deux leçons
+ * distinctes qui coïncideraient sur les cinq champs à la fois n'existent pas
+ * en pratique, et si elles existaient on en perdrait une — bien moins grave
+ * que l'inflation.
+ *
+ * La date, elle, sert à l'ORDRE : on garde la plus grande vue pour une même
+ * leçon, ce qui fait gagner la copie datée sur la copie remise à zéro.
+ *
+ * Multiplicités au MAXIMUM, comme `fusionnerMaitrise` : deux leçons vraiment
+ * identiques et vraiment distinctes restent deux, sans devenir quatre à la
+ * synchronisation suivante.
+ */
+function unionDesLecons(a: LeconMesuree[], b: LeconMesuree[]): LeconMesuree[] {
+  const cle = (l: LeconMesuree) => `${l.etape}|${l.ms}|${l.lettres}|${l.fautes}|${l.barreau3}`;
+  const lots = (v: LeconMesuree[]) => {
+    const m = new Map<string, LeconMesuree[]>();
+    for (const l of v) m.set(cle(l), [...(m.get(cle(l)) ?? []), l]);
+    return m;
+  };
+  const ici = lots(a);
+  const la = lots(b);
+  const sortie: LeconMesuree[] = [];
+  for (const k of new Set([...ici.keys(), ...la.keys()])) {
+    const g = ici.get(k) ?? [];
+    const d = la.get(k) ?? [];
+    /* La date la mieux informée des deux : une copie revenue d'un appareil qui
+       ignore `le` la porte à 0, et ne doit pas effacer celle qu'on connaît. */
+    const le = Math.max(...[...g, ...d].map((l) => l.le));
+    const combien = Math.max(g.length, d.length);
+    const modele = { ...(g[0] ?? d[0]), le };
+    for (let i = 0; i < combien; i++) sortie.push({ ...modele });
+  }
+  /* Du plus ancien au plus récent, et à date égale par contenu : l'ordre ne
+     doit dépendre ni de celui des arguments ni de celui des clés. */
+  sortie.sort((x, y) => x.le - y.le || (cle(x) < cle(y) ? -1 : cle(x) > cle(y) ? 1 : 0));
+  return sortie.slice(-MEMOIRE_LECONS);
 }

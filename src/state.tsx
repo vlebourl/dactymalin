@@ -265,6 +265,12 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         ? enregistrer(etat.mesures ?? {}, etat.parcours, {
             ...action.bilan.mesures,
             etape: etat.etapeRejouee ?? etat.etape,
+            /* L'instant de clôture, posé ICI comme l'étiquette de parcours :
+               c'est ce qui distingue cette leçon de celle d'un autre appareil,
+               et donc ce qui permet de réunir les deux séries sans en jeter
+               une (#64). Le reducer de la leçon est pur et ne connaît pas
+               l'heure ; le bilan, lui, la porte déjà. */
+            le: action.bilan.fin,
           })
         : etat.mesures;
       const franchi = !rejoue && etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;

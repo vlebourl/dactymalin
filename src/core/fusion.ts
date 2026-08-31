@@ -7,6 +7,7 @@ import {
   type Sauvegarde,
 } from './storage';
 import type { Maitrise } from './progression';
+import { fusionnerMesures } from './mesures';
 import type { IdParcours } from './parcours';
 
 /**
@@ -56,6 +57,32 @@ export function fusionner(
      avance qui n'y a jamais été faite. */
   const miroir = miroirLegacy(progressionDe({ progressions }, 'decouverte', disposition));
 
+  /* Ce que l'app OBSERVE voyage désormais comme le reste (#64). Cette fonction
+     reconstruit la sauvegarde champ par champ : ne pas nommer les mesures ici
+     revenait à les effacer de la copie serveur à CHAQUE réconciliation, et un
+     second appareil n'en recevait jamais aucune. L'union est par parcours, et
+     par date de clôture.
+
+     Le champ n'est posé que s'il porte quelque chose, exactement comme
+     `valider` : un `mesures: {}` ajouté d'un seul côté suffit à rendre l'état
+     fusionné différent de celui du serveur, et les deux se renverraient alors
+     un état identique indéfiniment. */
+  const mesures = fusionnerMesures(g.etat.mesures ?? {}, d.etat.mesures ?? {});
+
+  /* Même trou, même remède. `derniereLecon` datait la dernière séance close, et
+     ne survivait pas davantage à cette reconstruction : la réconciliation, qui
+     tourne à CHAQUE démarrage, l'effaçait partout. Trois semaines plus tard,
+     `session.doitReviser` répondait « non » sur une date absente, et la
+     révision du retour (§7.4) ne se déclenchait jamais — sur aucun appareil
+     d'aucun compte synchronisé.
+
+     La plus RÉCENTE des deux : c'est la dernière fois que l'enfant a joué, où
+     qu'il l'ait fait. La plus ancienne le ferait réviser pour une pause qu'il
+     n'a pas prise. */
+  const dernieres = [g.etat.derniereLecon, d.etat.derniereLecon].filter(
+    (t): t is number => typeof t === 'number',
+  );
+
   return {
     version: 1,
     modele: MODELE,
@@ -76,6 +103,8 @@ export function fusionner(
     bloc: Math.max(g.etat.bloc, d.etat.bloc),
     maitrise: fusionnerMaitrise(g.etat.maitrise, d.etat.maitrise),
     guideDoigtVu: g.etat.guideDoigtVu || d.etat.guideDoigtVu,
+    ...(Object.keys(mesures).length ? { mesures } : {}),
+    ...(dernieres.length ? { derniereLecon: Math.max(...dernieres) } : {}),
   };
 }
 
