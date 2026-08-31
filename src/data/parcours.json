@@ -37,6 +37,7 @@
      "items": {
       "mots": 254,
       "groupes": 0,
+      "phrases": 0,
       "total": 254
      }
     },
@@ -68,6 +69,7 @@
      "items": {
       "mots": 1786,
       "groupes": 552,
+      "phrases": 0,
       "total": 2338
      }
     },
@@ -99,6 +101,7 @@
      "items": {
       "mots": 4187,
       "groupes": 2461,
+      "phrases": 0,
       "total": 6648
      }
     },
@@ -130,6 +133,7 @@
      "items": {
       "mots": 5519,
       "groupes": 4119,
+      "phrases": 0,
       "total": 9638
      }
     },
@@ -159,6 +163,7 @@
      "items": {
       "mots": 5858,
       "groupes": 4578,
+      "phrases": 0,
       "total": 10436
      }
     },
@@ -188,6 +193,7 @@
      "items": {
       "mots": 5890,
       "groupes": 4647,
+      "phrases": 0,
       "total": 10537
      }
     },
@@ -208,7 +214,12 @@
       "Une fille mange.",
       "Une fille joue."
      ],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 609,
+      "total": 11146
+     }
     },
     {
      "n": 8,
@@ -241,7 +252,12 @@
      },
      "doigtsOuverts": null,
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 609,
+      "total": 11146
+     }
     },
     {
      "n": 9,
@@ -268,7 +284,12 @@
       "Qui mange ?",
       "Qui joue ?"
      ],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 2512,
+      "total": 13049
+     }
     },
     {
      "n": 10,
@@ -279,7 +300,12 @@
      "doigts": {},
      "doigtsOuverts": null,
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 2512,
+      "total": 13049
+     }
     }
    ]
   },
@@ -320,6 +346,7 @@
      "items": {
       "mots": 254,
       "groupes": 0,
+      "phrases": 0,
       "total": 254
      }
     },
@@ -351,6 +378,7 @@
      "items": {
       "mots": 1786,
       "groupes": 552,
+      "phrases": 0,
       "total": 2338
      }
     },
@@ -380,6 +408,7 @@
      "items": {
       "mots": 3814,
       "groupes": 1938,
+      "phrases": 0,
       "total": 5752
      }
     },
@@ -409,6 +438,7 @@
      "items": {
       "mots": 5243,
       "groupes": 3550,
+      "phrases": 0,
       "total": 8793
      }
     },
@@ -438,6 +468,7 @@
      "items": {
       "mots": 5790,
       "groupes": 4519,
+      "phrases": 0,
       "total": 10309
      }
     },
@@ -467,6 +498,7 @@
      "items": {
       "mots": 5865,
       "groupes": 4583,
+      "phrases": 0,
       "total": 10448
      }
     },
@@ -487,7 +519,12 @@
       "Une fille mange.",
       "Une fille joue."
      ],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 588,
+      "total": 11036
+     }
     },
     {
      "n": 8,
@@ -520,7 +557,12 @@
      },
      "doigtsOuverts": null,
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 588,
+      "total": 11036
+     }
     },
     {
      "n": 9,
@@ -547,7 +589,12 @@
       "Qui mange ?",
       "Qui joue ?"
      ],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 2398,
+      "total": 12846
+     }
     },
     {
      "n": 10,
@@ -558,7 +605,12 @@
      "doigts": {},
      "doigtsOuverts": null,
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 2398,
+      "total": 12846
+     }
     }
    ]
   }
@@ -606,6 +658,7 @@
      "items": {
       "mots": 175,
       "groupes": 22,
+      "phrases": 0,
       "total": 197
      }
     },
@@ -644,6 +697,7 @@
      "items": {
       "mots": 1063,
       "groupes": 415,
+      "phrases": 0,
       "total": 1478
      }
     },
@@ -675,7 +729,12 @@
       "Un docteur court.",
       "Un docteur rit."
      ],
-     "items": null
+     "items": {
+      "mots": 1063,
+      "groupes": 415,
+      "phrases": 49,
+      "total": 1527
+     }
     },
     {
      "n": 4,
@@ -714,7 +773,8 @@
      "items": {
       "mots": 4187,
       "groupes": 2461,
-      "total": 6648
+      "phrases": 320,
+      "total": 6968
      }
     },
     {
@@ -754,7 +814,8 @@
      "items": {
       "mots": 5519,
       "groupes": 4119,
-      "total": 9638
+      "phrases": 560,
+      "total": 10198
      }
     },
     {
@@ -792,7 +853,8 @@
      "items": {
       "mots": 5858,
       "groupes": 4578,
-      "total": 10436
+      "phrases": 588,
+      "total": 11024
      }
     },
     {
@@ -830,7 +892,8 @@
      "items": {
       "mots": 5890,
       "groupes": 4647,
-      "total": 10537
+      "phrases": 609,
+      "total": 11146
      }
     },
     {
@@ -873,7 +936,12 @@
       "auriculaire_droit"
      ],
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 609,
+      "total": 11146
+     }
     },
     {
      "n": 9,
@@ -909,7 +977,12 @@
       "Qui mange ?",
       "Qui joue ?"
      ],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 2512,
+      "total": 13049
+     }
     },
     {
      "n": 10,
@@ -929,7 +1002,12 @@
       "auriculaire_droit"
      ],
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5890,
+      "groupes": 4647,
+      "phrases": 2512,
+      "total": 13049
+     }
     }
    ]
   },
@@ -975,6 +1053,7 @@
      "items": {
       "mots": 175,
       "groupes": 22,
+      "phrases": 0,
       "total": 197
      }
     },
@@ -1013,6 +1092,7 @@
      "items": {
       "mots": 1189,
       "groupes": 580,
+      "phrases": 0,
       "total": 1769
      }
     },
@@ -1044,7 +1124,12 @@
       "Un monsieur court.",
       "Un monsieur rit."
      ],
-     "items": null
+     "items": {
+      "mots": 1189,
+      "groupes": 580,
+      "phrases": 64,
+      "total": 1833
+     }
     },
     {
      "n": 4,
@@ -1081,7 +1166,8 @@
      "items": {
       "mots": 3814,
       "groupes": 1938,
-      "total": 5752
+      "phrases": 304,
+      "total": 6056
      }
     },
     {
@@ -1119,7 +1205,8 @@
      "items": {
       "mots": 5243,
       "groupes": 3550,
-      "total": 8793
+      "phrases": 540,
+      "total": 9333
      }
     },
     {
@@ -1157,7 +1244,8 @@
      "items": {
       "mots": 5790,
       "groupes": 4519,
-      "total": 10309
+      "phrases": 588,
+      "total": 10897
      }
     },
     {
@@ -1195,7 +1283,8 @@
      "items": {
       "mots": 5865,
       "groupes": 4583,
-      "total": 10448
+      "phrases": 588,
+      "total": 11036
      }
     },
     {
@@ -1238,7 +1327,12 @@
       "auriculaire_droit"
      ],
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 588,
+      "total": 11036
+     }
     },
     {
      "n": 9,
@@ -1274,7 +1368,12 @@
       "Qui mange ?",
       "Qui joue ?"
      ],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 2398,
+      "total": 12846
+     }
     },
     {
      "n": 10,
@@ -1294,7 +1393,12 @@
       "auriculaire_droit"
      ],
      "exemples": [],
-     "items": null
+     "items": {
+      "mots": 5865,
+      "groupes": 4583,
+      "phrases": 2398,
+      "total": 12846
+     }
     }
    ]
   }

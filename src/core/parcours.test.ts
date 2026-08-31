@@ -35,12 +35,21 @@ describe('la forme du parcours', () => {
   });
 
   /* Le défaut mesuré de la v1 : les étapes 8, 9 et 10 déclaraient `nouvelles: []`
-     et n'étaient donc jamais atteignables. Ici une étape sans lettre a un rôle. */
-  it("aucune étape n'est vide de sens", () => {
+     et n'étaient donc jamais atteignables.
+
+     Le OU qui gardait cet invariant — `nouvelles.length > 0 || genre !==
+     'lettres'` — ne gardait rien : toute étape sans lettre le satisfaisait
+     par sa seule seconde branche, quoi qu'elle ouvre. Une seule étape a le
+     droit de n'ouvrir aucune touche : « contenu », dont le rôle est
+     d'allonger les items sans rien ajouter au clavier (#100). Qu'un ITEM
+     porte les touches déclarées se vérifie sur le lexique, dans
+     `src/data/parcours.test.ts`. */
+  it("seule l'étape de contenu n'ouvre aucune touche", () => {
     for (const p of PARCOURS) {
       for (const d of DISPOS) {
         for (const e of etapes(p, d)) {
-          expect(e.nouvelles.length > 0 || e.genre !== 'lettres').toBe(true);
+          if (e.genre === 'contenu') continue;
+          expect(nouvellesTouches(p, d, e.n).length, `${p}/${d} étape ${e.n}`).toBeGreaterThan(0);
         }
       }
     }
