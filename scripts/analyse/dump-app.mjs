@@ -1,51 +1,31 @@
 /**
- * Extrait les données réelles de l'app (paliers, ensembles de touches, corpus)
- * vers un JSON, pour que l'analyse de rendement lexical porte sur la vérité du
- * code et non sur une recopie du cahier.
+ * Extrait de l'app la table des touches réellement PROPOSABLES par
+ * disposition, vers un JSON, pour que la chaîne de contenu porte sur la vérité
+ * du code et non sur une recopie du cahier.
  *
- * Le dépôt n'a pas de node_modules ; on copie les modules concernés dans un
- * dossier temporaire, on suffixe les specifiers en `.ts` et on laisse Node
- * strip-per les types (Node >= 23).
+ * `layouts.ts` ne dépend d'aucun autre module : Node >= 23 le charge tel quel
+ * en strippant les types. Le chemin est résolu depuis ce fichier et non depuis
+ * le dossier courant, pour que le script marche d'où qu'on l'appelle.
  *
- *   node scripts/analyse/dump-app.mjs > /tmp/app.json
+ *   node scripts/analyse/dump-app.mjs > /tmp/dactylo-data/app.json
  */
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const dir = mkdtempSync(join(tmpdir(), 'dactylo-'));
-for (const f of ['paliers.ts', 'corpus.ts', 'layouts.ts']) {
-  const src = readFileSync(join('src/core', f), 'utf8')
-    .replace(/from '\.\/(\w+)'/g, "from './$1.ts'");
-  writeFileSync(join(dir, f), src);
-}
+const layouts = await import(
+  fileURLToPath(new URL('../../src/core/layouts.ts', import.meta.url))
+);
 
-const paliers = await import(join(dir, 'paliers.ts'));
-const corpus = await import(join(dir, 'corpus.ts'));
-const layouts = await import(join(dir, 'layouts.ts'));
+const proposables = (id, champ) =>
+  layouts
+    .touches(id)
+    .filter((t) => layouts.estProposable(t) && t[champ])
+    .map((t) => ({ car: t[champ], main: t.main, code: t.code }));
 
 const out = { dispositions: {} };
 for (const id of ['fr-FR', 'fr-CH']) {
-  const directes = layouts
-    .touches(id)
-    .filter((t) => layouts.estProposable(t) && t.base)
-    .map((t) => ({ car: t.base, main: t.main, code: t.code }));
-  const majOnly = layouts
-    .touches(id)
-    .filter((t) => layouts.estProposable(t) && t.maj)
-    .map((t) => ({ car: t.maj, main: t.main, code: t.code }));
   out.dispositions[id] = {
-    directes,
-    majOnly,
-    paliers: paliers.PALIERS.filter((p) => p.numero <= 7).map((p) => ({
-      numero: p.numero,
-      nouvelles: p.nouvelles[id],
-      ensemble: [...paliers.ensembleTouches(id, p.numero)],
-      motsDisponibles: corpus.motsDisponibles(id, p.numero),
-      motsNouveaux: corpus.motsNouveaux(id, p.numero),
-    })),
+    directes: proposables(id, 'base'),
+    majOnly: proposables(id, 'maj'),
   };
 }
-out.corpus = corpus.CORPUS;
-out.syllabes = corpus.SYLLABES;
 process.stdout.write(JSON.stringify(out, null, 1));
