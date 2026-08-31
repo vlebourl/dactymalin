@@ -49,7 +49,7 @@ SPECIALES = {
 TITRES = {
     "majuscule": ("Majuscule et le point", "Tu écris les noms avec une grande lettre."),
     "chiffres": ("Les chiffres", "Tu écris les nombres."),
-    "ponctuation": ("La ponctuation", None),
+    "ponctuation": ("La ponctuation", "Tu écris des questions et des exclamations."),
     "contenu": ("Des phrases", "Tu écris des phrases."),
 }
 
@@ -75,6 +75,13 @@ DOIGTS = {
 CODE_DOIGT = {c: d for d, codes in DOIGTS.items() for c in codes}
 
 PLANCHER = 60
+
+# P7 : « aucun défilement de texte, un item = un écran ». `V4Lecon` dimensionne
+# le texte à 148/n vw, n étant le nombre de caractères : au-delà de 28, un item
+# tombe sous 20 px de haut sur un écran de 375 px et cesse d'être lisible pour
+# un enfant. La borne s'applique à TOUT le contenu, pas aux seules phrases
+# ponctuées — elle vaut aujourd'hui pour le plus long groupe nominal.
+MAX_CARACTERES = 28
 
 # ------------------------------------------------------ groupes nominaux
 DETERMINANTS = {
@@ -135,6 +142,96 @@ def initiale_risquee(mot):
     return not mot or mot[0] in VOYELLES or sans_accent(mot[0]) == "h"
 
 
+# --------------------------------------------------------- ponctuation (#99)
+# L'étape 9 promet `, ; : ! ?` et ne servait aucun item qui en porte un : elle
+# redonnait à taper le contenu de l'étape 8. Les patrons ci-dessous se posent
+# AU-DESSUS des deux mêmes listes écrites à la main — aucune source extérieure,
+# aucune phrase écrite hors patron. L'accord reste donc garanti par
+# construction, et chaque mot reste dans le lexique 8-11 ans.
+#
+# Tous sont au SINGULIER. Une énumération de sujets (« Un chat, un chien et un
+# lapin dorment. ») demanderait un accord pluriel que rien ici ne garantit ;
+# l'énumération de VERBES, elle, ne change rien à l'accord — mais elle allonge,
+# et la borne de longueur l'écarte d'elle-même.
+#
+# **L'espace avant `; : ! ?` est une espace ORDINAIRE.** La règle typographique
+# demande une insécable ; elle n'est pas typable au clavier, donc l'enfant ne
+# peut pas la produire. L'espace ordinaire est ce qu'on enseigne en primaire.
+# La virgule, elle, se colle au mot précédent.
+
+# Chaque patron est plafonné séparément, et non le tout à la fin : le patron à
+# deux propositions produit à lui seul dix fois ce que produisent les autres,
+# et un plafond global l'aurait laissé les évincer tous. L'étape 9 doit servir
+# ses cinq signes, pas la virgule cinq fois.
+PAR_PATRON = 500
+
+# Part maximale d'un même sujet DANS UNE POSITION DONNÉE d'un patron.
+#
+# Le tri par poids seul ne suffisait pas au patron à deux propositions : le
+# poids d'un couple vaut min(p1, p2), et `MAX_CARACTERES` élimine tout ce qui
+# dépasse 28 caractères. « un roi » est le plus court des sujets fréquents, il
+# survivait donc à la coupe là où « une princesse » la faisait dépasser — et il
+# occupait à lui seul 540 des 1000 secondes propositions, sur dix sujets en
+# tout. Le vivier en offre trente-trois : c'est le tri, pas la langue, qui les
+# écartait. Un seizième par sujet et par position les fait tous revenir sans
+# rien changer à ce qui est grammaticalement produit.
+PART_MAX = PAR_PATRON // 16
+
+
+def ponctuees(sujets, verbes, noms_col, par_mot):
+    """Les phrases qui portent `, ; : ! ?`, tirées des mêmes listes.
+
+    Un patron est une liste de `(texte, poids, cles)`. `cles` nomme les places
+    dont la variété se surveille — vide quand le patron n'en a pas besoin."""
+    patrons = []
+
+    # Exclamation et interrogation : la phrase simple, un autre signe final.
+    patrons.append([(f"{det} {mot} {v} !", p * 0.3, ())
+                    for det, mot, p in sujets for v in verbes])
+    patrons.append([(f"{det} {mot} {v} ?", p * 0.3, ())
+                    for det, mot, p in sujets for v in verbes])
+
+    # « Qui joue ? » : la question la plus courte qui existe sur ces verbes.
+    if "qui" in par_mot:
+        poids_qui = par_mot["qui"]["poids"]
+        patrons.append([(f"Qui {v} ?", poids_qui, ()) for v in verbes])
+
+    # Deux propositions, virgule ou point-virgule. Le sujet ET le verbe changent
+    # d'une proposition à l'autre : deux propositions identiques ne diraient
+    # rien, et l'enfant lirait deux fois la même chose. Les deux positions sont
+    # comptées séparément : un sujet peut ouvrir beaucoup de phrases sans pour
+    # autant en fermer autant.
+    couples = [(f"{d1} {m1} {v1}", f"{d2.lower()} {m2} {v2}.",
+                min(p1, p2) * 0.2, (f"1:{m1}", f"2:{m2}"))
+               for d1, m1, p1 in sujets for d2, m2, p2 in sujets if m1 != m2
+               for v1 in verbes for v2 in verbes if v1 != v2]
+    patrons.append([(f"{t}, {q}", p, c) for t, q, p, c in couples])
+    patrons.append([(f"{t} ; {q}", p, c) for t, q, p, c in couples])
+
+    # Les deux-points annoncent ce qui suit. Rien à accorder après eux.
+    if "je" in par_mot and "vois" in par_mot:
+        patrons.append([(f"Je vois : {det} {mot}.", p * 0.2, ())
+                        for dets, mot, p in noms_col for det in dets])
+
+    # P7 : ce qui ne tient pas sur un écran de 375 px n'est pas un item.
+    out, vus = [], set()
+    for patron in patrons:
+        garde, servis = [], {}
+        for t, p, cles in sorted(patron, key=lambda t: -t[1]):
+            if len(t) > MAX_CARACTERES or t in vus:
+                continue
+            if any(servis.get(c, 0) >= PART_MAX for c in cles):
+                continue
+            for c in cles:
+                servis[c] = servis.get(c, 0) + 1
+            vus.add(t)
+            garde.append((t, p))
+            if len(garde) == PAR_PATRON:
+                break
+        out += garde
+    return out
+
+
 def construire(lex):
     """-> (mots, groupes, phrases), chacun une liste de (texte, poids)."""
     par_mot = {e["mot"]: e for e in lex}
@@ -161,7 +258,7 @@ def construire(lex):
     animes = set(SUJETS_ANIMES)
     verbes = [v for v in VERBES_3S if v in par_mot]
 
-    groupes, phrases = [], []
+    groupes, phrases, sujets, vus_col = [], [], [], []
     for e in noms[:900]:
         g, n, mot = e["genre"], e["nombre"], e["mot"]
         base = e["lemme"] if e["lemme"] in concrets else mot
@@ -181,6 +278,13 @@ def construire(lex):
             det = "Un" if g == "m" else "Une"
             for v in verbes:
                 phrases.append((f"{det} {mot} {v}.", e["poids"] * 0.3))
+            sujets.append((det, mot, e["poids"]))
+        # « Je vois : … » se contente d'un nom concret : rien à accorder après
+        # les deux-points, donc pas besoin qu'il soit animé.
+        if n == "s" and base in concrets:
+            vus_col.append((DETERMINANTS[(g, n)], mot, e["poids"]))
+
+    phrases += ponctuees(sujets, verbes, vus_col, par_mot)
 
     # Tout est trié par fréquence décroissante : les exemples annoncés à
     # l'enfant sont alors les mots qu'il connaît, pas les premiers de l'alphabet
@@ -188,6 +292,9 @@ def construire(lex):
     mots.sort(key=lambda t: -t[1])
     groupes.sort(key=lambda t: -t[1])
     phrases.sort(key=lambda t: -t[1])
+    trop_long = [t for t, _ in mots + groupes + phrases if len(t) > MAX_CARACTERES]
+    if trop_long:
+        raise SystemExit(f"items au-delà de {MAX_CARACTERES} caractères : {trop_long[:5]}")
     return mots, groupes[:6000], phrases[:3000]
 
 

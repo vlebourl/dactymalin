@@ -56,8 +56,11 @@ describe('les groupes nominaux', () => {
 });
 
 describe('les phrases', () => {
-  /* P3 : une phrase sans majuscule ni point est une phrase écrite faux. Elles
-     n'apparaissent donc qu'une fois le point ouvert. */
+  /* P3 : une phrase sans majuscule ni signe final est une phrase écrite faux.
+     Elles n'apparaissent donc qu'une fois le point ouvert — y compris celles
+     qui finissent par « ! » ou « ? », arrivées avec l'étape 9 : l'étape qui
+     ouvre le point est celle qui ouvre la majuscule, et c'est elle qui rend
+     une phrase écrivable. */
   it("n'existent pas tant que le point n'est pas ouvert", () => {
     expect(phrasesTypables(etape2)).toHaveLength(0);
   });
@@ -68,7 +71,7 @@ describe('les phrases', () => {
     expect(p.length).toBeGreaterThan(0);
     for (const phrase of p) {
       expect(phrase[0]).toBe(phrase[0].toUpperCase());
-      expect(phrase.endsWith('.')).toBe(true);
+      expect(phrase, phrase).toMatch(/[.!?]$/);
     }
   });
 });
