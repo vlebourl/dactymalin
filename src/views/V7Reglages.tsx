@@ -229,7 +229,7 @@ export function V7Reglages() {
         </div>
 
         {/* Seul endroit hors onboarding où la légende des couleurs apparaît. */}
-        <p className={v.legendeCouleurs}>
+        <p className={v.legendeCouleurs} data-testid="legende-couleurs">
           <span>
             <i
               className={v.puce}
@@ -243,6 +243,17 @@ export function V7Reglages() {
               style={{ background: 'var(--orange-pale)', borderColor: 'var(--orange-moyen)' }}
             />
             main droite
+          </span>
+          {/* Les pouces n'ont pas de couleur à eux : la barre d'espace est
+              CRÈME dans le jeu, et le teal comme l'orange y diraient « une
+              main ». La puce reprend donc la teinte neutre de la touche, en
+              plus large — c'est sa forme, pas sa couleur, qui la fait lire. */}
+          <span>
+            <i
+              className={[v.puce, v.puceEspace].join(' ')}
+              style={{ background: 'var(--fond-carte)', borderColor: 'var(--liseré-fort)' }}
+            />
+            espace : tes pouces
           </span>
         </p>
 
