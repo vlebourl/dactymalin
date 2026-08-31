@@ -147,6 +147,45 @@ export function V4Lecon() {
      déclenchait pendant que l'enfant était ailleurs. Suspendre = rebaser à
      chaque image, ce qui gèle le temps écoulé sur le caractère. */
   const refEnPause = useRef(typeof document !== 'undefined' && !document.hasFocus());
+  /* La question de sortie (#79) gèle elle aussi l'horloge : le retour de focus
+     ne doit pas la dégeler dans son dos. */
+  const refQuestionOuverte = useRef(false);
+
+  /* Quitter la leçon est un geste IRRÉVERSIBLE pour l'enfant : tout ce qu'il
+     vient de taper disparaît. Un clic ne suffit donc plus — on demande, et on
+     rend la leçon intacte si la réponse est non (#79). */
+  const [confirmerSortie, setConfirmerSortie] = useState(false);
+  /* La confirmation FIGE la leçon : l'horloge du caractère est rebasée à
+     chaque image tant qu'elle est ouverte, et le temps immobilisé est rendu à
+     l'échéance au moment où l'enfant reprend. Sans quoi la question posée lui
+     ferait perdre des secondes et déclencherait l'aide d'inactivité. */
+  const refDebutPause = useRef(0);
+  const refBoutonQuitter = useRef<HTMLButtonElement>(null);
+
+  const demanderSortie = () => {
+    refDebutPause.current = performance.now();
+    refEnPause.current = true;
+    refQuestionOuverte.current = true;
+    setConfirmerSortie(true);
+  };
+
+  /**
+   * « Non » : la leçon reprend exactement où elle en était.
+   *
+   * `parPointeur` reprend la règle déjà en vigueur pour les boutons de la
+   * leçon (voir `rendreLeClavier`) : après un clic SOURIS on ne rend le focus
+   * à personne, sans quoi le bouton de sortie garderait la main et avalerait
+   * les frappes suivantes. Après une activation au CLAVIER, au contraire, le
+   * focus retourne au bouton — sinon l'enfant le perd au milieu de la page.
+   */
+  const reprendreLecon = (parPointeur = false) => {
+    const pause = performance.now() - refDebutPause.current;
+    refQuestionOuverte.current = false;
+    refEnPause.current = false;
+    setConfirmerSortie(false);
+    envoyer({ type: 'reprise', maintenant: performance.now(), pause });
+    if (!parPointeur) refBoutonQuitter.current?.focus();
+  };
   useEffect(() => {
     let brut = 0;
     const boucle = () => {
@@ -169,6 +208,7 @@ export function V4Lecon() {
     };
     const reprendre = () => {
       if (document.visibilityState !== 'visible') return;
+      if (refQuestionOuverte.current) return;
       refEnPause.current = false;
       refEnvoyer.current({ type: 'reprise', maintenant: performance.now() });
     };
@@ -185,7 +225,9 @@ export function V4Lecon() {
 
   /* ------------------------------------------------------------- frappes */
   useKeyInput(
-    !e.fini,
+    /* Question de sortie ouverte : la leçon n'écoute plus, rien de ce que
+       l'enfant tape ne doit compter tant qu'il n'a pas répondu (#79). */
+    !e.fini && !confirmerSortie,
     (f) => {
       if (f.avecAutreModificateur) return;
       /* UNE frappe = UN geste. L'auto-répétition du système validait les deux
@@ -314,8 +356,26 @@ export function V4Lecon() {
   return (
     <div className={v.ecran}>
       <header className={v.entete}>
-        <button className={v.retour} onClick={() => envoi({ type: 'vue', vue: 'V1' })} aria-label="Revenir à l'accueil">
-          ←
+        {/* Une flèche seule ne dit rien à un enfant de huit ans : le mot est
+            là, à côté du dessin, et il est lisible sans survol (#79). */}
+        <button
+          ref={refBoutonQuitter}
+          className={v.quitter}
+          onClick={demanderSortie}
+          aria-label="Quitter la leçon"
+          data-quitter="bouton"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            <path
+              d="M10.5 5.5 L4 12 L10.5 18.5 M4 12 H19.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Quitter
         </button>
         <div>
           {/* Où en est-on ? Deux échelles, chacune avec son indice : la leçon
@@ -522,6 +582,57 @@ export function V4Lecon() {
         </div>
       </div>
 
+      {/* La question de sortie. Elle est POSÉE PAR-DESSUS la leçon, jamais à sa
+          place : la vue n'est pas démontée, si bien qu'un « non » rend le mot,
+          le curseur, la série d'étoiles et le chronomètre exactement là où ils
+          étaient. Aucun piège à focus : Tab reste libre de sortir (contrainte
+          clavier du projet), Échap répond « non ». */}
+      {confirmerSortie && (
+        <div
+          className={v.voileQuitter}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titre-quitter"
+          aria-describedby="texte-quitter"
+          data-quitter="question"
+          onKeyDown={(ev) => {
+            if (ev.key === 'Escape') {
+              ev.stopPropagation();
+              reprendreLecon();
+
+            }
+          }}
+        >
+          <div className={v.carteQuitter}>
+            <p className={v.titreQuitter} id="titre-quitter">
+              Tu veux arrêter la leçon&nbsp;?
+            </p>
+            <p className={v.texteQuitter} id="texte-quitter">
+              Si tu arrêtes maintenant, ce que tu viens de taper s'arrête là. Tu peux aussi
+              continuer&nbsp;: ta leçon t'attend au même endroit.
+            </p>
+            <div className={v.boutonsQuitter}>
+              {/* Rester est le choix par défaut : c'est lui qui reçoit le
+                  focus quand la question s'ouvre. */}
+              <button
+                className={[v.boutonQuitter, v.boutonRester].join(' ')}
+                autoFocus
+                onClick={(ev) => reprendreLecon(ev.detail > 0)}
+                data-quitter="rester"
+              >
+                Je continue ma leçon
+              </button>
+              <button
+                className={v.boutonQuitter}
+                onClick={() => envoi({ type: 'vue', vue: 'V1' })}
+                data-quitter="partir"
+              >
+                Oui, j'arrête
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

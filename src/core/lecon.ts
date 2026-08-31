@@ -108,7 +108,13 @@ export type ActionLecon =
   | { type: 'tic'; maintenant: number }
   /** Rallonge la file : le compositeur de séance recharge avant la pénurie. */
   | { type: 'ajouter'; items: Item[] }
-  | { type: 'reprise'; maintenant: number }
+  /**
+   * Reprise après une interruption : onglet quitté, ou question posée
+   * par-dessus la leçon (#79). `pause` est le temps réellement immobilisé —
+   * il est RENDU à la leçon, sans quoi une question posée à l'enfant lui
+   * volerait des secondes de son chronomètre.
+   */
+  | { type: 'reprise'; maintenant: number; pause?: number }
   | { type: 'masquer' }
   | { type: 'montrer' };
 
@@ -192,13 +198,20 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
     /* Retour d'onglet : le temps passé ailleurs n'est pas de l'hésitation.
        On REBASE l'horloge du caractère au lieu de servir une aide d'inactivité
        dès la première image. */
-    case 'reprise':
+    case 'reprise': {
+      /* Le temps immobilisé est rendu des DEUX côtés : l'échéance recule
+         d'autant, et le début aussi — sinon la durée mesurée de la leçon
+         compterait une pause pendant laquelle personne n'a tapé. */
+      const pause = a.pause && a.pause > 0 ? a.pause : 0;
       return {
         ...e,
         debutCaractere: a.maintenant,
         depuisFausse: a.maintenant,
         celebration: e.celebration === null ? null : a.maintenant,
+        debut: e.debut + pause,
+        finLe: e.finLe === null ? null : e.finLe + pause,
       };
+    }
 
     /* Le compositeur de séance rallonge la file avant qu'elle ne se vide. La
        vague reste invisible : rien à l'écran ne la marque, sans quoi le
