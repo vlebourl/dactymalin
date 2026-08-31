@@ -57,6 +57,14 @@ export function V4Lecon() {
      rattrapage. */
   const etapeJouee = app.etapeRejouee ?? app.etape;
 
+  /* P2 : avant l'étape qui ENSEIGNE la Majuscule, aucun modificateur n'est
+     « ni affiché, ni requis, ni accepté ». C'est l'étape jouée qui commande,
+     jamais le parcours : la Majuscule arrive à l'étape 7 en Découverte mais
+     dès l'étape 3 en Dactylo, si bien qu'indexer sur le parcours laissait les
+     deux premières étapes de Dactylo produire une capitale — et la compter
+     faute dans les mesures du parent (#87). */
+  const avantMajuscule = etapeMajuscule === undefined || etapeJouee < etapeMajuscule;
+
   const session = useMemo(
     () =>
       app.listeJouee
@@ -98,7 +106,7 @@ export function V4Lecon() {
     const base = ensembleTouches(app.parcours, id, etapeJouee);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
-  }, [id, app.etape, app.listeJouee, items]);
+  }, [id, etapeJouee, app.listeJouee, items]);
   const item = e.items[e.i];
   const attendu = item?.texte[e.curseur] ?? '';
   const enCelebration = e.celebration !== null;
@@ -234,11 +242,14 @@ export function V4Lecon() {
          `l` de « belle » sans relâcher, et faisait grimper l'aide aux barreaux
          2-3 en quelques dizaines de millisecondes sur une touche fausse tenue. */
       if (f.repeat) return;
-      /* P2 : aucun modificateur dans le sas débutant — SAUF quand la cible
-         l'exige. Une liste perso peut contenir un chiffre AZERTY dès le
+      /* P2 : aucun modificateur avant l'étape qui l'enseigne — SAUF quand la
+         cible l'exige. Une liste perso peut contenir un chiffre AZERTY dès le
          palier 1 : la consigne réclamait alors une Maj que ce garde jetait
-         juste après, et le caractère restait injouable à jamais. */
-      if (debutant && f.avecMaj && !besoinMaj) return;
+         juste après, et le caractère restait injouable à jamais.
+         La frappe est MUETTE : elle sort ici, avant le reducer, donc elle
+         n'écrit rien, n'avance pas le curseur, ne se compte pas en faute et
+         ne fait pas monter l'aide. */
+      if (avantMajuscule && f.avecMaj && !besoinMaj) return;
       if (f.key.length !== 1 && f.code !== 'Space') return;
       const action: FrappeLecon = {
         type: 'frappe',
@@ -574,7 +585,7 @@ export function V4Lecon() {
               /* Les Maj sont dessinées dès l'étape qui les enseigne, et aussi
                  dès que la cible en réclame une — sans quoi la consigne
                  désignait une touche absente du clavier. */
-              avecMaj={etapeMajuscule !== undefined && app.etape >= etapeMajuscule || besoinMaj}
+              avecMaj={!avantMajuscule || besoinMaj}
               fausse={e.fausse ?? undefined}
               blocPulse={e.barreau >= 2 && !enCelebration ? mainCible : undefined}
               espace={{
@@ -588,7 +599,7 @@ export function V4Lecon() {
               }}
               /* La rangée Maj ajoute 3,4 unités de largeur : au palier qui la
                  dessine, la touche rétrécit pour que rien ne déborde. */
-              taille={app.etape >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
+              taille={etapeJouee >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
             <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration ? 'oui' : 'non'}>
               <img src={imageMain('droite', enCelebration ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
