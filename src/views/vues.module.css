@@ -1157,3 +1157,12 @@
 .porteAdulte p {
   margin: 0;
 }
+
+/* Le nom d'une liste de la maison va jusqu'à quarante caractères : le `nowrap`
+   du bandeau, taillé pour « Leçon 3 sur 7 », le pousserait hors cadre à
+   375 px. Celui-ci se replie, et coupe dans le mot s'il le faut (#77). */
+.bandeauLecon .nomListe {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
