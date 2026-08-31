@@ -379,6 +379,27 @@ def etapes_de(parcours, disp, carte):
     return out
 
 
+def nombres_typables(autorises):
+    """Les nombres que le générateur compose lui-même (jumeau de
+    `generator.nombresDisponibles`) : 1 à 3 chiffres, sans zéro initial.
+
+    Aucun lexique ne porte de chiffre : sans ces nombres-là, l'étape des
+    chiffres n'aurait aucun item pour ses dix touches, et un contrôle de
+    couverture aveugle à cette source la déclarerait creuse à tort."""
+    ch = [c for c in "0123456789" if c in autorises]
+    if not ch:
+        return []
+    out = list(ch)
+    for a in ch:
+        if a == "0":
+            continue
+        for b in ch:
+            out.append(a + b)
+            for c in ch:
+                out.append(a + b + c)
+    return out
+
+
 def typables(textes, autorises):
     """Les textes entièrement écrivables avec ces caractères.
 
@@ -405,7 +426,7 @@ def main(dossier, racine):
               open(data / "lexique-v3.json", "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
 
-    parcours, alertes = {}, []
+    parcours = {}
     for p in ("decouverte", "dactylo"):
         parcours[p] = {}
         for disp in ("fr-FR", "fr-CH"):
@@ -416,43 +437,55 @@ def main(dossier, racine):
                 connus = (set(typables(mots, cumul)) | set(typables(groupes, cumul))
                           | set(typables(phrases, cumul)))
                 cumul += e["nouvelles"]
+                lm, lg = typables(mots, cumul), typables(groupes, cumul)
+                lp = typables(phrases, cumul)
                 # Les phrases comptent aussi : l'étape Majuscule n'ouvre aucune
                 # lettre, mais elle débloque tout le corpus de phrases.
-                dispo = (typables(mots, cumul) + typables(groupes, cumul)
-                         + typables(phrases, cumul))
+                dispo = lm + lg + lp
                 # Ce que CETTE étape vient d'ouvrir. C'est le gain lexical que
                 # la carte et la fin de leçon annoncent — le remplaçant du score
                 # interdit : « tu peux maintenant écrire sur, dur, jus ».
                 e["exemples"] = [m for m in dispo if m not in connus][:3]
-                if e["genre"] != "lettres":
-                    e["items"] = None
-                    continue
-                nm = len(typables(mots, cumul))
-                ng = len(typables(groupes, cumul))
-                e["items"] = {"mots": nm, "groupes": ng, "total": nm + ng}
-                if nm + ng < PLANCHER:
-                    alertes.append(f"{p}/{disp} étape {e['n']} : {nm + ng} items")
+                # Le plancher vaut pour TOUTES les étapes, quel que soit leur
+                # genre : le poser sur les seules étapes de lettres laissait la
+                # Majuscule, les chiffres, la ponctuation et le contenu sans
+                # aucun nombre à comparer — c'est par là que l'étape 9 est
+                # passée. Et la règle du cahier est que l'étape sous le
+                # plancher se REFAIT : on échoue ici, on ne comble pas.
+                e["items"] = {"mots": len(lm), "groupes": len(lg),
+                              "phrases": len(lp),
+                              "total": len(lm) + len(lg) + len(lp)}
+                if e["items"]["total"] < PLANCHER:
+                    raise SystemExit(
+                        f"{p}/{disp} étape {e['n']} ({e['genre']}) : "
+                        f"{e['items']['total']} items sous le plancher de "
+                        f"{PLANCHER} — c'est l'étape qu'il faut refaire.")
+                # Le contrôle qui manquait : une étape DÉCLARE des touches, et
+                # jusqu'ici personne ne vérifiait qu'un item les PORTE. Le
+                # vivier est celui que l'app sert vraiment, nombres compris.
+                vivier = dispo + nombres_typables(cumul)
+                for c in e["nouvelles"]:
+                    if not any(c in t.lower() for t in vivier):
+                        raise SystemExit(
+                            f"{p}/{disp} étape {e['n']} ({e['genre']}) ouvre "
+                            f"« {c} » mais aucun item ne la porte — l'étape "
+                            f"promet une touche qu'elle ne fait pas taper.")
             parcours[p][disp] = {"lecons_par_etape": 7, "etapes": et}
 
     json.dump(parcours, open(data / "parcours.json", "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)
 
-    print("\n| Parcours | Disp. | Étape | Ouvre | Mots | Groupes | Total |")
-    print("|---|---|---|---|---|---|---|")
+    print("\n| Parcours | Disp. | Étape | Ouvre | Mots | Groupes | Phrases | Total |")
+    print("|---|---|---|---|---|---|---|---|")
     for p in parcours:
         for disp in parcours[p]:
             for e in parcours[p][disp]["etapes"]:
-                if e["items"] is None:
-                    continue
                 it = e["items"]
                 print(f"| {p} | {disp} | {e['n']} | `{' '.join(e['nouvelles'])}` "
-                      f"| {it['mots']} | {it['groupes']} | **{it['total']}** |")
-    if alertes:
-        print("\n**PLANCHER DE 60 NON ATTEINT :**")
-        for a in alertes:
-            print(" -", a)
-    else:
-        print(f"\nPlancher de {PLANCHER} items : **franchi partout.**")
+                      f"| {it['mots']} | {it['groupes']} | {it['phrases']} "
+                      f"| **{it['total']}** |")
+    print(f"\nPlancher de {PLANCHER} items : **franchi par les dix étapes.**")
+    print("Couverture : **chaque touche ouverte est portée par un item.**")
 
 
 if __name__ == "__main__":

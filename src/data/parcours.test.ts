@@ -3,6 +3,7 @@ import parcours from './parcours.json';
 import lexique from './lexique-v3.json';
 import { toucheDe } from '../core/layouts';
 import { estTypable } from '../core/contenu';
+import { vivierPrefere } from '../core/generator';
 
 /* Les invariants du cahier v2 §4.5 et §4.9, vérifiés sur les données
    générées par `scripts/analyse/generer-lecons.py`. Ce fichier n'existe pas
@@ -22,10 +23,18 @@ type Etape = {
   doigtsModificateur?: string[];
   promesse: string | null;
   exemples: string[];
-  items: { mots: number; groupes: number; total: number } | null;
+  items: { mots: number; groupes: number; phrases: number; total: number };
 };
 const etapesDe = (p: string, d: string): Etape[] =>
   (parcours as never as Record<string, Record<string, { etapes: Etape[] }>>)[p][d].etapes;
+
+/** L'ensemble des caractères ouverts à la fin de l'étape `n`. */
+const cumulJusqua = (p: string, d: string, n: number) =>
+  new Set(
+    etapesDe(p, d)
+      .filter((e) => e.n <= n)
+      .flatMap((e) => e.nouvelles),
+  );
 
 describe('structure des parcours', () => {
   it('dix étapes numérotées 1 à 10, dans les quatre combinaisons', () => {
@@ -37,12 +46,18 @@ describe('structure des parcours', () => {
     }
   });
 
-  it('aucune étape vide : chacune ouvre des lettres ou a un rôle nommé', () => {
+  /* Le OU d'origine — `nouvelles.length > 0 || genre !== 'lettres'` — était
+     satisfait deux fois par l'étape 9, et n'a donc jamais rien gardé. Une
+     seule étape a le droit de n'ouvrir aucune touche : « contenu », dont le
+     rôle est justement d'allonger les items sans rien ajouter au clavier.
+     Que les touches déclarées soient PORTÉES par un item est vérifié plus
+     bas, sur le vivier — c'est la moitié qui manquait. */
+  it("seule l'étape de contenu a le droit de n'ouvrir aucune touche", () => {
     for (const p of PARCOURS) {
       for (const d of DISPOS) {
         for (const e of etapesDe(p, d)) {
-          const utile = e.nouvelles.length > 0 || e.genre !== 'lettres';
-          expect(utile, `${p}/${d} étape ${e.n}`).toBe(true);
+          if (e.genre === 'contenu') continue;
+          expect(e.nouvelles.length, `${p}/${d} étape ${e.n} (${e.genre})`).toBeGreaterThan(0);
         }
       }
     }
@@ -138,12 +153,50 @@ describe('règle de recette : 60 items par étape', () => {
      ne doit s'y répéter. Une étape sous ce plancher fait tourner le corpus en
      rond — le défaut mesuré de la v1, où « fut » et « neuf » sortaient dans
      30 blocs sur 30. */
-  it('chaque étape de lettres franchit le plancher', () => {
+  /* #100 : ce test commençait par `if (e.genre !== 'lettres') continue;` et
+     ne regardait donc ni la Majuscule, ni les chiffres, ni la ponctuation, ni
+     le contenu — soit les quatre dernières étapes. Le script posait de son
+     côté `items: null` pour celles-là : il n'y avait littéralement aucun
+     nombre à comparer. Le plancher vaut maintenant pour les dix, et il compte
+     les phrases, par lesquelles la ponctuation arrive.
+
+     L'étape 10 n'ouvre aucune touche, mais son vivier est vérifié comme les
+     autres : ne rien ouvrir ne dispense pas d'avoir de quoi taper. */
+  it('chacune des dix étapes franchit le plancher, phrases comprises', () => {
     for (const p of PARCOURS) {
       for (const d of DISPOS) {
         for (const e of etapesDe(p, d)) {
-          if (e.genre !== 'lettres') continue;
-          expect(e.items!.total, `${p}/${d} étape ${e.n}`).toBeGreaterThanOrEqual(PLANCHER);
+          const ou = `${p}/${d} étape ${e.n} (${e.genre})`;
+          expect(e.items, `${ou} ne déclare aucun décompte d'items`).toBeTruthy();
+          for (const champ of ['mots', 'groupes', 'phrases', 'total'] as const) {
+            expect(e.items[champ], `${ou} ne compte pas ses ${champ}`).toBeTypeOf('number');
+          }
+          expect(e.items.mots + e.items.groupes + e.items.phrases, ou).toBe(e.items.total);
+          expect(e.items.total, ou).toBeGreaterThanOrEqual(PLANCHER);
+        }
+      }
+    }
+  });
+
+  /* LE contrôle qui manquait. Les deux garde-fous existants vérifiaient qu'une
+     étape DÉCLARE des touches ; aucun ne vérifiait qu'un item les PORTE. Le
+     vivier est celui que l'app sert vraiment (`vivierPrefere`), nombres
+     composés compris : sans eux l'étape des chiffres paraîtrait creuse, car
+     aucune entrée du lexique ne porte de chiffre.
+
+     L'étape 10 n'ouvre rien et sort donc naturellement de cette boucle. */
+  it('chaque touche ouverte est portée par au moins un item du vivier', () => {
+    for (const p of PARCOURS) {
+      for (const d of DISPOS) {
+        for (const e of etapesDe(p, d)) {
+          const vivier = vivierPrefere(cumulJusqua(p, d, e.n));
+          for (const c of e.nouvelles) {
+            const porteurs = vivier.filter((i) => i.texte.toLowerCase().includes(c));
+            expect(
+              porteurs.length,
+              `${p}/${d} étape ${e.n} (${e.genre}) ouvre « ${c} » sans qu'aucun item ne la porte`,
+            ).toBeGreaterThan(0);
+          }
         }
       }
     }
@@ -192,32 +245,11 @@ describe("l'étape 9 enseigne vraiment la ponctuation", () => {
      saute les étapes sans lettres, et « aucune étape vide » vérifie qu'une
      étape DÉCLARE des touches, jamais qu'un item les PORTE. */
 
-  /** L'ensemble des caractères ouverts à la fin de l'étape `n`. */
-  const cumulJusqua = (p: string, d: string, n: number) =>
-    new Set(
-      etapesDe(p, d)
-        .filter((e) => e.n <= n)
-        .flatMap((e) => e.nouvelles),
-    );
-
   const itemsDeLEtape9 = (p: string, d: string) => {
     const ouverts = cumulJusqua(p, d, 9);
     const tous = [...lexique.mots, ...lexique.groupes, ...lexique.phrases].map((x) => x.t);
     return tous.filter((t) => estTypable(t, ouverts));
   };
-
-  it('au moins un item porte CHACUNE des touches neuves de l\'étape 9', () => {
-    for (const p of PARCOURS) {
-      for (const d of DISPOS) {
-        const neuf = etapesDe(p, d).find((e) => e.n === 9)!;
-        const items = itemsDeLEtape9(p, d);
-        for (const c of neuf.nouvelles) {
-          const porteurs = items.filter((t) => t.includes(c));
-          expect(porteurs.length, `${p}/${d} : aucun item ne porte « ${c} »`).toBeGreaterThan(0);
-        }
-      }
-    }
-  });
 
   /* Même exigence que le plancher des étapes de lettres : une leçon dure 50 à
      60 exercices et aucun ne doit s'y répéter. Une étape qui n'aurait que dix

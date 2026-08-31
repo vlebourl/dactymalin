@@ -134,6 +134,12 @@ Le premier maillon, lui, est couvert en CI : `dump-app.test.ts` confronte la
 sortie de `dump-app.mjs` à `src/core/layouts.ts`, sans aucune donnée externe.
 C'est le garde-fou qui manquait quand `paliers.ts` et `corpus.ts` ont disparu.
 
-`generer-lecons.py` vérifie trois invariants et s'arrête si l'un tombe :
+`generer-lecons.py` vérifie quatre invariants et s'arrête si l'un tombe :
 chaque caractère existe sur la disposition, chaque touche de Dactylo a son
-doigt déjà ouvert, et chaque étape franchit le plancher de 60 items.
+doigt déjà ouvert, **chacune des dix étapes** franchit le plancher de 60 items
+— mots, groupes ET phrases confondus, quel que soit le genre de l'étape — et
+chaque touche qu'une étape ouvre est **portée par au moins un item** de son
+vivier. Ce dernier contrôle est celui qui manquait : l'étape 9 déclarait
+`, ; : ! ?` sans qu'aucune entrée du lexique n'en porte un seul, et le fichier
+s'écrivait sans un mot. Le vivier compte les nombres que le générateur compose
+lui-même, sans quoi l'étape des chiffres paraîtrait creuse à tort.
