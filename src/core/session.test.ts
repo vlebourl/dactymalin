@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   creerSession,
   JOURS_AVANT_REVISION,
+  optionsDeSession,
   revisionNecessaire,
   TAILLE_VAGUE,
+  type EtatPourSession,
 } from "./session";
 import { ensembleTouches, nouvellesTouches } from "./parcours";
 import { DEFAUTS, valider } from "./storage";
@@ -268,5 +270,121 @@ describe("la date de la dernière leçon dans la sauvegarde", () => {
     expect(
       valider({ ...DEFAUTS, derniereLecon: "hier" }).derniereLecon,
     ).toBeUndefined();
+  });
+});
+
+describe("la maîtrise compose le contenu (#71)", () => {
+  /* Décision 8 : la maîtrise ne commande plus le passage, elle PONDÈRE le
+     tirage. Le générateur savait le faire depuis #39 ; le compositeur de
+     séance ne lui passait rien, et le tirage restait uniforme en production —
+     rater une touche n'avait aucune conséquence sur ce qu'on redonnait à
+     taper. */
+
+  /** Une maîtrise où tout est acquis SAUF la touche donnée. */
+  const toutAcquisSauf = (faible: string, touches: string[]) => {
+    const m: Record<string, number[]> = {};
+    for (const t of touches) if (t !== faible) m[t] = [1, 2, 3];
+    return m;
+  };
+
+  const occurrences = (items: { texte: string }[], lettre: string) =>
+    items.reduce((n, i) => n + [...i.texte].filter((c) => c === lettre).length, 0);
+
+  it("fait sortir davantage une touche mal acquise", () => {
+    const touches = [...ensembleTouches("decouverte", "fr-FR", 3)];
+    const faible = "m";
+    /* Plusieurs graines : une seule pourrait pencher par hasard, et on
+       mesurerait alors le tirage, pas la pondération. */
+    let avec = 0;
+    let sans = 0;
+    for (let graine = 1; graine <= 40; graine++) {
+      const o = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 3, graine };
+      avec += occurrences(creerSession({ ...o, maitrise: toutAcquisSauf(faible, touches) }).items(), faible);
+      sans += occurrences(creerSession(o).items(), faible);
+    }
+    expect(avec).toBeGreaterThan(sans);
+  });
+
+  it("sans aucune maîtrise enregistrée, la leçon est celle d’avant", () => {
+    // Un enfant qui commence ne doit pas jouer autre chose qu'hier.
+    const o = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 2, graine: 7 };
+    expect(creerSession({ ...o, maitrise: {} }).items()).toEqual(creerSession(o).items());
+  });
+
+  it("ne touche pas à la vague de révision du retour", () => {
+    /* La révision compose sur l'étape PRÉCÉDENTE : la pondération s'y applique
+       comme ailleurs, mais elle ne doit pas faire entrer de touche que cette
+       vague-là écarte exprès. */
+    const o = {
+      id: "fr-FR" as const,
+      parcours: "decouverte" as const,
+      etape: 3,
+      graine: 7,
+      derniereLecon: 0,
+      maintenant: JOURS_AVANT_REVISION * 86_400_000 * 2,
+    };
+    const touchesPrecedentes = ensembleTouches("decouverte", "fr-FR", 2);
+    const premiere = creerSession({
+      ...o,
+      maitrise: toutAcquisSauf("m", [...ensembleTouches("decouverte", "fr-FR", 3)]),
+    })
+      .items()
+      .slice(0, TAILLE_VAGUE);
+    for (const item of premiere) {
+      for (const c of item.texte) expect(touchesPrecedentes.has(c), `${item.texte} : ${c}`).toBe(true);
+    }
+  });
+});
+
+describe("ce que l’état donne au compositeur de séance", () => {
+  /* Ce passage de témoin a déjà perdu deux champs en silence : `derniereLecon`
+     (#47), sans quoi la révision du retour ne se déclenchait jamais en vrai,
+     puis `maitrise` (#71), sans quoi le tirage restait uniforme et rater une
+     touche n'avait aucune conséquence. Les deux fois la logique était écrite
+     ET testée : c'est la transmission qui manquait, et elle vivait dans une
+     vue, donc sous le radar de toute la suite. Ce test-ci la tient. */
+  const etat: EtatPourSession = {
+    parcours: "dactylo",
+    etape: 4,
+    etapeRejouee: null,
+    aReinjecter: ["chat"],
+    maitrise: { e: [1, 2, 3] },
+    derniereLecon: 1_700_000_000_000,
+  };
+
+  it("transmet tout ce dont la composition a besoin, sans en perdre en route", () => {
+    expect(optionsDeSession(etat, "fr-CH", 42)).toEqual({
+      id: "fr-CH",
+      parcours: "dactylo",
+      etape: 4,
+      aReinjecter: ["chat"],
+      maitrise: { e: [1, 2, 3] },
+      derniereLecon: 1_700_000_000_000,
+      maintenant: 42,
+    });
+  });
+
+  it("la maîtrise arrive, sinon les touches ratées ne reviennent jamais (#71)", () => {
+    expect(optionsDeSession(etat, "fr-FR", 0).maitrise).toBe(etat.maitrise);
+  });
+
+  it("la date de la dernière leçon arrive, sinon la révision du retour est morte (#47)", () => {
+    expect(optionsDeSession(etat, "fr-FR", 0).derniereLecon).toBe(etat.derniereLecon);
+  });
+
+  it("l’étape rejouée l’emporte sur celle de la progression", () => {
+    // Rejouer ne fait pas avancer, mais c'est bien l'étape rejouée qu'on compose.
+    expect(optionsDeSession({ ...etat, etapeRejouee: 2 }, "fr-FR", 0).etape).toBe(2);
+  });
+
+  it("un enfant qui n’a encore rien joué ne fabrique ni date ni maîtrise", () => {
+    const neuf = optionsDeSession(
+      { parcours: "decouverte", etape: 1, etapeRejouee: null, maitrise: {} },
+      "fr-FR",
+      0,
+    );
+    expect(neuf.derniereLecon).toBeUndefined();
+    expect(neuf.aReinjecter).toBeUndefined();
+    expect(neuf.maitrise).toEqual({});
   });
 });
