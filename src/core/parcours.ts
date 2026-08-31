@@ -173,3 +173,14 @@ export function parcoursFini(etape: number, leconsFaites: number): boolean {
 export function etapeSuivante(n: number): number | undefined {
   return n < ETAPE_MAX ? n + 1 : undefined;
 }
+
+/**
+ * Le rang de la leçon EN COURS dans son étape, de 1 à 7.
+ *
+ * `leconsSurEtape` compte les leçons FAITES ; l'enfant, lui, lit celle qu'il
+ * s'apprête à faire. Le plafond tient la fin de parcours, où le compteur reste
+ * à sept sans qu'aucune huitième leçon n'existe.
+ */
+export function rangLecon(leconsFaites: number): number {
+  return Math.min(leconsFaites + 1, LECONS_PAR_ETAPE);
+}

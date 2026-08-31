@@ -1,6 +1,13 @@
 import { useMemo } from 'react';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
-import { ensembleTouches, ETAPE_MAX, NOM_PARCOURS, nouvellesTouches } from '../core/parcours';
+import {
+  ensembleTouches,
+  ETAPE_MAX,
+  LECONS_PAR_ETAPE,
+  NOM_PARCOURS,
+  nouvellesTouches,
+  rangLecon,
+} from '../core/parcours';
 import { nouveaute } from '../core/contenu';
 import { PROPOSITION_PAUSE } from '../core/encouragements';
 import { Keyboard } from '../ui/Keyboard';
@@ -102,6 +109,14 @@ export function V5FinDeBloc() {
           illuminees={illuminees}
           taille="clamp(13px, 3.4vw, 42px)"
         />
+
+        {/* #88 — la position, À CHAQUE FOIS. Elle ne s'affichait qu'au passage
+            d'étape : six leçons sur sept, l'enfant terminait sa séance sans
+            lire nulle part où il en est. Elle dit la leçon À VENIR, comme
+            l'accueil, et reste donc juste au lendemain d'un passage d'étape. */}
+        <p className={v.gainLexical}>
+          Leçon {rangLecon(app.leconsSurEtape)} sur {LECONS_PAR_ETAPE} de l'étape {app.etape}
+        </p>
 
         {proposePause && <p className={v.pause}>{PROPOSITION_PAUSE}</p>}
 

@@ -1,6 +1,12 @@
 import { toucheDirecte, toucheMaj } from '../core/layouts';
 import { Cadenas } from '../ui/Key';
-import { ensembleTouches, etapes, nouvellesTouches, parcoursFini } from '../core/parcours';
+import {
+  ensembleTouches,
+  etapes,
+  NOM_PARCOURS,
+  nouvellesTouches,
+  parcoursFini,
+} from '../core/parcours';
 import { useApp, useEnvoi } from '../state';
 import { Keyboard } from '../ui/Keyboard';
 import v from './vues.module.css';
@@ -43,6 +49,13 @@ export function V6Carte() {
         <h1 className={v.titre} style={{ fontSize: 'clamp(28px, 3.4vw, 42px)' }}>
           Ma carte du clavier
         </h1>
+
+        {/* #88 — dix étapes sans nom de parcours deviennent ambiguës dès que le
+            parent bascule de Découverte à Dactylo : les deux listes portent les
+            mêmes numéros et pas les mêmes touches. */}
+        <p className={v.ligneClavier}>
+          Parcours : <b>{NOM_PARCOURS[app.parcours]}</b>
+        </p>
 
         {fini && <p className={v.promessePalier}>Choisis une étape à rejouer.</p>}
 
