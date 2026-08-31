@@ -527,12 +527,14 @@
       ",",
       ";",
       ":",
+      "!",
       "?"
      ],
      "doigts": {
       ",": "majeur_droit",
       ";": "majeur_droit",
       ":": "annulaire_droit",
+      "!": "auriculaire_droit",
       "?": "auriculaire_droit"
      },
      "doigtsOuverts": null,
@@ -1235,12 +1237,14 @@
       ",",
       ";",
       ":",
+      "!",
       "?"
      ],
      "doigts": {
       ",": "majeur_droit",
       ";": "majeur_droit",
       ":": "annulaire_droit",
+      "!": "auriculaire_droit",
       "?": "auriculaire_droit"
      },
      "doigtsOuverts": [

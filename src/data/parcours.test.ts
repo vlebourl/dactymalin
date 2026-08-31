@@ -45,6 +45,19 @@ describe('structure des parcours', () => {
     }
   });
 
+  /* Le fichier est GÉNÉRÉ : ce test garde la SORTIE de la chaîne, pas le
+     modèle. L'étape 9 promet « la ponctuation » à l'enfant ; en fr-CH elle
+     n'en ouvrait que quatre signes sur cinq, le `!` vivant sous Maj étant
+     écarté avec sa base morte (#98). */
+  it('l\'étape 9 ouvre les cinq signes de ponctuation sur les deux dispositions', () => {
+    for (const p of PARCOURS) {
+      for (const d of DISPOS) {
+        const neuf = etapesDe(p, d).find((e) => e.n === 9)!;
+        expect(neuf.nouvelles, `${p}/${d}`).toEqual([',', ';', ':', '!', '?']);
+      }
+    }
+  });
+
   it('aucune touche ouverte deux fois', () => {
     for (const p of PARCOURS) {
       for (const d of DISPOS) {
