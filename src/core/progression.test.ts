@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { avancementEtape, estMaitrisee, noterOccurrence, type Maitrise } from './progression';
+import {
+  avancementEtape,
+  avancementLecon,
+  estMaitrisee,
+  noterOccurrence,
+  PASTILLES_LECON,
+  type EtatAvancement,
+  type Maitrise,
+} from './progression';
 import { LECONS_PAR_ETAPE } from './parcours';
 
 const noter = (m: Maitrise, c: string, blocs: number[]) =>
@@ -48,5 +56,55 @@ describe("avancement dans l'étape", () => {
     for (let n = 0; n <= LECONS_PAR_ETAPE; n++) {
       expect(avancementEtape(n).part).toBeCloseTo(n / LECONS_PAR_ETAPE);
     }
+  });
+});
+
+describe("avancement d'une leçon", () => {
+  const parcours = (finLe: number, maintenant: number): EtatAvancement => ({
+    items: [],
+    i: 0,
+    finLe,
+    maintenant,
+  });
+  const liste = (i: number, total: number): EtatAvancement => ({
+    items: Array.from({ length: total }, (_, k) => k),
+    i,
+    finLe: null,
+    maintenant: 0,
+  });
+
+  /* Mode PARCOURS : la leçon dure un temps, l'avancement est celui du chrono. */
+  it('en parcours, les pastilles suivent le temps écoulé', () => {
+    const duree = 12000;
+    expect(avancementLecon(parcours(12000, 0), duree).part).toBe(0);
+    expect(avancementLecon(parcours(12000, 6000), duree).part).toBeCloseTo(0.5);
+    expect(avancementLecon(parcours(12000, 12000), duree).part).toBe(1);
+  });
+
+  /* Mode LISTE de la maison : elle a une fin connue, on suit les items. */
+  it('en liste de la maison, les pastilles suivent la position dans les items', () => {
+    expect(avancementLecon(liste(0, 4)).part).toBe(0);
+    expect(avancementLecon(liste(2, 4)).part).toBe(0.5);
+    expect(avancementLecon(liste(4, 4)).part).toBe(1);
+  });
+
+  it('une liste vide ne divise pas par zéro', () => {
+    expect(avancementLecon(liste(0, 0)).part).toBe(0);
+  });
+
+  it("l'avancement reste borné entre 0 et 1", () => {
+    // chrono dépassé (le tic arrive après la fin) et chrono pas commencé
+    expect(avancementLecon(parcours(12000, 30000), 12000).part).toBe(1);
+    expect(avancementLecon(parcours(12000, -5000), 12000).part).toBe(0);
+    // liste jouée au-delà de son dernier item
+    expect(avancementLecon(liste(9, 4)).part).toBe(1);
+  });
+
+  it('les pastilles dérivent de la part, pleines en tête de rangée', () => {
+    const a = avancementLecon(liste(2, 4));
+    expect(a.pastilles).toBe(PASTILLES_LECON);
+    expect(a.pleines).toBe(PASTILLES_LECON / 2);
+    expect(avancementLecon(liste(0, 4)).pleines).toBe(0);
+    expect(avancementLecon(liste(4, 4)).pleines).toBe(PASTILLES_LECON);
   });
 });
