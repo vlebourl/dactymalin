@@ -14,6 +14,17 @@ describe('piège Maj (palier 7)', () => {
     expect(verdictMaj('fr-CH', 'ç', 'ç')).toBe('juste');
   });
 
+  /* #98 : la touche du `!` suisse a une base MORTE (`¨`). Le piège doit y jouer
+     comme ailleurs — le navigateur filtre d'ailleurs `Dead` en amont, donc
+     l'oubli de Maj n'y produit ni faute ni escalade d'aide dans les deux cas. */
+  it('CH-FR : le ! se tape Maj+¨, et l\'oubli de Maj reste une quasi-réussite', () => {
+    expect(verdictMaj('fr-CH', '!', '¨')).toBe('quasi');
+    expect(verdictMaj('fr-CH', '!', '!')).toBe('juste');
+    expect(verdictMaj('fr-CH', '!', 'p')).toBe('faux');
+    // BracketRight est une touche de DROITE ⇒ Maj gauche (règle contralatérale).
+    expect(mainDeLaMaj('fr-CH', '!')).toBe('gauche');
+  });
+
   it("un caractère direct n'a pas de quasi-réussite", () => {
     expect(verdictMaj('fr-FR', 'e', 'r')).toBe('faux');
     expect(verdictMaj('fr-FR', 'e', 'e')).toBe('juste');
