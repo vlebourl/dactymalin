@@ -390,6 +390,12 @@ export function V4Lecon() {
               </span>
             ) : (
               <>
+                {/* Le libellé de la jauge d'étape n'existait qu'en `title`,
+                    donc au SURVOL : sur tablette, personne ne l'a jamais lu
+                    (#78). Il est désormais écrit à côté d'elle, et il dit ce
+                    qu'elle mesure — l'étape, pas la série de la rangée du
+                    dessous. */}
+                <span className={v.detailLecon}>Avancement de l&apos;étape</span>
                 <span
                   className={v.jaugeLecon}
                   role="img"
