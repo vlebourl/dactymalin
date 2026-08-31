@@ -22,6 +22,6 @@ export default defineConfig({
     // `src/core` reste en env node, sans DOM. Les rares tests de hook portent
     // leur propre docblock `@vitest-environment jsdom`.
     environment: 'node',
-    include: ['src/**/*.test.ts', 'server/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'server/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });
