@@ -1,4 +1,3 @@
-import { dureeLecon } from './lecon';
 import { LECONS_PAR_ETAPE } from './parcours';
 
 /** Occurrences validées sans erreur ni aide, repérées par le n° de bloc. */
@@ -55,16 +54,9 @@ export function avancementEtape(leconsFaites: number): Avancement {
   };
 }
 
-/** Douze pastilles fixes : elles disent la part de la leçon écoulée, jamais un
-    nombre d'exercices — qui n'est ni connu d'avance ni le même d'un enfant à
-    l'autre. */
-export const PASTILLES_LECON = 12;
-
-/** Ce que l'entête a besoin de savoir pour dessiner l'avancement d'une leçon. */
+/** Ce que l'entête a besoin de savoir pour dessiner la rangée de points. */
 export type AvancementLecon = {
-  /** 0 → 1, borné aux deux bouts. */
-  part: number;
-  /** Nombre total de pastilles dessinées. */
+  /** Nombre total de pastilles dessinées : la taille de la série en cours. */
   pastilles: number;
   /** Nombre de pastilles pleines, en tête de rangée. */
   pleines: number;
@@ -73,30 +65,40 @@ export type AvancementLecon = {
 /** Le strict nécessaire de l'état de leçon : on ne veut pas d'un état complet
     pour répondre à « où en est-on ? ». */
 export type EtatAvancement = {
-  items: unknown[];
+  /**
+   * La taille de chaque SÉRIE servie, dans l'ordre de service. Une leçon de
+   * parcours en reçoit plusieurs — le compositeur rallonge la file avant
+   * qu'elle ne se vide — là où une liste de la maison n'en a jamais qu'une.
+   */
+  series: number[];
+  /** L'exercice en cours, indexé dans la file cumulée. */
   i: number;
-  finLe: number | null;
-  maintenant: number;
 };
 
 /**
- * Où en est-on DANS la leçon ?
+ * Où en est-on DANS la série en cours ?
  *
- * Deux sémantiques, et c'est le mode de jeu qui tranche — d'où l'intérêt de
- * l'écrire ici plutôt que dans le JSX :
- * - une LISTE de la maison a une fin connue (les mots que la famille a
- *   écrits) : l'avancement est la position dans les items ;
- * - un PARCOURS dure un temps : l'avancement est la part du chrono écoulée.
+ * Une pastille = un exercice, et une seule sémantique pour les deux modes de
+ * jeu (#76). Avant, la rangée montrait douze pastilles figées remplies par le
+ * TEMPS écoulé : elles avançaient toutes seules pendant que l'enfant ne tapait
+ * rien, et leur nombre ne disait rien du contenu joué. Le temps ne fait plus
+ * partie du calcul du tout — la leçon se termine toujours d'elle-même, mais
+ * l'entête ne raconte plus le chrono.
+ *
+ * La série est un découpage INTERNE (la « vague » du compositeur) qu'on rend
+ * ici visible sous ce seul nom : elle donne une fin proche et atteignable, là
+ * où le total d'une leçon de douze minutes n'est pas connu d'avance.
  */
-export function avancementLecon(e: EtatAvancement, dureeMs: number = dureeLecon()): AvancementLecon {
-  const brut =
-    e.finLe === null
-      ? e.items.length === 0
-        ? 0
-        : e.i / e.items.length
-      : dureeMs <= 0
-        ? 1
-        : 1 - (e.finLe - e.maintenant) / dureeMs;
-  const part = Math.min(1, Math.max(0, brut));
-  return { part, pastilles: PASTILLES_LECON, pleines: Math.round(part * PASTILLES_LECON) };
+export function avancementLecon(e: EtatAvancement): AvancementLecon {
+  /* Une vague peut n'apporter aucun item neuf (tirage retombé sur du déjà
+     servi) : une série vide ne doit pas manger un tour de rangée. */
+  const series = e.series.filter((t) => t > 0);
+  let debut = 0;
+  for (const pastilles of series) {
+    if (e.i < debut + pastilles) return { pastilles, pleines: Math.max(0, e.i - debut) };
+    debut += pastilles;
+  }
+  /* Fin de leçon : l'index a dépassé la dernière série, qui reste pleine. */
+  const derniere = series[series.length - 1] ?? 0;
+  return { pastilles: derniere, pleines: derniere };
 }

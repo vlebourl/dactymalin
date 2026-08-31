@@ -323,16 +323,14 @@ export function V4Lecon() {
     .filter((c) => c !== ' ')
     .map((c) => c.toUpperCase());
 
-  /* Ce que les pastilles montrent : la part de la leçon écoulée. Le temps est
-     lu au tic du reducer, qui est déjà la seule horloge de l'écran. */
   /* 92 vw d'espace utile, un caractère occupant environ 0,62 em à cette
      graisse : la taille tenable est donc ~148/n en vw. Le plancher de six
      caractères empêche un mot très court de devenir énorme. */
   const tailleMot = Math.floor(148 / Math.max(6, item?.texte.length ?? 6));
 
-  /* Le noyau tranche entre les deux sémantiques — items en liste de la maison,
-     chrono en parcours — et donne aussi la rangée de pastilles à dessiner. */
-  const avancement = avancementLecon(e, dureeLecon());
+  /* Une pastille = un exercice de la série en cours, dans les deux modes de jeu
+     (#76). Le noyau lit les bornes de séries que le reducer tient à jour. */
+  const avancement = avancementLecon(e);
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
@@ -412,15 +410,25 @@ export function V4Lecon() {
           </p>
           <div className={v.ligneBloc}>
 
-            {/* Les pastilles suivent le TEMPS, pas les exercices. Une pastille
-                par exercice supposait de connaître le total d'avance — ce qui
-                n'a plus de sens dans une leçon qui dure douze minutes et dont
-                le nombre d'exercices dépend de la vitesse de l'enfant. Elles
-                restent une image : aucun chiffre, aucune durée écrite. */}
-            <div className={v.avancement} role="img" aria-label="Avancement de la leçon">
+            {/* Une pastille par exercice de la série en cours, et un libellé
+                qui le dit : la rangée mesurait le TEMPS écoulé sur douze
+                pastilles figées, si bien qu'elle avançait toute seule pendant
+                que l'enfant ne tapait rien (#76). « Exercice » ne s'écrit
+                jamais à l'enfant — la série se dit en mots. Le compte est un
+                compte d'exercices FAITS, jamais de fautes : le cahier interdit
+                le second, pas le premier. */}
+            <span className={v.libelleSerie}>Mots de cette série</span>
+            <div
+              className={v.avancement}
+              role="img"
+              aria-label={`Mots de cette série : ${avancement.pleines} sur ${avancement.pastilles}`}
+              data-serie-total={avancement.pastilles}
+              data-serie-pleines={avancement.pleines}
+            >
               {Array.from({ length: avancement.pastilles }, (_, k) => (
                 <span
                   key={k}
+                  data-pastille={k < avancement.pleines ? 'pleine' : 'vide'}
                   className={[
                     v.pastilleAvancement,
                     k < avancement.pleines ? v.pastilleAvancementPleine : '',
@@ -428,6 +436,9 @@ export function V4Lecon() {
                 />
               ))}
             </div>
+            <span className={v.compteSerie}>
+              {avancement.pleines} / {avancement.pastilles}
+            </span>
           </div>
         </div>
         <span className={v.nomProfil}>{prenom}</span>
