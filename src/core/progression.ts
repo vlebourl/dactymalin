@@ -1,3 +1,4 @@
+import { dureeLecon } from './lecon';
 import { LECONS_PAR_ETAPE } from './parcours';
 
 /** Occurrences validées sans erreur ni aide, repérées par le n° de bloc. */
@@ -52,4 +53,50 @@ export function avancementEtape(leconsFaites: number): Avancement {
     leconsFaites: Math.min(leconsFaites, total),
     total,
   };
+}
+
+/** Douze pastilles fixes : elles disent la part de la leçon écoulée, jamais un
+    nombre d'exercices — qui n'est ni connu d'avance ni le même d'un enfant à
+    l'autre. */
+export const PASTILLES_LECON = 12;
+
+/** Ce que l'entête a besoin de savoir pour dessiner l'avancement d'une leçon. */
+export type AvancementLecon = {
+  /** 0 → 1, borné aux deux bouts. */
+  part: number;
+  /** Nombre total de pastilles dessinées. */
+  pastilles: number;
+  /** Nombre de pastilles pleines, en tête de rangée. */
+  pleines: number;
+};
+
+/** Le strict nécessaire de l'état de leçon : on ne veut pas d'un état complet
+    pour répondre à « où en est-on ? ». */
+export type EtatAvancement = {
+  items: unknown[];
+  i: number;
+  finLe: number | null;
+  maintenant: number;
+};
+
+/**
+ * Où en est-on DANS la leçon ?
+ *
+ * Deux sémantiques, et c'est le mode de jeu qui tranche — d'où l'intérêt de
+ * l'écrire ici plutôt que dans le JSX :
+ * - une LISTE de la maison a une fin connue (les mots que la famille a
+ *   écrits) : l'avancement est la position dans les items ;
+ * - un PARCOURS dure un temps : l'avancement est la part du chrono écoulée.
+ */
+export function avancementLecon(e: EtatAvancement, dureeMs: number = dureeLecon()): AvancementLecon {
+  const brut =
+    e.finLe === null
+      ? e.items.length === 0
+        ? 0
+        : e.i / e.items.length
+      : dureeMs <= 0
+        ? 1
+        : 1 - (e.finLe - e.maintenant) / dureeMs;
+  const part = Math.min(1, Math.max(0, brut));
+  return { part, pastilles: PASTILLES_LECON, pleines: Math.round(part * PASTILLES_LECON) };
 }

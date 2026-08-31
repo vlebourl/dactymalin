@@ -19,7 +19,7 @@ import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
 import { useKeyInput } from '../hooks/useKeyInput';
-import { avancementEtape } from '../core/progression';
+import { avancementEtape, avancementLecon } from '../core/progression';
 import { nomProfilActif } from '../core/profils';
 import { useApp, useEnvoi, type BilanBloc } from '../state';
 import { MainSchematique } from '../ui/MainSchematique';
@@ -31,11 +31,6 @@ import v from './vues.module.css';
  * pédagogique. On lui rend la main — mais seulement pour une activation au
  * pointeur (`detail > 0`), pour ne pas casser la navigation au clavier.
  */
-/** Douze pastilles fixes : elles disent la part de la leçon écoulée, jamais un
-    nombre d'exercices — qui n'est ni connu d'avance ni le même d'un enfant à
-    l'autre. */
-const PASTILLES_LECON = 12;
-
 function rendreLeClavier(ev: MouseEvent<HTMLButtonElement>): void {
   if (ev.detail > 0) ev.currentTarget.blur();
 }
@@ -293,13 +288,9 @@ export function V4Lecon() {
      caractères empêche un mot très court de devenir énorme. */
   const tailleMot = Math.floor(148 / Math.max(6, item?.texte.length ?? 6));
 
-  const partEcoulee =
-    e.finLe === null
-      ? // une liste de la maison a une fin connue : on suit les items
-        e.items.length === 0
-        ? 0
-        : e.i / e.items.length
-      : Math.min(1, Math.max(0, 1 - (e.finLe - e.maintenant) / dureeLecon()));
+  /* Le noyau tranche entre les deux sémantiques — items en liste de la maison,
+     chrono en parcours — et donne aussi la rangée de pastilles à dessiner. */
+  const avancement = avancementLecon(e, dureeLecon());
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
@@ -367,12 +358,12 @@ export function V4Lecon() {
                 le nombre d'exercices dépend de la vitesse de l'enfant. Elles
                 restent une image : aucun chiffre, aucune durée écrite. */}
             <div className={v.avancement} role="img" aria-label="Avancement de la leçon">
-              {Array.from({ length: PASTILLES_LECON }, (_, k) => (
+              {Array.from({ length: avancement.pastilles }, (_, k) => (
                 <span
                   key={k}
                   className={[
                     v.pastilleAvancement,
-                    k < Math.round(partEcoulee * PASTILLES_LECON) ? v.pastilleAvancementPleine : '',
+                    k < avancement.pleines ? v.pastilleAvancementPleine : '',
                   ].join(' ')}
                 />
               ))}
