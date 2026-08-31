@@ -413,3 +413,49 @@ describe('la date de la dernière leçon traverse elle aussi (#64)', () => {
     expect(fusionner(A({}), A({})).derniereLecon).toBeUndefined();
   });
 });
+
+describe("les exercices récents traversent la réconciliation (#72)", () => {
+  /* Troisième champ à tomber dans le même trou : cette fonction reconstruit la
+     sauvegarde champ par champ, et ce qu'elle ne nomme pas disparaît. Les
+     mesures, puis la date de la dernière leçon, maintenant ceci. */
+  const A_JOUE = [["chat", "un rat"], ["pie"]];
+
+  it("ne perd pas la leçon de l’appareil qui a parlé en premier", () => {
+    /* Deux appareils partis d'un état commun jouent chacun de leur côté :
+       chacun revient avec un lot neuf. Garder la liste du dernier et jeter
+       l'autre faisait disparaître une leçon — et le mot qu'elle portait pouvait
+       revenir avec UNE seule leçon d'écart au lieu de trois. */
+    const commun = [["chat"]];
+    const a = { exercicesRecents: [...commun, ["rat"]] };
+    const b = { exercicesRecents: [...commun, ["pie"]] };
+    const attendu = [["rat"], ["pie"]];
+    expect(fusionner(A(a, 1000), A(b, 2000)).exercicesRecents).toEqual(attendu);
+    // Commutative : l'ordre des arguments ne décide de rien, seul l'horodatage.
+    expect(fusionner(A(b, 2000), A(a, 1000)).exercicesRecents).toEqual(attendu);
+  });
+
+  it("garde les lots les plus récents, jamais plus que la fenêtre", () => {
+    const f = fusionner(
+      A({ exercicesRecents: [["a"], ["b"]] }, 1000),
+      A({ exercicesRecents: [["c"], ["d"]] }, 2000),
+    );
+    expect(f.exercicesRecents).toEqual([["c"], ["d"]]);
+  });
+
+  it("un appareil qui n’a rien joué n’efface pas ce que l’autre a servi", () => {
+    expect(fusionner(A({ exercicesRecents: A_JOUE }, 2000), A({}, 1000)).exercicesRecents)
+      .toEqual(A_JOUE);
+    expect(fusionner(A({}, 2000), A({ exercicesRecents: A_JOUE }, 1000)).exercicesRecents)
+      .toEqual(A_JOUE);
+  });
+
+  it("deux appareils qui n’ont rien joué ne fabriquent pas de champ vide", () => {
+    expect(fusionner(A({}), A({})).exercicesRecents).toBeUndefined();
+  });
+
+  it("est idempotente : réconcilier ne fait pas enfler la liste", () => {
+    let etat = fusionner(A({ exercicesRecents: A_JOUE }), A({ exercicesRecents: A_JOUE }));
+    for (let i = 0; i < 5; i++) etat = fusionner(A({ exercicesRecents: etat.exercicesRecents }), A({ exercicesRecents: A_JOUE }));
+    expect(etat.exercicesRecents).toEqual(A_JOUE);
+  });
+});
