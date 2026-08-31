@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fusionner, fusionnerMaitrise } from './fusion';
+import { enregistrer, leconVierge, serieDe, type Mesures } from './mesures';
 import { estMaitrisee, type Maitrise } from './progression';
 import {
   avecProgression,
@@ -336,5 +337,79 @@ describe('fusion de deux appareils horodatés à la même milliseconde', () => {
     const attendu = r.disposition === 'fr-FR' ? gauche() : droite();
     expect(r.parcours).toBe(attendu.parcours);
     expect(r.reglages).toEqual(attendu.reglages);
+  });
+});
+
+describe('les mesures traversent la réconciliation (#64)', () => {
+  /* La durée varie avec l'instant : deux leçons distinctes ne coïncident pas à
+     la milliseconde près, et c'est le contenu qui fait l'identité. */
+  const lecon = (le: number, etape = 1) => ({
+    ...leconVierge(etape),
+    le,
+    ms: 60_000 + le,
+    lettres: 100,
+  });
+
+  it('réunit les leçons faites sur deux appareils différents', () => {
+    const ici = enregistrer({}, 'decouverte', lecon(100));
+    const la = enregistrer({}, 'decouverte', lecon(200));
+    const f = fusionner(A({ mesures: ici }, 1000), A({ mesures: la }, 2000));
+    expect(serieDe(f.mesures ?? {}, 'decouverte').lecons.map((l) => l.le)).toEqual([100, 200]);
+  });
+
+  it('un appareil resté à l’ancien bundle n’efface pas les mesures de l’autre', () => {
+    /* Avant #64, `fusionner` reconstruisait la sauvegarde sans nommer les
+       mesures : la copie serveur les perdait à CHAQUE réconciliation, et le
+       second appareil n'en recevait jamais. */
+    const ici = enregistrer({}, 'dactylo', lecon(50));
+    expect(fusionner(A({ mesures: ici }), A({})).mesures).toEqual(ici);
+    expect(fusionner(A({}), A({ mesures: ici })).mesures).toEqual(ici);
+  });
+
+  it('les deux séries ne se mélangent pas en traversant', () => {
+    const ici: Mesures = enregistrer({}, 'decouverte', lecon(10, 3));
+    const la: Mesures = enregistrer({}, 'dactylo', lecon(20, 1));
+    const f = fusionner(A({ mesures: ici }), A({ mesures: la }));
+    expect(serieDe(f.mesures ?? {}, 'decouverte').lecons).toHaveLength(1);
+    expect(serieDe(f.mesures ?? {}, 'dactylo').lecons).toHaveLength(1);
+  });
+
+  it('deux appareils sans aucune mesure ne fabriquent pas un champ vide', () => {
+    /* Un `mesures: {}` posé d'un seul côté rend l'état fusionné différent de
+       celui du serveur : les deux se renverraient un état identique sans fin. */
+    expect(fusionner(A({}), A({})).mesures).toBeUndefined();
+  });
+
+  it('reste idempotente : réconcilier dix fois ne fabrique pas dix leçons', () => {
+    const ici = enregistrer(enregistrer({}, 'decouverte', lecon(1)), 'decouverte', lecon(2));
+    let etat = fusionner(A({ mesures: ici }), A({ mesures: ici }));
+    for (let i = 0; i < 9; i++) etat = fusionner(A({ mesures: etat.mesures }), A({ mesures: ici }));
+    expect(serieDe(etat.mesures ?? {}, 'decouverte').lecons).toHaveLength(2);
+  });
+});
+
+describe('la date de la dernière leçon traverse elle aussi (#64)', () => {
+  /* Même défaut que les mesures, même conséquence, plus grave : sans elle,
+     `session.doitReviser` répond « non » pour toujours, et la révision du
+     retour de §7.4 ne se déclenche jamais sur un compte synchronisé. */
+  const JANVIER = Date.parse('2026-01-15T10:00:00Z');
+  const MARS = Date.parse('2026-03-15T10:00:00Z');
+
+  it('garde la date la PLUS RÉCENTE des deux appareils', () => {
+    const f = fusionner(A({ derniereLecon: JANVIER }, 2000), A({ derniereLecon: MARS }, 1000));
+    // Le plus récent gagne même si c'est l'appareil qui a parlé en premier :
+    // c'est la dernière fois que l'enfant a joué, où qu'il l'ait fait.
+    expect(f.derniereLecon).toBe(MARS);
+  });
+
+  it('un appareil qui n’a jamais joué n’efface pas la date de l’autre', () => {
+    expect(fusionner(A({ derniereLecon: MARS }), A({})).derniereLecon).toBe(MARS);
+    expect(fusionner(A({}), A({ derniereLecon: MARS })).derniereLecon).toBe(MARS);
+  });
+
+  it('deux appareils qui n’ont jamais joué ne fabriquent pas de date', () => {
+    // Un champ posé d'un seul côté suffit à faire diverger l'empreinte, et les
+    // deux se renverraient un état identique sans fin.
+    expect(fusionner(A({}), A({})).derniereLecon).toBeUndefined();
   });
 });
