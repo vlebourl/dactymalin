@@ -4,8 +4,6 @@ import {
   avancementLecon,
   estMaitrisee,
   noterOccurrence,
-  PASTILLES_LECON,
-  type EtatAvancement,
   type Maitrise,
 } from './progression';
 import { LECONS_PAR_ETAPE } from './parcours';
@@ -59,52 +57,38 @@ describe("avancement dans l'étape", () => {
   });
 });
 
-describe("avancement d'une leçon", () => {
-  const parcours = (finLe: number, maintenant: number): EtatAvancement => ({
-    items: [],
-    i: 0,
-    finLe,
-    maintenant,
-  });
-  const liste = (i: number, total: number): EtatAvancement => ({
-    items: Array.from({ length: total }, (_, k) => k),
-    i,
-    finLe: null,
-    maintenant: 0,
+/* Régression #76 : la rangée de l'entête comptait le TEMPS écoulé sur douze
+   pastilles figées. Elle compte désormais les exercices de la série servie. */
+describe('avancement dans la série en cours (#76)', () => {
+  it('autant de pastilles que la série a d\'exercices, jamais douze par principe', () => {
+    expect(avancementLecon({ series: [9], i: 0 }).pastilles).toBe(9);
+    expect(avancementLecon({ series: [12], i: 0 }).pastilles).toBe(12);
+    expect(avancementLecon({ series: [8], i: 0 }).pastilles).toBe(8);
   });
 
-  /* Mode PARCOURS : la leçon dure un temps, l'avancement est celui du chrono. */
-  it('en parcours, les pastilles suivent le temps écoulé', () => {
-    const duree = 12000;
-    expect(avancementLecon(parcours(12000, 0), duree).part).toBe(0);
-    expect(avancementLecon(parcours(12000, 6000), duree).part).toBeCloseTo(0.5);
-    expect(avancementLecon(parcours(12000, 12000), duree).part).toBe(1);
+  it('une pastille se remplit par exercice terminé', () => {
+    expect(avancementLecon({ series: [9], i: 0 }).pleines).toBe(0);
+    expect(avancementLecon({ series: [9], i: 3 }).pleines).toBe(3);
+    expect(avancementLecon({ series: [9], i: 9 }).pleines).toBe(9);
   });
 
-  /* Mode LISTE de la maison : elle a une fin connue, on suit les items. */
-  it('en liste de la maison, les pastilles suivent la position dans les items', () => {
-    expect(avancementLecon(liste(0, 4)).part).toBe(0);
-    expect(avancementLecon(liste(2, 4)).part).toBe(0.5);
-    expect(avancementLecon(liste(4, 4)).part).toBe(1);
+  it('une nouvelle série repart à zéro, sur SA taille', () => {
+    // 9 servis, puis une vague de 12 : au premier exercice de la seconde série
+    expect(avancementLecon({ series: [9, 12], i: 9 })).toEqual({ pastilles: 12, pleines: 0 });
+    expect(avancementLecon({ series: [9, 12], i: 11 })).toEqual({ pastilles: 12, pleines: 2 });
+    // tant qu'on reste dans la première, c'est elle qu'on montre
+    expect(avancementLecon({ series: [9, 12], i: 8 })).toEqual({ pastilles: 9, pleines: 8 });
   });
 
-  it('une liste vide ne divise pas par zéro', () => {
-    expect(avancementLecon(liste(0, 0)).part).toBe(0);
+  it('aucune pastille ne se remplit sans frappe', () => {
+    const e = { series: [9], i: 2 };
+    // le temps n'entre plus dans le calcul : même état, même rangée
+    expect(avancementLecon(e)).toEqual(avancementLecon({ ...e }));
+    expect(avancementLecon(e).pleines).toBe(2);
   });
 
-  it("l'avancement reste borné entre 0 et 1", () => {
-    // chrono dépassé (le tic arrive après la fin) et chrono pas commencé
-    expect(avancementLecon(parcours(12000, 30000), 12000).part).toBe(1);
-    expect(avancementLecon(parcours(12000, -5000), 12000).part).toBe(0);
-    // liste jouée au-delà de son dernier item
-    expect(avancementLecon(liste(9, 4)).part).toBe(1);
-  });
-
-  it('les pastilles dérivent de la part, pleines en tête de rangée', () => {
-    const a = avancementLecon(liste(2, 4));
-    expect(a.pastilles).toBe(PASTILLES_LECON);
-    expect(a.pleines).toBe(PASTILLES_LECON / 2);
-    expect(avancementLecon(liste(0, 4)).pleines).toBe(0);
-    expect(avancementLecon(liste(4, 4)).pleines).toBe(PASTILLES_LECON);
+  it('rien à jouer ne dessine rien, et la fin ne déborde pas', () => {
+    expect(avancementLecon({ series: [], i: 0 })).toEqual({ pastilles: 0, pleines: 0 });
+    expect(avancementLecon({ series: [9], i: 99 })).toEqual({ pastilles: 9, pleines: 9 });
   });
 });
