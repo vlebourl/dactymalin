@@ -2,7 +2,7 @@
  * Tables de disposition déclaratives. Deux tables DISTINCTES, jamais partagées (cahier 4.6).
  * `base`  = caractère produit sans modificateur.
  * `maj`   = caractère produit avec Maj (palier 7 uniquement).
- * `morte` = touche morte : exclue du curriculum MVP.
+ * `morte` = la position de BASE est une touche morte : exclue du curriculum MVP.
  */
 
 export type Main = 'gauche' | 'droite';
@@ -14,6 +14,17 @@ export type Touche = {
   maj?: string;
   main: Main;
   morte?: boolean;
+  /**
+   * DEUX positions, deux verdicts. `morte` juge la position de BASE ; sur le
+   * clavier suisse `Maj + ¨` écrit un `!` immédiat, sans séquence morte, et
+   * écarter la touche entière privait tout ce public du point d'exclamation
+   * (#98). Ce drapeau rouvre la seule position Maj.
+   *
+   * Il s'affirme touche par touche, jamais par défaut : une table écrite
+   * demain ne doit pas pouvoir glisser une séquence morte dans le parcours
+   * d'un enfant sans que personne l'ait décidé.
+   */
+  majVivante?: boolean;
   /**
    * Touche DESSINÉE mais sans aucun rôle : Retour arrière (rien à effacer,
    * cahier 4.2 / spec F3). Comme `morte`, elle n'est jamais proposable.
@@ -185,7 +196,7 @@ const FR_CH: Disposition = {
       d('KeyO', 'o'),
       d('KeyP', 'p'),
       d('BracketLeft', 'è', 'ü'),
-      d('BracketRight', '¨', '!', { morte: true }),
+      d('BracketRight', '¨', '!', { morte: true, majVivante: true }),
     ],
     [
       g('KeyA', 'a'),
@@ -241,6 +252,17 @@ export function estProposable(t: Touche): boolean {
   return !t.morte && !t.inerte && !t.modificateur;
 }
 
+/**
+ * Le même verdict, mais pour la position MAJ. Il est distinct parce qu'une
+ * touche peut être morte en base et bien vivante sous Maj : `estProposable`
+ * seul écartait la touche entière, et le `!` suisse n'existait nulle part.
+ * Le dessin, lui, continue de suivre `estProposable` — c'est la BASE qu'une
+ * touche affiche en dominante.
+ */
+export function estProposableEnMaj(t: Touche): boolean {
+  return !t.inerte && !t.modificateur && (!t.morte || !!t.majVivante);
+}
+
 /** Trouve la touche qui produit `caractere` SANS modificateur. */
 export function toucheDirecte(id: IdDisposition, caractere: string): Touche | undefined {
   return touches(id).find((t) => estProposable(t) && t.base === caractere);
@@ -248,7 +270,7 @@ export function toucheDirecte(id: IdDisposition, caractere: string): Touche | un
 
 /** Trouve la touche qui produit `caractere` AVEC Maj. */
 export function toucheMaj(id: IdDisposition, caractere: string): Touche | undefined {
-  const declaree = touches(id).find((t) => estProposable(t) && t.maj === caractere);
+  const declaree = touches(id).find((t) => estProposableEnMaj(t) && t.maj === caractere);
   if (declaree) return declaree;
   /* Maj + lettre = capitale sur TOUTE disposition : la déclarer 26 fois par
      table serait de la redite. Les accentuées sont exclues par le regex ASCII
