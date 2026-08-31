@@ -243,6 +243,33 @@ describe("l'étape 9 enseigne vraiment la ponctuation", () => {
     }
   });
 
+  /* Aucun sujet ne monopolise une position. Le tri par poids, seul, laissait
+     « un roi » occuper 540 des 1000 secondes propositions — non parce que la
+     langue le voulait, mais parce qu'il est le plus court des sujets fréquents
+     et survivait donc à la borne de 28 caractères là où « une princesse » la
+     faisait dépasser. Un enfant lisait dix sujets ; le vivier en offre
+     trente-trois. */
+  it('aucun sujet ne prend plus du cinquième des phrases à deux propositions', () => {
+    const deux = lexique.phrases
+      .map((x) => x.t)
+      .filter((t) => t.includes(' ; ') || /, une? /.test(t));
+    expect(deux.length).toBeGreaterThan(0);
+    const seconde = (t: string) =>
+      t.split(t.includes(' ; ') ? ' ; ' : ', ')[1].split(' ').slice(0, 2).join(' ');
+    for (const position of [(t: string) => t.split(' ').slice(0, 2).join(' '), seconde]) {
+      const compte = new Map<string, number>();
+      for (const t of deux) {
+        const sujet = position(t).toLowerCase();
+        compte.set(sujet, (compte.get(sujet) ?? 0) + 1);
+      }
+      for (const [sujet, n] of compte) {
+        expect(n / deux.length, `« ${sujet} » occupe ${n} phrases sur ${deux.length}`).toBeLessThan(
+          0.2,
+        );
+      }
+    }
+  });
+
   it("l'étape 9 annonce une promesse et des exemples non vides", () => {
     for (const p of PARCOURS) {
       for (const d of DISPOS) {

@@ -165,43 +165,65 @@ def initiale_risquee(mot):
 # ses cinq signes, pas la virgule cinq fois.
 PAR_PATRON = 500
 
+# Part maximale d'un même sujet DANS UNE POSITION DONNÉE d'un patron.
+#
+# Le tri par poids seul ne suffisait pas au patron à deux propositions : le
+# poids d'un couple vaut min(p1, p2), et `MAX_CARACTERES` élimine tout ce qui
+# dépasse 28 caractères. « un roi » est le plus court des sujets fréquents, il
+# survivait donc à la coupe là où « une princesse » la faisait dépasser — et il
+# occupait à lui seul 540 des 1000 secondes propositions, sur dix sujets en
+# tout. Le vivier en offre trente-trois : c'est le tri, pas la langue, qui les
+# écartait. Un seizième par sujet et par position les fait tous revenir sans
+# rien changer à ce qui est grammaticalement produit.
+PART_MAX = PAR_PATRON // 16
+
 
 def ponctuees(sujets, verbes, noms_col, par_mot):
-    """Les phrases qui portent `, ; : ! ?`, tirées des mêmes listes."""
+    """Les phrases qui portent `, ; : ! ?`, tirées des mêmes listes.
+
+    Un patron est une liste de `(texte, poids, cles)`. `cles` nomme les places
+    dont la variété se surveille — vide quand le patron n'en a pas besoin."""
     patrons = []
 
     # Exclamation et interrogation : la phrase simple, un autre signe final.
-    patrons.append([(f"{det} {mot} {v} !", p * 0.3)
+    patrons.append([(f"{det} {mot} {v} !", p * 0.3, ())
                     for det, mot, p in sujets for v in verbes])
-    patrons.append([(f"{det} {mot} {v} ?", p * 0.3)
+    patrons.append([(f"{det} {mot} {v} ?", p * 0.3, ())
                     for det, mot, p in sujets for v in verbes])
 
     # « Qui joue ? » : la question la plus courte qui existe sur ces verbes.
     if "qui" in par_mot:
         poids_qui = par_mot["qui"]["poids"]
-        patrons.append([(f"Qui {v} ?", poids_qui) for v in verbes])
+        patrons.append([(f"Qui {v} ?", poids_qui, ()) for v in verbes])
 
     # Deux propositions, virgule ou point-virgule. Le sujet ET le verbe changent
     # d'une proposition à l'autre : deux propositions identiques ne diraient
-    # rien, et l'enfant lirait deux fois la même chose.
-    couples = [(f"{d1} {m1} {v1}", f"{d2.lower()} {m2} {v2}.", min(p1, p2) * 0.2)
+    # rien, et l'enfant lirait deux fois la même chose. Les deux positions sont
+    # comptées séparément : un sujet peut ouvrir beaucoup de phrases sans pour
+    # autant en fermer autant.
+    couples = [(f"{d1} {m1} {v1}", f"{d2.lower()} {m2} {v2}.",
+                min(p1, p2) * 0.2, (f"1:{m1}", f"2:{m2}"))
                for d1, m1, p1 in sujets for d2, m2, p2 in sujets if m1 != m2
                for v1 in verbes for v2 in verbes if v1 != v2]
-    patrons.append([(f"{t}, {q}", p) for t, q, p in couples])
-    patrons.append([(f"{t} ; {q}", p) for t, q, p in couples])
+    patrons.append([(f"{t}, {q}", p, c) for t, q, p, c in couples])
+    patrons.append([(f"{t} ; {q}", p, c) for t, q, p, c in couples])
 
     # Les deux-points annoncent ce qui suit. Rien à accorder après eux.
     if "je" in par_mot and "vois" in par_mot:
-        patrons.append([(f"Je vois : {det} {mot}.", p * 0.2)
+        patrons.append([(f"Je vois : {det} {mot}.", p * 0.2, ())
                         for dets, mot, p in noms_col for det in dets])
 
     # P7 : ce qui ne tient pas sur un écran de 375 px n'est pas un item.
     out, vus = [], set()
     for patron in patrons:
-        garde = []
-        for t, p in sorted(patron, key=lambda t: -t[1]):
+        garde, servis = [], {}
+        for t, p, cles in sorted(patron, key=lambda t: -t[1]):
             if len(t) > MAX_CARACTERES or t in vus:
                 continue
+            if any(servis.get(c, 0) >= PART_MAX for c in cles):
+                continue
+            for c in cles:
+                servis[c] = servis.get(c, 0) + 1
             vus.add(t)
             garde.append((t, p))
             if len(garde) == PAR_PATRON:
