@@ -19,6 +19,7 @@ import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
 import { etapeFinie, ETAPE_MAX, LECONS_PAR_ETAPE, parcoursFini, type IdParcours } from './core/parcours';
 import { encouragementSuivant } from './core/encouragements';
+import { LECONS_SANS_REPETITION } from './core/generator';
 import { enregistrer, type RapportLecon } from './core/mesures';
 
 export type Vue = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V9';
@@ -202,8 +203,12 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         leconsSurEtape: p.leconsSurEtape,
         /* Les items à revoir viennent de la leçon de l'AUTRE parcours : les
            réinjecter ici ferait taper des touches que celui-ci n'a pas encore
-           ouvertes. */
+           ouvertes. Le souvenir des exercices récents part pour la même
+           raison : les deux parcours puisent dans le même lexique, et garder
+           celui d'à côté interdirait ici des mots que cet enfant n'a jamais vus
+           dans ce parcours-là. */
         aReinjecter: [],
+        exercicesRecents: undefined,
         etapeOuverte: null,
     parcoursTermineMaintenant: false,
       };
@@ -273,6 +278,19 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
             le: action.bilan.fin,
           })
         : etat.mesures;
+      /* §7.2 : les exercices de cette leçon attendent leur tour pendant les
+         deux suivantes. On ne garde que `LECONS_SANS_REPETITION - 1` lots :
+         un historique sans fin ferait enfler la sauvegarde et finirait par
+         interdire tout le corpus de l'étape. */
+      const exercicesRecents = (
+        action.bilan.items.length
+          ? [...(etat.exercicesRecents ?? []), action.bilan.items]
+          : /* Une leçon où l'enfant n'a rien validé — il est parti, le chrono a
+               fini seul — n'a rien servi. Y pousser un lot VIDE chasserait une
+               vraie leçon du souvenir, et deux départs d'affilée effaçaient la
+               règle d'écart sans que rien ne le dise. */
+            (etat.exercicesRecents ?? [])
+      ).slice(-(LECONS_SANS_REPETITION - 1));
       const franchi = !rejoue && etapeFinie(leconsSurEtape) && etat.etape < ETAPE_MAX;
       /* À la DIXIÈME étape il n'y a pas d'étape suivante à ouvrir, et le
          compteur montait donc à 8, 9, 10 sans fin : le parcours ne se
@@ -294,6 +312,7 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         vue: 'V5',
         maitrise,
         mesures,
+        exercicesRecents,
         derniereLecon: action.bilan.fin,
         lecon: Math.min(etat.lecon + 1, BLOC_MAX),
         leconsSurEtape: leconsRetenues,
@@ -347,6 +366,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
     bloc: etat.lecon,
     maitrise: etat.maitrise,
     mesures: etat.mesures,
+    exercicesRecents: etat.exercicesRecents,
     derniereLecon: etat.derniereLecon,
     guideDoigtVu: etat.guideDoigtVu,
     reglages: etat.reglages,

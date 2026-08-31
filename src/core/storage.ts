@@ -17,6 +17,7 @@ import type { Maitrise } from "./progression";
  * compte dix étapes.
  */
 export const ETAPE_MIROIR_MAX = 7;
+import { LECONS_SANS_REPETITION } from "./generator";
 import { ETAPE_MAX, PARCOURS, type IdParcours } from "./parcours";
 
 export const CLE = "tapeavecmoi.v1";
@@ -95,6 +96,16 @@ export type Sauvegarde = {
    * d'avant l'instrumentation n'en porte pas, et n'en est pas moins saine.
    */
   mesures?: Mesures;
+  /**
+   * Les exercices servis lors des dernières leçons, une entrée par leçon, de
+   * la plus ancienne à la plus récente (§7.2, voir `generator.ts`).
+   *
+   * Ils ne vivaient qu'en mémoire : la règle « au moins trois leçons d'écart
+   * entre deux occurrences » tombait au premier rechargement, et ne franchissait
+   * aucun appareil. Optionnel comme `mesures` — une sauvegarde d'avant n'en
+   * porte pas, et n'en est pas moins saine.
+   */
+  exercicesRecents?: string[][];
 };
 
 const DISPOSITIONS: IdDisposition[] = ["fr-FR", "fr-CH"];
@@ -261,6 +272,35 @@ function leconsValides(v: unknown): LeconMesuree[] {
     if (etape === 0 || ms < 0 || lettres < 0 || fautes < 0 || barreau3 < 0)
       continue;
     sortie.push({ etape, le, ms, lettres, fautes, barreau3 });
+  }
+  return sortie;
+}
+
+/** Un exercice tient sur une ligne : au-delà, le champ est abîmé. */
+const EXERCICE_MAX = 120;
+/** De quoi remplir deux leçons largement ; au-delà, la sauvegarde enfle. */
+const EXERCICES_PAR_LECON_MAX = 300;
+
+/**
+ * Les exercices récents, relus avec la même méfiance que les mesures : on perd
+ * la règle d'écart, jamais l'acquis. Seules les dernières leçons sont gardées —
+ * une liste qui grossirait sans fin ferait enfler la sauvegarde et finirait par
+ * interdire tout le corpus de l'étape.
+ */
+export function exercicesRecentsValides(v: unknown): string[][] {
+  if (!Array.isArray(v)) return [];
+  const sortie: string[][] = [];
+  for (const lot of v.slice(-(LECONS_SANS_REPETITION - 1))) {
+    if (!Array.isArray(lot)) continue;
+    const exercices = lot
+      .slice(0, EXERCICES_PAR_LECON_MAX)
+      .filter(
+        (t): t is string =>
+          typeof t === "string" && t.length > 0 && t.length <= EXERCICE_MAX,
+      );
+    /* Un lot VIDE n'est pas une leçon : le garder occuperait une des deux
+       places du souvenir et chasserait une leçon réellement jouée. */
+    if (exercices.length) sortie.push(exercices);
   }
   return sortie;
 }
@@ -434,6 +474,7 @@ export function valider(brut: unknown): Sauvegarde {
   const r = (o.reglages ?? {}) as Record<string, unknown>;
   const maitrise = maitriseValide(o.maitrise);
   const mesures = mesuresValides(o.mesures);
+  const exercicesRecents = exercicesRecentsValides(o.exercicesRecents);
   const disposition = estDisposition(o.disposition)
     ? o.disposition
     : DEFAUTS.disposition;
@@ -463,6 +504,9 @@ export function valider(brut: unknown): Sauvegarde {
        `mesures: {}` posé d'un seul côté leur ferait échanger indéfiniment un
        état pourtant identique. */
     ...(Object.keys(mesures).length ? { mesures } : {}),
+    /* Absent tant qu'il n'y a rien à dire, pour la même raison que `mesures` :
+       un champ posé d'un seul côté fait diverger l'empreinte. */
+    ...(exercicesRecents.length ? { exercicesRecents } : {}),
     guideDoigtVu: bool(o.guideDoigtVu, false),
     progressions,
     reglages: {
@@ -528,6 +572,19 @@ export function estIntact(brut: unknown): boolean {
     if (!Array.isArray(val)) return false;
     if (!val.every((n) => typeof n === "number" && Number.isFinite(n)))
       return false;
+  }
+  /* `exercicesRecents` est un champ AJOUTÉ : absent, la sauvegarde est celle
+     d'un client d'avant, parfaitement saine. Présent, il doit être valide —
+     sinon le backup vaut mieux que ce fichier-là. Sans ce contrôle, une clé
+     principale corrompue passait pour intacte, court-circuitait un backup sain,
+     et le souvenir des leçons repartait vide : les mots de la veille
+     revenaient aussitôt. */
+  if (o.exercicesRecents !== undefined) {
+    if (!Array.isArray(o.exercicesRecents)) return false;
+    for (const lot of o.exercicesRecents) {
+      if (!Array.isArray(lot)) return false;
+      if (!lot.every((t) => typeof t === "string")) return false;
+    }
   }
   const r = o.reglages;
   if (!r || typeof r !== "object" || Array.isArray(r)) return false;

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   creerSession,
   JOURS_AVANT_REVISION,
+  ecartSoutenable,
   optionsDeSession,
   revisionNecessaire,
   TAILLE_VAGUE,
   type EtatPourSession,
 } from "./session";
+import { TAILLE_BLOC_MIN } from "./generator";
 import { ensembleTouches, nouvellesTouches } from "./parcours";
 import { DEFAUTS, valider } from "./storage";
 import { aSauvegarder, etatDeDepart, reducer } from "../state";
@@ -386,5 +388,204 @@ describe("ce que l’état donne au compositeur de séance", () => {
     expect(neuf.derniereLecon).toBeUndefined();
     expect(neuf.aReinjecter).toBeUndefined();
     expect(neuf.maitrise).toEqual({});
+  });
+});
+
+describe("un exercice ne revient pas d’une leçon à l’autre (#72)", () => {
+  /* Garde-fou §7.2 : « pas deux fois le même exercice dans une leçon, au moins
+     trois leçons d'écart entre deux occurrences ». La dé-duplication DANS une
+     leçon existait ; celle ENTRE leçons non — le générateur l'acceptait en
+     argument, personne ne le lui passait, et rien ne gardait la trace de ce
+     qui avait été servi la fois d'avant. */
+
+  it("transmet au compositeur les exercices des leçons précédentes", () => {
+    const o = optionsDeSession(
+      {
+        parcours: "decouverte",
+        etape: 2,
+        etapeRejouee: null,
+        maitrise: {},
+        exercicesRecents: [["chat", "rat"], ["pie"]],
+      },
+      "fr-FR",
+      0,
+    );
+    expect(o.recemmentVus).toEqual(["chat", "rat", "pie"]);
+  });
+
+  it("un enfant qui n’a encore rien joué n’interdit rien", () => {
+    const o = optionsDeSession(
+      { parcours: "decouverte", etape: 1, etapeRejouee: null, maitrise: {} },
+      "fr-FR",
+      0,
+    );
+    expect(o.recemmentVus).toBeUndefined();
+  });
+
+  it("les exercices de la leçon d’avant ne ressortent pas", () => {
+    const o = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 3, graine: 7 };
+    const premiere = creerSession(o).items().map((i) => i.texte);
+    const seconde = creerSession({ ...o, graine: 8, recemmentVus: premiere }).items();
+    for (const item of seconde) expect(premiere).not.toContain(item.texte);
+  });
+
+  it("une étape au corpus trop maigre sert quand même une leçon entière", () => {
+    /* C'est l'étape qu'on refait, pas la leçon qu'on ampute : à corpus épuisé
+       la règle d'écart cède, sinon l'enfant se retrouverait devant du vide. */
+    const o = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 1, graine: 7 };
+    const tout = creerSession(o).items().map((i) => i.texte);
+    const items = creerSession({ ...o, graine: 9, recemmentVus: tout }).items();
+    // `> 0` passerait sur une leçon d'un seul mot, qui EST l'amputation qu'on
+    // dit vouloir éviter. C'est une vague entière qu'il faut servir.
+    expect(items.length).toBeGreaterThanOrEqual(TAILLE_BLOC_MIN);
+  });
+});
+
+describe("l’état retient ce que la leçon vient de servir (#72)", () => {
+  const bilan = (items: string[]) => ({
+    etoiles: 1,
+    propres: [],
+    aRevoir: [],
+    items,
+    fin: 1_700_000_000_000,
+  });
+
+  const finir = (etat: ReturnType<typeof etatDeDepart>, items: string[]) =>
+    reducer(etat, { type: "leconTerminee", bilan: bilan(items) });
+
+  it("garde les exercices de la leçon qui vient de finir", () => {
+    const apres = finir(etatDeDepart(), ["chat", "un rat"]);
+    expect(apres.exercicesRecents).toEqual([["chat", "un rat"]]);
+  });
+
+  it("n’en garde que les plus récentes, jamais un historique sans fin", () => {
+    let etat = etatDeDepart();
+    for (const lot of [["a"], ["b"], ["c"], ["d"]]) etat = finir(etat, lot);
+    expect(etat.exercicesRecents).toEqual([["c"], ["d"]]);
+  });
+
+  it("une liste de la maison ne compte pas : elle est hors parcours", () => {
+    /* Elle ne fait avancer aucune étape, et ses mots ne sortent d'aucun corpus
+       de parcours : les interdire dans la leçon suivante n'aurait pas de sens. */
+    const avec = finir(etatDeDepart(), ["chat"]);
+    const liste = reducer(
+      { ...avec, listeJouee: { id: "x", nom: "Nos mots", mots: ["papillon"], creeLe: '2026-08-31T00:00:00.000Z' } },
+      { type: "leconTerminee", bilan: bilan(["papillon"]) },
+    );
+    expect(liste.exercicesRecents).toEqual([["chat"]]);
+  });
+
+  it("ce qui est retenu arrive jusqu’à la sauvegarde", () => {
+    const apres = finir(etatDeDepart(), ["chat", "un rat"]);
+    expect(aSauvegarder(apres).exercicesRecents).toEqual([["chat", "un rat"]]);
+  });
+});
+
+describe("ce que la règle d’écart fait à la réinjection", () => {
+  /* §7.2 ne prévoit aucune exception : « au moins trois leçons d'écart entre
+     deux occurrences ». Un item aidé au barreau 2 ou 3 vient forcément de la
+     leçon qui s'achève — il est donc RETARDÉ, pas supprimé, et ce qui revient
+     entre-temps c'est la TOUCHE ratée (#71), jamais le même exercice.
+
+     Conséquence à assumer : `aReinjecter` ne peut plus jamais se déclencher à
+     la leçon suivante, puisque tout item aidé est aussi un item servi. Le
+     mécanisme est intégralement couvert par la règle d'écart et la pondération.
+     Ce test le fixe pour qu'on ne le redécouvre pas par surprise. */
+  it("un item aidé ne revient pas à la leçon suivante, il attend son tour", () => {
+    const o = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 4, graine: 7 };
+    const servis = creerSession(o).items().map((i) => i.texte);
+    const aide = servis[0];
+    const suivante = creerSession({
+      ...o,
+      graine: 8,
+      aReinjecter: [aide],
+      recemmentVus: servis,
+    }).items();
+    expect(suivante.map((i) => i.texte)).not.toContain(aide);
+  });
+
+  it("mais il redevient tirable dès qu’il sort du souvenir", () => {
+    const o = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 4, graine: 7 };
+    const aide = creerSession(o).items()[0].texte;
+    const plusTard = creerSession({ ...o, graine: 8, aReinjecter: [aide] }).items();
+    expect(plusTard.map((i) => i.texte)).toContain(aide);
+  });
+});
+
+describe("le souvenir des exercices ne se laisse pas effacer", () => {
+  const bilan = (items: string[]) => ({
+    etoiles: 1,
+    propres: [],
+    aRevoir: [],
+    items,
+    fin: 1_700_000_000_000,
+  });
+  const finir = (etat: ReturnType<typeof etatDeDepart>, items: string[]) =>
+    reducer(etat, { type: "leconTerminee", bilan: bilan(items) });
+
+  it("une leçon où l’enfant n’a rien validé ne chasse pas une vraie leçon", () => {
+    /* Il est parti, le chrono a fini seul. Pousser un lot VIDE occuperait une
+       des deux places du souvenir : deux départs d'affilée effaçaient la règle
+       d'écart sans que rien ne le dise. */
+    let etat = finir(etatDeDepart(), ["chat"]);
+    etat = finir(etat, []);
+    etat = finir(etat, []);
+    expect(etat.exercicesRecents).toEqual([["chat"]]);
+  });
+
+  it("changer de parcours oublie ce qui a été servi dans l’autre", () => {
+    /* Les deux parcours puisent dans le même lexique : garder le souvenir d'à
+       côté interdirait ici des mots que l'enfant n'a jamais vus dans ce
+       parcours-là. Même raison que pour les items à revoir. */
+    const joue = finir(etatDeDepart(), ["chat", "un rat"]);
+    const bascule = reducer(joue, { type: "parcours", parcours: "dactylo" });
+    expect(bascule.exercicesRecents).toBeUndefined();
+    expect(optionsDeSession(bascule, "fr-FR", 0).recemmentVus).toBeUndefined();
+  });
+});
+
+describe("la règle d’écart ne raccourcit pas la leçon (#72)", () => {
+  /* Mesuré, et c'est ce qui a rendu le plafond nécessaire : à l'étape 1 de
+     Découverte le vivier fait 254 items et une leçon de douze minutes en
+     consomme presque autant. Interdire les deux leçons précédentes en entier
+     faisait tomber la séance de 252 exercices servis à 54 — deux ou trois
+     minutes au lieu de douze, à l'étape la plus fragile de tout le parcours. */
+  const toutServir = (etape: number, recemmentVus?: string[]) => {
+    const s = creerSession({
+      id: "fr-FR",
+      parcours: "decouverte",
+      etape,
+      graine: 3,
+      recemmentVus,
+    });
+    for (let i = 0; i < 400 && !s.epuisee(); i++) s.recharger();
+    return s.items().map((x) => x.texte);
+  };
+
+  it("l’étape la plus maigre sert encore de quoi tenir une séance entière", () => {
+    const sans = toutServir(1);
+    const avec = toutServir(1, sans.slice(0, 200));
+    /* Une leçon consomme 50 à 150 exercices (§7.2). En dessous de cent, la
+       séance s'arrête avant le chrono, et c'est ce qu'il fallait empêcher. */
+    expect(avec.length).toBeGreaterThan(100);
+  });
+
+  it("le plafond ne mord pas là où le vivier est large", () => {
+    // Aux étapes suivantes le vivier se compte en milliers : rien n'est raboté.
+    const sans = toutServir(4);
+    const recents = sans.slice(0, 200);
+    expect(ecartSoutenable(recents, "decouverte", "fr-FR", 4)).toEqual(recents);
+  });
+
+  it("quand il faut raboter, ce sont les plus RÉCENTS qu’on garde", () => {
+    const beaucoup = Array.from({ length: 1000 }, (_, i) => `mot${i}`);
+    const garde = ecartSoutenable(beaucoup, "decouverte", "fr-FR", 1) ?? [];
+    expect(garde.length).toBeLessThan(beaucoup.length);
+    expect(garde[garde.length - 1]).toBe("mot999");
+  });
+
+  it("sans historique, rien n’est interdit", () => {
+    expect(ecartSoutenable(undefined, "decouverte", "fr-FR", 1)).toBeUndefined();
+    expect(ecartSoutenable([], "decouverte", "fr-FR", 1)).toBeUndefined();
   });
 });
