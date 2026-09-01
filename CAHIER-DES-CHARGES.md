@@ -545,10 +545,18 @@ désormais le parent. Le cahier ne prétend pas le contraire.
 ### 4.3 Le rythme
 
 - **Une leçon = une journée = 10 à 15 minutes.** C'est la séance entière.
-- **La leçon se termine au temps, pas au compte.** À 7,8 mots nets/min (8-9 ans)
-  un item coûte ~10-12 s ; à 16 mots/min (10-11 ans) ~6 s. Un compte fixe
-  donnerait 6 minutes à l'un et 22 à l'autre. Ordre de grandeur attendu :
-  **50-60 exercices** en Découverte, **100-150** en Dactylo.
+- **La leçon se termine au COMPTE d'exercices, plus au temps** (#107). Le
+  cahier disait l'inverse, et son objection tient toujours : à 7,8 mots nets/min
+  (8-9 ans) un mot coûte ~10-12 s, à 16 mots/min (10-11 ans) ~6 s, si bien que
+  le même compte donne dix minutes à l'un et vingt à l'autre. Elle est payée les
+  yeux ouverts, parce qu'une fin au temps ne peut pas se compter d'avance :
+  « Exercice 2 sur ? » n'existe pas, et sans dénominateur les points de l'entête
+  ne comptaient vers rien.
+  Le quota est réglé PAR PARCOURS pour retomber sur la fourchette de durée, à
+  douze mots par exercice : **4 à 6 exercices** en Découverte (≈ 50-70 mots),
+  **8 à 12** en Dactylo (≈ 100-145 mots), croissant de la première à la
+  septième leçon de l'étape. Une durée plafond de vingt minutes reste en
+  garde-fou muet pour l'enfant très lent — elle ne s'affiche jamais.
 - **Micro-feedback par lettre** correcte (< 100 ms) : la touche s'illumine, son
   doux.
 - **Célébration par item terminé** : 0,5 à 1 s, une étoile. **Jamais de
@@ -573,7 +581,8 @@ désormais le parent. Le cahier ne prétend pas le contraire.
 |---|---|---|
 | Un jeu de touches | **étape** | `etape` (v1 : `palier`) |
 | Une session d'un jour | **leçon** | `lecon` (v1 : `bloc`) |
-| Un mot, un groupe, un nombre | **exercice** | `item` |
+| Une rangée de mots servie d'un coup | **exercice** | `serie` (la « vague ») |
+| Un mot, un groupe, un nombre | **mot** | `item` |
 
 `bloc` **reste dans le code** au sens « pan physique du clavier », qui est son
 sens juste. Le renommage global est interdit. Deux champs persistés et le code
@@ -583,9 +592,19 @@ de fusion multi-appareil exigent une migration ou des alias en lecture.
 « Leçon 3 sur 7 ». Il n'y a pas d'autre condition de passage : au bout de la
 septième leçon, l'étape suivante s'ouvre.
 
-**Le mot « exercice » ne s'affiche jamais sur l'écran de leçon.** Il nomme le
-niveau sur la carte et pour le parent. Le compteur « exercice 4 sur 10 » reste
-interdit sur V4.
+**Quatre échelons, quatre compteurs, et chacun fait avancer le suivant**
+(#107). Les mots remplissent l'exercice (une rangée de points), les exercices
+remplissent la leçon (« Exercice 2 sur 5 »), les leçons remplissent l'étape
+(« Leçon 3 sur 7 »), les étapes le parcours (« Étape 1 sur 10 »).
+
+Le compteur d'exercices a été interdit sur V4, puis rétabli. L'interdiction
+partait d'un vrai risque — un nombre devant les yeux transforme un repère en
+score. Mais la rangée seule se remplissait puis se vidait sans que rien d'autre
+ne bouge : l'enfant la finissait deux fois de suite en lisant « Leçon 1 sur 7 »
+figé. Un repère sans dénominateur ne repère rien. Le compteur revient donc,
+avec ce qu'il doit avoir pour ne pas devenir une note : **un total connu
+d'avance, atteignable dans la séance, et jamais un score** — ni pourcentage,
+ni vitesse, ni fautes.
 
 **Ce que devient la maîtrise.** Elle ne commande plus le passage, elle
 **compose le contenu**. On mesure la proportion d'items frappés **justes du
@@ -1051,12 +1070,16 @@ depuis « Continuer » sur V6.
 - Repère tactile visible sur `F` et `J`.
 - Bouton à taille d'enfant en bas : « Je tape sans regarder ».
 - **Interdit sur cet écran** : toute légende couleur→doigt, tout compteur
-  d'exercices, tout compteur d'erreurs, tout chrono, toute barre de progression,
-  toute mention du nombre de leçons restantes autre que « Leçon n sur 7 ».
+  d'erreurs, tout chrono, toute mesure de vitesse.
+- **Autorisé, et attendu** (#107) : « Exercice n sur N », « Leçon n sur 7 »,
+  « Étape n sur 10 », la rangée de points des mots de l'exercice, et la jauge
+  d'avancement de l'étape. Ce sont des REPÈRES DE PLACE — où j'en suis —, et
+  aucun n'est une mesure de performance.
 
 ```
 +------------------------------------------------------+
 | <-  Etape 3 - Lecon 2 sur 7      touches : e a s i.. |
+|     Mots de cet exercice ... o o o   Exercice 2 sur 5|
 |                                                      |
 |                   un  chat                           |
 |                       _                              |

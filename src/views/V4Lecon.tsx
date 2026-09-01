@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
 import { creerEtat, dureeLecon, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
 import { composerBlocDeListe, pouceDeLEspace } from '../core/generator';
-import { creerSession, optionsDeSession } from '../core/session';
+import { creerSession, exercicesParLecon, optionsDeSession } from '../core/session';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -339,9 +339,14 @@ export function V4Lecon() {
      caractères empêche un mot très court de devenir énorme. */
   const tailleMot = Math.floor(148 / Math.max(6, item?.texte.length ?? 6));
 
-  /* Une pastille = un exercice de la série en cours, dans les deux modes de jeu
-     (#76). Le noyau lit les bornes de séries que le reducer tient à jour. */
-  const avancement = avancementLecon(e);
+  /* Une pastille = un MOT de l'exercice en cours, dans les deux modes de jeu
+     (#76, #107). Le noyau lit les bornes d'exercices que le reducer tient à
+     jour ; le quota, lui, vient de la séance — une liste de la maison n'en a
+     pas, elle tient en un seul exercice. */
+  const avancement = avancementLecon(
+    e,
+    app.listeJouee ? undefined : exercicesParLecon(app.parcours, app.leconsSurEtape + 1),
+  );
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
   const prenom = useMemo(() => nomProfilActif(), []);
@@ -440,21 +445,22 @@ export function V4Lecon() {
           </p>
           <div className={v.ligneBloc}>
 
-            {/* Une pastille par exercice de la série en cours, et un libellé
-                qui le dit : la rangée mesurait le TEMPS écoulé sur douze
-                pastilles figées, si bien qu'elle avançait toute seule pendant
-                que l'enfant ne tapait rien (#76). « Exercice » ne s'écrit
-                jamais à l'enfant — la série se dit en mots. Le compte reste
-                CHIFFRÉ pour les lecteurs d'écran seulement (#86) : le cahier
-                interdit tout compteur d'exercices sur cet écran (l. 588,
-                l. 1054), parce qu'un nombre devant les yeux transforme un
-                repère en score. Les points, eux, disent la même chose sans
-                rien chiffrer. */}
-            <span className={v.libelleSerie}>Mots de cette série</span>
+            {/* Un compteur par échelon, et chacun fait avancer le suivant
+                (#107) : les mots remplissent l'exercice, les exercices la
+                leçon, les leçons l'étape. La rangée seule laissait l'enfant
+                voir douze points se remplir puis se vider sans que rien
+                d'autre ne bouge — elle ne comptait vers rien.
+
+                Le cahier interdisait tout compteur d'exercices sur cet écran
+                (l. 588, l. 1054) : un nombre devant les yeux transforme un
+                repère en score. L'interdiction est levée AVEC le cahier, et
+                pour la raison inverse — sans dénominateur, l'enfant ne peut
+                pas savoir où il en est. */}
+            <span className={v.libelleSerie}>Mots de cet exercice</span>
             <div
               className={v.avancement}
               role="img"
-              aria-label={`Mots de cette série : ${avancement.pleines} sur ${avancement.pastilles}`}
+              aria-label={`Mots de cet exercice : ${avancement.pleines} sur ${avancement.pastilles}`}
               data-serie-total={avancement.pastilles}
               data-serie-pleines={avancement.pleines}
             >
@@ -469,6 +475,15 @@ export function V4Lecon() {
                 />
               ))}
             </div>
+            {/* Une LISTE de la maison tient en un seul exercice : lui annoncer
+                « Exercice 1 sur 1 » ne dirait rien (#77). */}
+            {!app.listeJouee && (
+              <span
+                className={v.detailLecon}
+                data-exercice={avancement.exercice}
+                data-exercices={avancement.exercices}
+              >{`Exercice ${avancement.exercice} sur ${avancement.exercices}`}</span>
+            )}
           </div>
         </div>
         <span className={v.nomProfil}>{prenom}</span>
