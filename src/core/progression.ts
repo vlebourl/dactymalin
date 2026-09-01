@@ -56,49 +56,63 @@ export function avancementEtape(leconsFaites: number): Avancement {
 
 /** Ce que l'entête a besoin de savoir pour dessiner la rangée de points. */
 export type AvancementLecon = {
-  /** Nombre total de pastilles dessinées : la taille de la série en cours. */
+  /** Nombre total de pastilles dessinées : la taille de l'exercice en cours. */
   pastilles: number;
   /** Nombre de pastilles pleines, en tête de rangée. */
   pleines: number;
+  /** Le rang de l'exercice en cours, à partir de 1. */
+  exercice: number;
+  /** Combien d'exercices la leçon sert en tout. */
+  exercices: number;
 };
 
 /** Le strict nécessaire de l'état de leçon : on ne veut pas d'un état complet
     pour répondre à « où en est-on ? ». */
 export type EtatAvancement = {
   /**
-   * La taille de chaque SÉRIE servie, dans l'ordre de service. Une leçon de
+   * La taille de chaque EXERCICE servi, dans l'ordre de service. Une leçon de
    * parcours en reçoit plusieurs — le compositeur rallonge la file avant
-   * qu'elle ne se vide — là où une liste de la maison n'en a jamais qu'une.
+   * qu'elle ne se vide — là où une liste de la maison n'en a jamais qu'un.
    */
   series: number[];
-  /** L'exercice en cours, indexé dans la file cumulée. */
+  /** Le mot en cours, indexé dans la file cumulée. */
   i: number;
 };
 
 /**
- * Où en est-on DANS la série en cours ?
+ * Où en est-on DANS l'exercice en cours, et à quel exercice de la leçon ?
  *
- * Une pastille = un exercice, et une seule sémantique pour les deux modes de
- * jeu (#76). Avant, la rangée montrait douze pastilles figées remplies par le
- * TEMPS écoulé : elles avançaient toutes seules pendant que l'enfant ne tapait
- * rien, et leur nombre ne disait rien du contenu joué. Le temps ne fait plus
- * partie du calcul du tout — la leçon se termine toujours d'elle-même, mais
- * l'entête ne raconte plus le chrono.
+ * Une pastille = un MOT, un exercice = une rangée pleine, une leçon = un nombre
+ * d'exercices connu d'avance (#107). Les quatre échelons s'emboîtent enfin :
+ * avant, la rangée se remplissait puis se vidait sans que rien d'autre ne
+ * bouge, si bien qu'un enfant pouvait la finir deux fois de suite en lisant
+ * « Leçon 1 sur 7 » figé — les points ne comptaient vers rien.
  *
- * La série est un découpage INTERNE (la « vague » du compositeur) qu'on rend
- * ici visible sous ce seul nom : elle donne une fin proche et atteignable, là
- * où le total d'une leçon de douze minutes n'est pas connu d'avance.
+ * Le temps ne fait plus partie du calcul, ni ici (#76) ni pour terminer la
+ * leçon (#107) : c'est le quota d'exercices qui décide.
  */
-export function avancementLecon(e: EtatAvancement): AvancementLecon {
+export function avancementLecon(e: EtatAvancement, exercicesPrevus?: number): AvancementLecon {
   /* Une vague peut n'apporter aucun item neuf (tirage retombé sur du déjà
-     servi) : une série vide ne doit pas manger un tour de rangée. */
+     servi) : un exercice vide ne doit pas manger un tour de rangée. */
   const series = e.series.filter((t) => t > 0);
+  /* Le quota commande le dénominateur, jamais le nombre de vagues déjà
+     servies : la file se remplit AVANT de se vider, si bien qu'annoncer
+     `series.length` ferait monter le total en cours de route. Sans quota — la
+     liste de la maison —, il n'y a que ce qui a été servi. */
+  const exercices = Math.max(exercicesPrevus ?? series.length, series.length);
   let debut = 0;
-  for (const pastilles of series) {
-    if (e.i < debut + pastilles) return { pastilles, pleines: Math.max(0, e.i - debut) };
+  for (let k = 0; k < series.length; k++) {
+    const pastilles = series[k];
+    if (e.i < debut + pastilles)
+      return { pastilles, pleines: Math.max(0, e.i - debut), exercice: k + 1, exercices };
     debut += pastilles;
   }
-  /* Fin de leçon : l'index a dépassé la dernière série, qui reste pleine. */
+  /* Fin de leçon : l'index a dépassé le dernier exercice, qui reste plein. */
   const derniere = series[series.length - 1] ?? 0;
-  return { pastilles: derniere, pleines: derniere };
+  return {
+    pastilles: derniere,
+    pleines: derniere,
+    exercice: Math.max(series.length, 1),
+    exercices: Math.max(exercices, 1),
+  };
 }

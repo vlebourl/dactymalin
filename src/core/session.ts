@@ -6,18 +6,17 @@ import type { IdParcours } from "./parcours";
 import type { Maitrise } from "./progression";
 
 /**
- * Le flux d'exercices d'une leçon qui dure un TEMPS et non un compte.
+ * Le flux d'exercices d'une leçon, servi par VAGUES.
  *
- * Une leçon est une séance d'un jour, dix à quinze minutes. On ne peut donc pas
- * savoir d'avance combien d'exercices elle contiendra : à 7,8 mots nets par
- * minute — la norme mesurée à 8-9 ans — un exercice coûte dix à douze secondes,
- * contre six à seize mots par minute. Le même compte fixe donnerait six minutes
- * à l'un et vingt-deux à l'autre.
+ * Une vague EST un exercice depuis #107 : l'échelon visible entre le mot et la
+ * leçon. Elle n'était qu'un tampon interne, ce qui laissait la rangée de points
+ * se remplir puis se vider sans que rien d'autre ne bouge — douze points, puis
+ * zéro, et « Leçon 1 sur 7 » figé pendant douze minutes.
  *
- * Le flux sert donc des VAGUES, rechargées avant que la file ne se vide. La
- * vague est un détail interne : ni le reducer ni l'écran ne la présentent comme
- * une unité — elle n'a aucun sens pédagogique, et la montrer réintroduirait le
- * « bloc » que le cahier chasse de l'interface.
+ * Le prix est payé les yeux ouverts : la leçon se termine désormais au COMPTE
+ * et non au temps, ce que le cahier refusait (§4.3), parce qu'à 7,8 mots/min
+ * contre 16 le même compte donne dix minutes à l'un et vingt à l'autre. Le
+ * quota est donc réglé par parcours, et `DUREE_LECON_MS` reste en plafond muet.
  *
  * `composerBloc` reste intact : c'est lui qui garantit la couverture des
  * touches nouvelles, et c'est encore lui qui sert le mode « liste de la
@@ -29,6 +28,39 @@ import type { Maitrise } from "./progression";
 export const TAILLE_VAGUE = TAILLE_BLOC_MAX;
 /** On recharge AVANT la pénurie : une file vide finirait la leçon au milieu. */
 export const RESTE_AVANT_RECHARGE = 3;
+
+/**
+ * Combien d'EXERCICES une leçon sert, par rang de leçon (1 à 7).
+ *
+ * La vague cesse d'être un détail interne : c'est l'exercice, l'échelon que
+ * l'enfant voit entre le mot et la leçon (#107). Il lui faut donc un compte
+ * connu d'avance — sans quoi « Exercice 2 sur ? » n'a pas de dénominateur.
+ *
+ * Les valeurs sortent du volume que le cahier attend d'une séance (§4.3) :
+ * 50-60 exercices en Découverte, 100-150 en Dactylo, à douze mots par
+ * exercice. Le nombre monte doucement au fil de l'étape — la première leçon
+ * est la plus courte, celle du retour d'une étape neuve.
+ *
+ * CE QUE CELA COÛTE, et le cahier le disait : la leçon ne se termine plus au
+ * temps. À 7,8 mots/min ces comptes valent dix à douze minutes, mais un enfant
+ * lent y passera plus longtemps. `DUREE_LECON_MS` reste comme PLAFOND muet.
+ */
+export const EXERCICES_PAR_LECON: Record<IdParcours, number[]> = {
+  decouverte: [4, 4, 5, 5, 5, 6, 6],
+  dactylo: [8, 9, 9, 10, 10, 11, 12],
+};
+
+/**
+ * ponytail: le harnais de bout en bout raccourcit la leçon par ce réglage,
+ * comme il raccourcit déjà sa durée. Rien dans l'interface n'y touche.
+ */
+export function exercicesParLecon(parcours: IdParcours, rangLecon: number): number {
+  const o = (globalThis as { __exercicesParLecon?: unknown }).__exercicesParLecon;
+  if (typeof o === 'number' && o > 0) return Math.floor(o);
+  const table = EXERCICES_PAR_LECON[parcours];
+  const rang = Number.isFinite(rangLecon) ? Math.floor(rangLecon) : 1;
+  return table[Math.min(Math.max(rang, 1), table.length) - 1];
+}
 
 /**
  * Le délai au-delà duquel la leçon du retour commence par une révision (§7.4).
@@ -90,6 +122,13 @@ export type OptionsSession = {
   /** Injectable pour les tests ; l'horloge sinon. */
   maintenant?: number;
   joursAvantRevision?: number;
+  /**
+   * Combien d'exercices cette leçon sert. La file s'arrête là : c'est ce
+   * plafond qui termine la leçon, et c'est le dénominateur que l'entête
+   * affiche. Absent : pas de plafond, la file se recharge sans fin (le mode
+   * « liste de la maison », qui n'a qu'une seule vague, ne le pose pas).
+   */
+  exercices?: number;
 };
 
 export type Session = {
@@ -112,6 +151,8 @@ export type Session = {
 export type EtatPourSession = {
   parcours: IdParcours;
   etape: number;
+  /** Les leçons FAITES sur l'étape : la leçon en cours est la suivante. */
+  leconsSurEtape: number;
   /** L'étape que l'enfant a choisi de rejouer, sinon `null`. */
   etapeRejouee: number | null;
   aReinjecter?: string[];
@@ -156,6 +197,9 @@ export function optionsDeSession(
        pour qu'un enfant qui commence n'interdise rien. */
     recemmentVus: etat.exercicesRecents?.flat(),
     maintenant,
+    /* Un REJEU ne fait pas avancer le quota, mais il se joue quand même : on
+       lui sert le compte de la leçon en cours. */
+    exercices: exercicesParLecon(etat.parcours, etat.leconsSurEtape + 1),
   };
 }
 
@@ -212,6 +256,10 @@ export function creerSession(o: OptionsSession): Session {
   const file: Item[] = [];
   const servis = new Set<string>();
   let vague = 0;
+  /* Les vagues qui ont SERVI quelque chose. Un tirage peut retomber en entier
+     sur du déjà servi : cette vague-là ne s'est jamais vue à l'écran, elle ne
+     doit donc pas manger un exercice du quota. */
+  let servies = 0;
   let epuisee = false;
 
   const ajouter = (lot: Item[]) => {
@@ -255,20 +303,27 @@ export function creerSession(o: OptionsSession): Session {
   /* Une vague peut ne rien apporter de neuf alors que l'étape a encore du
      stock : le tirage retombe sur des mots déjà servis. On insiste donc
      quelques fois avant de déclarer l'étape épuisée. */
+  const quotaAtteint = () => o.exercices !== undefined && servies >= o.exercices;
+
   const recharger = () => {
-    if (epuisee) return;
+    if (epuisee || quotaAtteint()) return;
     for (let essai = 0; essai < 8; essai++) {
-      if (ajouter(composer()) > 0) return;
+      if (ajouter(composer()) > 0) {
+        servies++;
+        return;
+      }
     }
     epuisee = true;
   };
 
-  ajouter(composer());
+  if (ajouter(composer()) > 0) servies++;
 
   return {
     items: () => file,
     recharger,
     epuisee: () => epuisee,
-    aRecharger: (i) => !epuisee && file.length - i <= RESTE_AVANT_RECHARGE,
+    /* Le quota d'exercices arrête la file : la leçon se termine alors d'elle-
+       même, `i` ayant dépassé le dernier item (`lecon.itemSuivant`). */
+    aRecharger: (i) => !epuisee && !quotaAtteint() && file.length - i <= RESTE_AVANT_RECHARGE,
   };
 }

@@ -17,12 +17,16 @@ import type { IdDisposition } from './layouts';
 import { verdictMaj } from './maj';
 
 /**
- * Une leçon est une séance d'un jour : dix à quinze minutes (cahier §4.3).
- * On retient le milieu de la fourchette ; c'est le premier paramètre à
- * réajuster si l'usage réel le contredit, et c'est pourquoi le nombre de leçons
- * réellement consommées par étape est instrumenté.
+ * Le PLAFOND muet d'une leçon.
+ *
+ * Ce n'est plus la durée d'une leçon : depuis #107 elle se termine à son quota
+ * d'exercices (`session.exercicesParLecon`). Le chrono reste en garde-fou, pour
+ * l'enfant très lent qu'un compte fixe garderait devant l'écran indéfiniment —
+ * c'était l'objection du cahier (§4.3) et elle n'a pas disparu. Vingt minutes
+ * plutôt que douze : à douze, il aurait coupé des leçons ordinaires au milieu
+ * d'un exercice, et le compteur affiché aurait menti.
  */
-export const DUREE_LECON_MS = 12 * 60_000;
+export const DUREE_LECON_MS = 20 * 60_000;
 
 /**
  * ponytail: une leçon de douze minutes rendrait la suite de bout en bout

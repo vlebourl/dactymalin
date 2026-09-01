@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   creerSession,
+  EXERCICES_PAR_LECON,
+  exercicesParLecon,
   JOURS_AVANT_REVISION,
   ecartSoutenable,
   optionsDeSession,
@@ -348,6 +350,7 @@ describe("ce que l’état donne au compositeur de séance", () => {
   const etat: EtatPourSession = {
     parcours: "dactylo",
     etape: 4,
+    leconsSurEtape: 2,
     etapeRejouee: null,
     aReinjecter: ["chat"],
     maitrise: { e: [1, 2, 3] },
@@ -363,6 +366,7 @@ describe("ce que l’état donne au compositeur de séance", () => {
       maitrise: { e: [1, 2, 3] },
       derniereLecon: 1_700_000_000_000,
       maintenant: 42,
+      exercices: EXERCICES_PAR_LECON.dactylo[2],
     });
   });
 
@@ -381,7 +385,7 @@ describe("ce que l’état donne au compositeur de séance", () => {
 
   it("un enfant qui n’a encore rien joué ne fabrique ni date ni maîtrise", () => {
     const neuf = optionsDeSession(
-      { parcours: "decouverte", etape: 1, etapeRejouee: null, maitrise: {} },
+      { parcours: "decouverte", etape: 1, leconsSurEtape: 0, etapeRejouee: null, maitrise: {} },
       "fr-FR",
       0,
     );
@@ -403,6 +407,7 @@ describe("un exercice ne revient pas d’une leçon à l’autre (#72)", () => {
       {
         parcours: "decouverte",
         etape: 2,
+        leconsSurEtape: 0,
         etapeRejouee: null,
         maitrise: {},
         exercicesRecents: [["chat", "rat"], ["pie"]],
@@ -415,7 +420,7 @@ describe("un exercice ne revient pas d’une leçon à l’autre (#72)", () => {
 
   it("un enfant qui n’a encore rien joué n’interdit rien", () => {
     const o = optionsDeSession(
-      { parcours: "decouverte", etape: 1, etapeRejouee: null, maitrise: {} },
+      { parcours: "decouverte", etape: 1, leconsSurEtape: 0, etapeRejouee: null, maitrise: {} },
       "fr-FR",
       0,
     );
@@ -587,5 +592,50 @@ describe("la règle d’écart ne raccourcit pas la leçon (#72)", () => {
   it("sans historique, rien n’est interdit", () => {
     expect(ecartSoutenable(undefined, "decouverte", "fr-FR", 1)).toBeUndefined();
     expect(ecartSoutenable([], "decouverte", "fr-FR", 1)).toBeUndefined();
+  });
+});
+
+/* Régression #107 : la leçon durait douze minutes et la file se rechargeait
+   sans fin, si bien que la rangée de points se remplissait puis se vidait sans
+   jamais faire avancer quoi que ce soit. La leçon se termine désormais au
+   compte d'EXERCICES, connu d'avance. */
+describe("la leçon s'arrête à son compte d'exercices (#107)", () => {
+  const base = { id: "fr-FR" as const, parcours: "decouverte" as const, etape: 3, graine: 11 };
+
+  it("ne recharge plus une fois le quota servi", () => {
+    const s = creerSession({ ...base, exercices: 3 });
+    // on épuise la file en demandant sans cesse à recharger
+    for (let tour = 0; tour < 20; tour++) {
+      if (s.aRecharger(s.items().length - 1)) s.recharger();
+    }
+    expect(s.aRecharger(0)).toBe(false);
+    expect(s.items().length).toBeLessThanOrEqual(3 * TAILLE_VAGUE);
+    expect(s.items().length).toBeGreaterThan(2 * (TAILLE_VAGUE - 3));
+  });
+
+  it("sans quota, la file continue de se recharger", () => {
+    const s = creerSession(base);
+    const avant = s.items().length;
+    s.recharger();
+    expect(s.items().length).toBeGreaterThan(avant);
+  });
+
+  it("le quota suit le parcours et le rang de la leçon", () => {
+    expect(exercicesParLecon("decouverte", 1)).toBe(EXERCICES_PAR_LECON.decouverte[0]);
+    expect(exercicesParLecon("dactylo", 7)).toBe(EXERCICES_PAR_LECON.dactylo[6]);
+    // Dactylo sert plus d'exercices que Découverte : 100-150 mots contre 50-60 (§4.3)
+    expect(exercicesParLecon("dactylo", 1)).toBeGreaterThan(exercicesParLecon("decouverte", 1));
+    // un rang hors bornes ne fabrique pas un quota indéfini
+    expect(exercicesParLecon("decouverte", 0)).toBe(EXERCICES_PAR_LECON.decouverte[0]);
+    expect(exercicesParLecon("decouverte", 99)).toBe(EXERCICES_PAR_LECON.decouverte[6]);
+  });
+
+  it("le quota part de l'état, sinon l'entête annoncerait un total faux", () => {
+    const o = optionsDeSession(
+      { parcours: "decouverte", etape: 1, leconsSurEtape: 3, etapeRejouee: null, maitrise: {} },
+      "fr-FR",
+      0,
+    );
+    expect(o.exercices).toBe(EXERCICES_PAR_LECON.decouverte[3]);
   });
 });
