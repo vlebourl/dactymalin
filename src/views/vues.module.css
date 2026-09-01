@@ -247,8 +247,8 @@
 }
 
 /* Ce que la rangée compte, écrit noir sur blanc : sans libellé, douze points
-   ne disaient rien à personne (#76). Le mot « exercice » n'apparaît jamais à
-   l'enfant — c'est « les mots de cette série ». */
+   ne disaient rien à personne (#76). Elle compte les MOTS de l'exercice en
+   cours, et le compteur qui la suit dit à quel exercice on en est (#107). */
 .libelleSerie {
   font-size: clamp(12px, 1vw, 14px);
   color: var(--encre-doux);
