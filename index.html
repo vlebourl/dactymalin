@@ -7,6 +7,14 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Le manifeste sert Android et le bureau : sans lui, Chrome n'offre qu'un
+         raccourci qui rouvre le navigateur. Les `icon` et `apple-touch-icon`
+         ci-dessus RESTENT — iOS ne lit pas les icônes du manifeste.
+         Ses deux couleurs sont recopiées des jetons de `src/styles/tokens.css`
+         (`--fond` pour le fond, `--teal-vif` pour la teinte) : le JSON n'admet
+         ni variable ni commentaire, donc le lien se dit ici. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0b5a55" />
     <link rel="stylesheet" href="/fonts/lexend.css" />
     <title>DactyMalin</title>
   </head>

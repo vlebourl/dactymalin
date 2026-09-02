@@ -1,37 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { creeListe, jouerItem, motCourant, ouvrir, sauvegarde } from './helpers/app';
-
-/**
- * La coquille n'est gardée qu'une fois le service worker AUX COMMANDES : les
- * requêtes de la toute première visite lui échappent encore. Une seconde
- * visite en ligne suffit — ce que fait n'importe quelle famille avant de
- * partir, et ce que la spec assume (« l'app ne démarre plus jamais sans un
- * premier passage en ligne »).
- */
-async function coquilleGardee(page: import('@playwright/test').Page) {
-  await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
-  await page.reload();
-  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
-
-  /* Puis on attend que le cache cesse de grossir. La mise en cache se fait au
-     fil des requêtes ; couper le réseau à la seconde où la page a fini de
-     charger l'interrompt en plein vol, et il manque alors un morceau de la
-     coquille. Un vrai départ en voyage laisse ce temps-là de lui-même. */
-  const entrees = () =>
-    page.evaluate(async () => {
-      let n = 0;
-      for (const nom of await caches.keys()) n += (await (await caches.open(nom)).keys()).length;
-      return n;
-    });
-  let precedent = -1;
-  for (let i = 0; i < 40; i++) {
-    const n = await entrees();
-    if (n === precedent && n > 5) return;
-    precedent = n;
-    await page.waitForTimeout(150);
-  }
-  throw new Error('la coquille n’a jamais fini d’être gardée');
-}
+import { coquilleGardee, creeListe, jouerItem, motCourant, ouvrir, sauvegarde } from './helpers/app';
 
 /**
  * #3 — « l'enfant peut s'entraîner dans le train ». Une fois le parent
