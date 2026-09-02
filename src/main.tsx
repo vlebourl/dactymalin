@@ -98,6 +98,18 @@ if ('serviceWorker' in navigator) {
            voyage n'en ferait pas un. */
         const aGarder = [
           location.href,
+          /* Le manifeste est demandé par le NAVIGATEUR à l'analyse du document,
+             pas par ce script : selon le moment, il n'apparaît pas dans les
+             entrées de performance. On le nomme donc explicitement, sinon
+             l'application installée démarrerait hors ligne sans se savoir
+             installable (#110). On lit `.href` et non l'attribut brut : le DOM
+             le résout en URL absolue, alors que le worker résoudrait l'attribut
+             contre SA portée. Résolu, il se confond aussi avec l'entrée que les
+             mesures de performance rapportent parfois, et le `Set` n'en garde
+             qu'une. */
+          ...[document.querySelector<HTMLLinkElement>('link[rel="manifest"]')?.href].filter(
+            (h): h is string => Boolean(h),
+          ),
           ...performance
             .getEntriesByType('resource')
             .map((r) => r.name)
