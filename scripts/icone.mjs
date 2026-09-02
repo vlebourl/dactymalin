@@ -1,5 +1,7 @@
-/* Regénère les trois icônes de public/ : node scripts/icone.mjs
-   Sortie versionnée — à relancer seulement quand le dessin change. */
+/* Regénère les icônes de public/ : node scripts/icone.mjs
+   Sortie versionnée — à relancer seulement quand le dessin change.
+   Six fichiers : quatre tailles pleines (favicon, apple-touch, 192, 512) et
+   deux variantes MASQUABLES, seules à partir en écran d'accueil Android. */
 import { chromium } from 'playwright';
 
 /* Jetons repris de src/styles/tokens.css — l'icône ne doit jamais dériver
@@ -35,9 +37,7 @@ const main = (cote) => {
 
 const touche = (x) => `<rect x="${x}" y="174" width="54" height="54" rx="12" fill="${LISERE}" stroke="${LISERE_FORT}" stroke-width="2.5"/>`;
 
-const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="${FOND}"/>
+const dessin = `
 
   <!-- anneau ouvert : moitié gauche teal, moitié droite orange -->
   <g fill="none" stroke-width="9" stroke-linecap="round">
@@ -69,22 +69,50 @@ const svg = `
 
   <!-- les deux mains, inclinées vers le clavier -->
   <g transform="translate(32 240) rotate(-14 75 97) scale(1.5)">${main('gauche')}</g>
-  <g transform="translate(480 240) scale(-1 1) rotate(-14 75 97) scale(1.5)">${main('droite')}</g>
+  <g transform="translate(480 240) scale(-1 1) rotate(-14 75 97) scale(1.5)">${main('droite')}</g>`;
+
+/*
+ * Le lanceur Android DÉCOUPE une forme — cercle, carré arrondi, écusson — dans
+ * l'icône masquable : tout ce qui déborde du cercle central couvrant 80 % de la
+ * largeur est rogné. Le dessin plein touche presque les bords ; on le réduit
+ * donc autour du centre pour le faire tenir dans ce cercle, sur le même fond
+ * plein. Ce n'est PAS une marge décorative : sans elle, les mains sortent de
+ * l'écusson sur l'écran d'accueil de l'enfant.
+ *
+ * 0,72 vient de la géométrie : la demi-diagonale du dessin vaut environ 275 px
+ * pour un rayon sûr de 205 (0,4 × 512), soit 0,744 au plus juste — et on garde
+ * un peu de marge sous ce plafond. `installable.spec.ts` MESURE ce résultat sur
+ * les PNG produits : si le dessin s'élargit un jour, c'est ce test qui le dira.
+ */
+const SUR_MESURE_MASQUABLE = 0.72;
+
+const svg = (masquable = false) => `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="${FOND}"/>
+  ${
+    masquable
+      ? `<g transform="translate(256 256) scale(${SUR_MESURE_MASQUABLE}) translate(-256 -256)">${dessin}</g>`
+      : dessin
+  }
 </svg>`;
 
 const b = await chromium.launch();
-/* Les trois tailles sortent du MÊME SVG : un PNG redimensionné après coup
-   baverait sur les traits fins de l'anneau. */
+/* Chaque taille sort du MÊME SVG, rendue à sa dimension : un PNG redimensionné
+   après coup baverait sur les traits fins de l'anneau. */
 const tailles = [
-  [512, 'public/icon-512.png'],
-  [180, 'public/apple-touch-icon.png'],
-  [32, 'public/favicon-32.png'],
+  [512, 'public/icon-512.png', false],
+  /* 192 ET 512 : Chrome exige les deux pour proposer l'installation (#110). */
+  [192, 'public/icon-192.png', false],
+  [512, 'public/icon-maskable-512.png', true],
+  [192, 'public/icon-maskable-192.png', true],
+  [180, 'public/apple-touch-icon.png', false],
+  [32, 'public/favicon-32.png', false],
 ];
-for (const [taille, chemin] of tailles) {
+for (const [taille, chemin, masquable] of tailles) {
   const p = await b.newPage({ viewport: { width: taille, height: taille }, deviceScaleFactor: 1 });
-  await p.setContent(`<body style="margin:0">${svg.replace('width="512" height="512"', `width="${taille}" height="${taille}"`)}</body>`);
+  await p.setContent(`<body style="margin:0">${svg(masquable).replace('width="512" height="512"', `width="${taille}" height="${taille}"`)}</body>`);
   await p.locator('svg').screenshot({ path: chemin });
   await p.close();
-  console.log(chemin, taille);
+  console.log(chemin, taille, masquable ? '(masquable)' : '');
 }
 await b.close();
