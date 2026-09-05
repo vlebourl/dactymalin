@@ -132,7 +132,10 @@ export type OptionsSession = {
 };
 
 export type Session = {
-  /** Toute la file servie depuis le début, dans l'ordre. */
+  /**
+   * Toute la file servie depuis le début, dans l'ordre. C'est une COPIE :
+   * rendre `file` lui-même le laissait grandir sous les pieds de son lecteur.
+   */
   items: () => Item[];
   /** Ajoute une vague. Sans effet si l'étape n'a plus rien à offrir. */
   recharger: () => void;
@@ -319,7 +322,13 @@ export function creerSession(o: OptionsSession): Session {
   if (ajouter(composer()) > 0) servies++;
 
   return {
-    items: () => file,
+    /* Une COPIE, et c'est le correctif de #112 : la vue passe ce tableau à
+       `creerEtat`, si bien que `e.items` ÉTAIT `file`. Chaque `recharger()`
+       le rallongeait en douce, puis l'action « ajouter » y reconcaténait la
+       même vague — la leçon portait un exercice de plus que ce que les
+       compteurs annonçaient, et l'enfant continuait de taper après la dernière
+       pastille. */
+    items: () => [...file],
     recharger,
     epuisee: () => epuisee,
     /* Le quota d'exercices arrête la file : la leçon se termine alors d'elle-
