@@ -11,6 +11,7 @@ import {
   type EtatPourSession,
 } from "./session";
 import { TAILLE_BLOC_MIN } from "./generator";
+import { creerEtat, reducer as reducerLecon } from "./lecon";
 import { ensembleTouches, nouvellesTouches } from "./parcours";
 import { DEFAUTS, valider } from "./storage";
 import { aSauvegarder, etatDeDepart, reducer } from "../state";
@@ -637,5 +638,45 @@ describe("la leçon s'arrête à son compte d'exercices (#107)", () => {
       0,
     );
     expect(o.exercices).toBe(EXERCICES_PAR_LECON.decouverte[3]);
+  });
+});
+
+describe("la file servie ne dépasse pas les exercices comptés (#112)", () => {
+  /* Le bug : `items()` rendait `file` lui-même. La vue le passe à `creerEtat`,
+     donc `e.items` ÉTAIT la file ; chaque `recharger()` la rallongeait en
+     douce, puis l'action « ajouter » y reconcaténait la même vague. La leçon
+     portait un exercice de plus que ses compteurs, et l'enfant continuait de
+     taper après la dernière pastille du dernier exercice. */
+  it("la boucle de la vue laisse autant d'items que la somme des exercices", () => {
+    const s = creerSession({
+      id: "fr-FR",
+      parcours: "decouverte",
+      etape: 1,
+      graine: 7,
+      exercices: 4,
+    });
+    let e = creerEtat(s.items(), 0, 0);
+    // la boucle de V4Lecon : on rallonge la file avant qu'elle ne se vide
+    for (let tour = 0; tour < 20; tour++) {
+      // l'enfant avance jusqu'au seuil de recharge
+      e = { ...e, i: Math.max(0, e.items.length - 1) };
+      if (!s.aRecharger(e.i)) break;
+      const avant = s.items().length;
+      s.recharger();
+      e = reducerLecon(e, { type: "ajouter", items: s.items().slice(avant) });
+    }
+    const comptes = e.series.reduce((a, b) => a + b, 0);
+    expect(e.items.length).toBe(comptes);
+    expect(e.series.filter((t) => t > 0).length).toBeLessThanOrEqual(4);
+    // aucun mot servi deux fois
+    expect(new Set(e.items.map((it) => it.texte)).size).toBe(e.items.length);
+  });
+
+  it("items() rend une copie : muter le résultat ne touche pas la file", () => {
+    const s = creerSession({ id: "fr-FR", parcours: "decouverte", etape: 1, graine: 7 });
+    const avant = s.items().length;
+    const copie = s.items();
+    copie.push(copie[0]);
+    expect(s.items().length).toBe(avant);
   });
 });
