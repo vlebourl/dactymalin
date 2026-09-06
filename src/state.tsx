@@ -123,6 +123,10 @@ export type Action =
      jamais un verdict : rien n'est retiré, rien n'est compté, et l'app ne le
      propose pas d'elle-même. */
   | { type: 'rejouerEtape'; etape: number; lecon?: number }
+  /* Poser la progression juste APRÈS une leçon nommée (#116). Un réglage de
+     position, pas un rejeu : la progression réelle change, dans les deux
+     sens. Rien n'est enregistré dans la maîtrise ni les mesures. */
+  | { type: 'leconFaite'; etape: number; lecon: number }
   | { type: 'guideDoigtVu' }
   | { type: 'leconTerminee'; bilan: BilanBloc }
   | { type: 'verrMaj'; actif: boolean };
@@ -166,6 +170,24 @@ export function reducer(etat: EtatApp, action: Action): EtatApp {
         etapeOuverte: null,
     parcoursTermineMaintenant: false,
       };
+
+    /* La septième leçon ouvre l'étape suivante, comme en jeu ; à la dixième
+       étape le plafond EST la fin, et onze ne désigne aucun contenu. */
+    case 'leconFaite': {
+      const derniere = action.lecon >= LECONS_PAR_ETAPE;
+      const franchit = derniere && action.etape < ETAPE_MAX;
+      return {
+        ...etat,
+        etape: franchit ? action.etape + 1 : action.etape,
+        leconsSurEtape: franchit ? 0 : Math.min(action.lecon, LECONS_PAR_ETAPE),
+        etapeRejouee: null,
+        leconRejouee: null,
+        etapeOuverte: null,
+        parcoursTermineMaintenant: false,
+        /* Les items à revoir venaient d'une autre position du parcours. */
+        aReinjecter: [],
+      };
+    }
 
     case 'listes':
       return { ...etat, listes: action.listes };
