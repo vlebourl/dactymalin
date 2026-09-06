@@ -321,6 +321,47 @@ describe("rejouer une étape déjà faite", () => {
   });
 });
 
+/* MARQUER UNE LEÇON FAITE (#116).
+ *
+ * Un réglage de position depuis la carte : la progression réelle change, dans
+ * les deux sens, sans jouer. La septième leçon ouvre l'étape suivante comme en
+ * jeu, et la dixième étape ne déborde jamais sur une onzième. */
+describe("marquer une leçon comme faite", () => {
+  const aLEtape5 = (): EtatApp => ({
+    ...etatDeDepart(),
+    etape: 5,
+    leconsSurEtape: 2,
+    premierLancement: false,
+    etapeRejouee: 3,
+    leconRejouee: 4,
+  });
+
+  it("pose la progression juste après la leçon nommée, même en arrière", () => {
+    const etat = reducer(aLEtape5(), { type: 'leconFaite', etape: 2, lecon: 3 });
+    expect(etat.etape).toBe(2);
+    expect(etat.leconsSurEtape).toBe(3);
+  });
+
+  it("la septième leçon ouvre l'étape suivante à la leçon 1", () => {
+    const etat = reducer(aLEtape5(), { type: 'leconFaite', etape: 5, lecon: LECONS_PAR_ETAPE });
+    expect(etat.etape).toBe(6);
+    expect(etat.leconsSurEtape).toBe(0);
+  });
+
+  it("à la dixième étape, la septième leçon finit le parcours sans étape 11", () => {
+    const etat = reducer(aLEtape5(), { type: 'leconFaite', etape: ETAPE_MAX, lecon: LECONS_PAR_ETAPE });
+    expect(etat.etape).toBe(ETAPE_MAX);
+    expect(etat.leconsSurEtape).toBe(LECONS_PAR_ETAPE);
+    expect(parcoursFini(etat.etape, etat.leconsSurEtape)).toBe(true);
+  });
+
+  it("oublie le rejeu en cours : la prochaine séance part de la nouvelle position", () => {
+    const etat = reducer(aLEtape5(), { type: 'leconFaite', etape: 2, lecon: 3 });
+    expect(etat.etapeRejouee).toBe(null);
+    expect(etat.leconRejouee).toBe(null);
+  });
+});
+
 /* LA FIN DU PARCOURS (#60).
  *
  * À la dixième étape le franchissement exigeait `etape < ETAPE_MAX`, donc la
