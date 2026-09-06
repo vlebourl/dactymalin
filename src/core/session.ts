@@ -158,6 +158,8 @@ export type EtatPourSession = {
   leconsSurEtape: number;
   /** L'étape que l'enfant a choisi de rejouer, sinon `null`. */
   etapeRejouee: number | null;
+  /** Le rang de leçon choisi pour ce rejeu, sinon le rang courant (#114). */
+  leconRejouee?: number | null;
   aReinjecter?: string[];
   maitrise: Maitrise;
   derniereLecon?: number;
@@ -167,6 +169,15 @@ export type EtatPourSession = {
    */
   exercicesRecents?: string[][];
 };
+
+/**
+ * Le rang de la leçon RÉELLEMENT jouée : celui qu'on a choisi, sinon le
+ * suivant de la progression. Une seule définition, parce que la vue et le
+ * compositeur la calculaient chacun de leur côté et pouvaient diverger.
+ */
+export function rangLeconJouee(etat: Pick<EtatPourSession, 'leconsSurEtape' | 'leconRejouee'>): number {
+  return etat.leconRejouee ?? etat.leconsSurEtape + 1;
+}
 
 /**
  * Ce que l'état de l'app donne au compositeur de séance.
@@ -202,7 +213,7 @@ export function optionsDeSession(
     maintenant,
     /* Un REJEU ne fait pas avancer le quota, mais il se joue quand même : on
        lui sert le compte de la leçon en cours. */
-    exercices: exercicesParLecon(etat.parcours, etat.leconsSurEtape + 1),
+    exercices: exercicesParLecon(etat.parcours, rangLeconJouee(etat)),
   };
 }
 

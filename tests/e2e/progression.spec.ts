@@ -84,4 +84,23 @@ test.describe('rejouer une étape', () => {
     /* Ni le quota de l'étape courante, ni aucun autre. */
     await expect(page.getByText(/Leçon \d+ sur \d+/)).toHaveCount(0);
   });
+
+  /* #114 — choisir l'étape ET la leçon, y compris une étape à venir. L'entête
+     nomme les deux, sans quota, et la progression n'a pas bougé au retour. */
+  test("choisir une étape à venir et sa leçon, sans rien faire avancer", async ({ page }) => {
+    await ouvrir(page, 'fr-FR', 2, false, 'Lila', 'decouverte', 3);
+    await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
+
+    await page.getByRole('button', { name: 'Étape 4, leçon 6', exact: true }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+
+    await expect(page.getByText(`Étape 4 sur ${ETAPE_MAX}`)).toBeVisible();
+    await expect(page.getByLabel('Étape 4 · leçon 6 · tu la rejoues')).toBeVisible();
+    await expect(page.getByText(/Leçon \d+ sur \d+/)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Quitter la leçon' }).click();
+    await page.getByRole('button', { name: "Oui, j'arrête" }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+    await expect(page.getByText(`Étape 2, leçon 4 sur ${LECONS_PAR_ETAPE}`)).toBeVisible();
+  });
 });
