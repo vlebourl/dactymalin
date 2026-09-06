@@ -384,6 +384,18 @@ describe("ce que l’état donne au compositeur de séance", () => {
     expect(optionsDeSession({ ...etat, etapeRejouee: 2 }, "fr-FR", 0).etape).toBe(2);
   });
 
+  /* #114 : la leçon choisie commande le nombre d'exercices, et rien d'autre.
+     Sans ce passage de témoin, choisir « leçon 7 » servait le compte de la
+     leçon courante. */
+  it("la leçon choisie commande le nombre d’exercices, sinon c’est la courante", () => {
+    expect(optionsDeSession({ ...etat, etapeRejouee: 2, leconRejouee: 7 }, "fr-FR", 0).exercices).toBe(
+      EXERCICES_PAR_LECON.dactylo[6],
+    );
+    expect(optionsDeSession({ ...etat, etapeRejouee: 2, leconRejouee: null }, "fr-FR", 0).exercices).toBe(
+      EXERCICES_PAR_LECON.dactylo[etat.leconsSurEtape],
+    );
+  });
+
   it("un enfant qui n’a encore rien joué ne fabrique ni date ni maîtrise", () => {
     const neuf = optionsDeSession(
       { parcours: "decouverte", etape: 1, leconsSurEtape: 0, etapeRejouee: null, maitrise: {} },

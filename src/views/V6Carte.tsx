@@ -3,6 +3,7 @@ import { Cadenas } from '../ui/Key';
 import {
   ensembleTouches,
   etapes,
+  LECONS_PAR_ETAPE,
   NOM_PARCOURS,
   nouvellesTouches,
   parcoursFini,
@@ -118,6 +119,23 @@ export function V6Carte() {
                       </button>
                     </>
                   )}
+                  {/* #114 — choisir la leçon, sur TOUTE étape, y compris à
+                      venir : le cadenas reste un repère de « pas encore
+                      atteinte », plus une porte. La séance se joue « à côté »,
+                      comme un rejeu : rien n'avance, rien n'est compté. */}
+                  <span className={v.choixLecons} role="group" aria-label={`Étape ${p.n}, choisir la leçon`}>
+                    {Array.from({ length: LECONS_PAR_ETAPE }, (_, i) => i + 1).map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        className={v.boutonLecon}
+                        aria-label={`Étape ${p.n}, leçon ${l}`}
+                        onClick={() => envoi({ type: 'rejouerEtape', etape: p.n, lecon: l })}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </span>
                 </span>
               </div>
             );

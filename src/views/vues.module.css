@@ -1114,6 +1114,33 @@
   cursor: pointer;
 }
 
+/* #114 — la rangée des sept leçons d'une étape. Petits, mais pas moins de
+   40px de côté : c'est un doigt d'enfant sur tablette qui les vise. */
+.choixLecons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.boutonLecon {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 2px solid var(--liseré);
+  border-radius: 10px;
+  background: var(--fond-carte);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boutonLecon:hover,
+.boutonLecon:focus-visible {
+  border-color: var(--teal-vif);
+}
+
 /* #63 — ce que le parent lit des mesures. Un signal à agir, pas une erreur :
    il se distingue du texte courant par un liseré à gauche et non par du rouge,
    qui reste banni de toute l'app. */

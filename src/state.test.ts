@@ -299,6 +299,20 @@ describe("rejouer une étape déjà faite", () => {
     expect(etat.maitrise.e?.length).toBe(1);
   });
 
+  /* #114 : une leçon CHOISIE se joue à côté, comme l'étape ; et « On
+     commence ! » l'oublie avec elle, sinon l'accueil relançait la leçon 7 de
+     l'étape 9 à un enfant qui en est à l'étape 5. */
+  it("une étape à venir avec une leçon choisie ne fait pas avancer non plus", () => {
+    const choisi = reducer(aLEtape5(), { type: 'rejouerEtape', etape: 9, lecon: 7 });
+    expect(choisi.leconRejouee).toBe(7);
+    const etat = jouer(choisi, ['e'], 1);
+    expect(etat.etape).toBe(5);
+    expect(etat.leconsSurEtape).toBe(LECONS_PAR_ETAPE - 1);
+    const retour = reducer(etat, { type: 'commencer', liste: null });
+    expect(retour.etapeRejouee).toBe(null);
+    expect(retour.leconRejouee).toBe(null);
+  });
+
   /* Sans replay, rien ne change : la septième leçon ouvre bien l'étape 6. */
   it("laisse la progression ordinaire intacte", () => {
     const etat = jouer(aLEtape5(), ['e'], 1);
