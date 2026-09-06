@@ -1141,6 +1141,42 @@
   border-color: var(--teal-vif);
 }
 
+/* Une leçon faite se lit sans couleur : fond plein ET graisse. */
+.boutonLeconFaite {
+  background: var(--teal-vif);
+  color: #fff;
+  border-color: var(--teal-vif);
+}
+
+/* #116 — le numéro et son « faite » forment un seul bloc : deux boutons
+   accolés, le second plus discret, pour que jouer reste le geste premier. */
+.lecon {
+  display: inline-flex;
+}
+
+.lecon .boutonLecon {
+  border-radius: 10px 0 0 10px;
+}
+
+.boutonFaite {
+  min-width: 32px;
+  min-height: 40px;
+  padding: 0 6px;
+  border: 2px solid var(--liseré);
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: transparent;
+  color: var(--encre-doux);
+  font: inherit;
+  cursor: pointer;
+}
+
+.boutonFaite:hover,
+.boutonFaite:focus-visible {
+  border-color: var(--teal-vif);
+  color: var(--teal-vif);
+}
+
 /* #63 — ce que le parent lit des mesures. Un signal à agir, pas une erreur :
    il se distingue du texte courant par un liseré à gauche et non par du rouge,
    qui reste banni de toute l'app. */
