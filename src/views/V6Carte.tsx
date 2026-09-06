@@ -124,17 +124,35 @@ export function V6Carte() {
                       atteinte », plus une porte. La séance se joue « à côté »,
                       comme un rejeu : rien n'avance, rien n'est compté. */}
                   <span className={v.choixLecons} role="group" aria-label={`Étape ${p.n}, choisir la leçon`}>
-                    {Array.from({ length: LECONS_PAR_ETAPE }, (_, i) => i + 1).map((l) => (
-                      <button
-                        key={l}
-                        type="button"
-                        className={v.boutonLecon}
-                        aria-label={`Étape ${p.n}, leçon ${l}`}
-                        onClick={() => envoi({ type: 'rejouerEtape', etape: p.n, lecon: l })}
-                      >
-                        {l}
-                      </button>
-                    ))}
+                    {Array.from({ length: LECONS_PAR_ETAPE }, (_, i) => i + 1).map((l) => {
+                      /* Faite : toute leçon d'une étape dépassée, et jusqu'au
+                         compte sur l'étape courante. Le retour visuel du geste
+                         « faite » (#116), et un repère de position. */
+                      const faite = passe || (courant && l <= app.leconsSurEtape);
+                      return (
+                        <span key={l} className={v.lecon}>
+                          <button
+                            type="button"
+                            className={[v.boutonLecon, faite ? v.boutonLeconFaite : ''].filter(Boolean).join(' ')}
+                            aria-label={`Étape ${p.n}, leçon ${l}`}
+                            onClick={() => envoi({ type: 'rejouerEtape', etape: p.n, lecon: l })}
+                          >
+                            {l}
+                          </button>
+                          {/* #116 — poser la progression juste après cette
+                              leçon, sans la jouer. On reste sur la carte : le
+                              geste se voit sur la rangée, et on peut enchaîner. */}
+                          <button
+                            type="button"
+                            className={v.boutonFaite}
+                            aria-label={`Étape ${p.n}, leçon ${l} faite`}
+                            onClick={() => envoi({ type: 'leconFaite', etape: p.n, lecon: l })}
+                          >
+                            ✓
+                          </button>
+                        </span>
+                      );
+                    })}
                   </span>
                 </span>
               </div>
