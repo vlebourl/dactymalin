@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
 import { creerEtat, dureeLecon, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
 import { composerBlocDeListe, pouceDeLEspace } from '../core/generator';
-import { creerSession, exercicesParLecon, optionsDeSession } from '../core/session';
+import { creerSession, exercicesParLecon, optionsDeSession, rangLeconJouee } from '../core/session';
 import {
   exigeMaj,
   MAJ_DROITE,
@@ -76,7 +76,7 @@ export function V4Lecon() {
           creerSession(optionsDeSession(app, id, Date.now())),
     // une nouvelle séance à chaque entrée dans la vue
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, app.parcours, etapeJouee, app.lecon, app.listeJouee],
+    [id, app.parcours, etapeJouee, app.leconRejouee, app.lecon, app.listeJouee],
   );
 
   const items = useMemo(
@@ -345,7 +345,7 @@ export function V4Lecon() {
      pas, elle tient en un seul exercice. */
   const avancement = avancementLecon(
     e,
-    app.listeJouee ? undefined : exercicesParLecon(app.parcours, app.leconsSurEtape + 1),
+    app.listeJouee ? undefined : exercicesParLecon(app.parcours, rangLeconJouee(app)),
   );
 
   /* Le prénom est lu une fois : il ne peut pas changer pendant une leçon. */
@@ -362,8 +362,11 @@ export function V4Lecon() {
      entendait « Étape 5 » sur le contenu de l'étape 2. */
   const rejeu = app.etapeRejouee !== null;
   const numeroLecon = Math.min(avance.leconsFaites + 1, avance.total);
+  /* Une leçon CHOISIE (#114) se nomme par son rang, sans quota : ce rang ne
+     mesure rien, il dit seulement ce que l'enfant a demandé. */
+  const etiquetteRejeu = app.leconRejouee === null ? 'tu la rejoues' : `leçon ${app.leconRejouee} · tu la rejoues`;
   const etiquetteLecon = rejeu
-    ? `Étape ${etapeJouee} · tu la rejoues`
+    ? `Étape ${etapeJouee} · ${etiquetteRejeu}`
     : `Étape ${etapeJouee} · Leçon ${numeroLecon} sur ${avance.total}`;
   const clavierMasque = e.masque && !e.fini;
 
@@ -411,7 +414,7 @@ export function V4Lecon() {
                 </strong>
                 {rejeu ? (
                   <span className={v.detailLecon} aria-label={etiquetteLecon}>
-                    tu la rejoues
+                    {etiquetteRejeu}
                   </span>
                 ) : (
                   <>
