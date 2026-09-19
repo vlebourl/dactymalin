@@ -12,7 +12,12 @@ const env = lireEnv();
    (`db: "absente"`) et les routes de comptes répondront 503 le moment venu. */
 const base = env.DATABASE_URL ? creerBase(env.DATABASE_URL) : undefined;
 /* `null` hors de l'image de production : Piper n'y est pas (#124). */
-const synthese = creerSynthese(env);
+const piper = creerSynthese(env);
+/* Un mot d'essai AU DÉMARRAGE : un binaire présent mais incapable de tourner
+   (bibliothèque manquante, modèle corrompu) annoncerait une voix qui ne dit
+   rien — et sur un appareil sans voix française, une dictée muette. */
+const synthese = piper && (await piper('bonjour')) ? piper : null;
+if (piper && !synthese) console.error('Piper est là mais ne synthétise rien : la dictée parlera avec la voix du navigateur.');
 const racineClient = fileURLToPath(new URL('../../dist', import.meta.url));
 
 /* `serveStatic` rend la main quand le fichier n'existe pas : le repli SPA de

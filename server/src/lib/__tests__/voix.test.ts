@@ -2,7 +2,7 @@ import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { creerSynthese } from '../voix';
+import { creerSynthese, FILE_MAX } from '../voix';
 
 /* #124 — le VRAI Piper n'existe que dans l'image de production. Ici, un faux
    binaire de trois lignes tient son rôle : il lit le mot sur l'entrée, écrit
@@ -69,6 +69,18 @@ describe('synthèse vocale du serveur', () => {
     fauxPiper(HONNETE);
     expect((await dire('chat'))?.subarray(0, 4).toString()).toBe('RIFF');
   });
+
+  /* Revue #124 : `/api/listes` n'a pas de limite de débit. Une boucle de listes
+     de mots aléatoires allongeait la file sans fin, et les vrais enfants
+     attendaient derrière. Au-delà du plafond, on REFUSE — le client a son repli. */
+  it('refuse de faire la queue au-delà du plafond, plutôt que de faire attendre tout le monde', async () => {
+    const dire = creerSynthese({ PIPER_BIN: fauxPiper(HONNETE), PIPER_MODELE: __filename }, dossier)!;
+    const sons = await Promise.all(Array.from({ length: FILE_MAX + 20 }, (_, k) => dire(`mot${k}`)));
+    expect(sons.filter((son) => son === null)).toHaveLength(20);
+    expect(appels()).toHaveLength(FILE_MAX);
+    // la file vidée, le serveur reprend les demandes
+    expect(await dire('encore')).not.toBeNull();
+  }, 30_000);
 
   it('dit UNE phrase : un retour à la ligne glissé dans un mot ne devient pas deux énoncés', async () => {
     const dire = creerSynthese({ PIPER_BIN: fauxPiper(HONNETE), PIPER_MODELE: __filename }, dossier)!;

@@ -24,18 +24,29 @@ ENV NODE_ENV=production
 # demain doit parler avec la même voix qu'aujourd'hui.
 ARG PIPER_VERSION=2023.11.14-2
 ARG VOIX_URL=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx
+# `curl` et `wget` RESTENT dans l'image : le healthcheck de Coolify et celui de
+# `docker-compose.yml` s'exécutent DANS le conteneur, et `node:22-slim` n'a ni
+# l'un ni l'autre (sous alpine, `wget` venait de busybox).
+# Chaque téléchargement est VÉRIFIÉ : une archive remplacée en amont doit faire
+# échouer la construction, pas entrer dans l'image qui sert des enfants.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
+ && apt-get install -y --no-install-recommends ca-certificates curl wget \
+ && rm -rf /var/lib/apt/lists/* \
  && case "$(dpkg --print-architecture)" in \
-      amd64) PLATEFORME=x86_64 ;; \
-      arm64) PLATEFORME=aarch64 ;; \
+      amd64) PLATEFORME=x86_64  SOMME=a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992 ;; \
+      arm64) PLATEFORME=aarch64 SOMME=fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb ;; \
       *) echo "Piper n'a pas de binaire pour $(dpkg --print-architecture)" && exit 1 ;; \
     esac \
- && curl -fsSL "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PLATEFORME}.tar.gz" | tar -xz -C /opt \
  && mkdir -p /opt/voix \
+ && curl -fsSL -o /tmp/piper.tar.gz "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${PLATEFORME}.tar.gz" \
  && curl -fsSL -o /opt/voix/fr_FR-siwis-medium.onnx "${VOIX_URL}" \
  && curl -fsSL -o /opt/voix/fr_FR-siwis-medium.onnx.json "${VOIX_URL}.json" \
- && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+ && printf '%s  %s\n' \
+      "$SOMME" /tmp/piper.tar.gz \
+      641d1ab097da2b81128c076810edb052b385decc8be3381814802a64a73baf99 /opt/voix/fr_FR-siwis-medium.onnx \
+      39479916c2db192b5ac9764daddd0c744d83e023ad890c6976c0633ae4df8959 /opt/voix/fr_FR-siwis-medium.onnx.json \
+    | sha256sum -c - \
+ && tar -xzf /tmp/piper.tar.gz -C /opt && rm /tmp/piper.tar.gz
 # Sans ces deux variables, le serveur tourne sans voix et la dictée parle avec
 # celle du navigateur : c'est le régime du développement et de la CI.
 ENV PIPER_BIN=/opt/piper/piper
