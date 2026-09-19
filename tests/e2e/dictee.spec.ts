@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { creeListe, curseur, ouvrir } from './helpers/app';
+import { creeListe, curseur, jouerItem, motCourant, ouvrir } from './helpers/app';
 import { frapper } from './helpers/keyboard';
 
 /**
@@ -163,6 +163,32 @@ test('la copie reste la copie : mot écrit, touche allumée, aucune voix', async
   await expect(allumees(page)).toHaveCount(1);
   await page.waitForTimeout(300);
   expect(await dits(page)).toHaveLength(0);
+});
+
+/* Régression : trois mots d'affilée où la lettre a dû être donnée renvoyaient
+   l'enfant au choix du clavier (« Tes touches ne sont pas là où je croyais »).
+   En dictée, c'est de l'orthographe, pas un mauvais clavier. */
+test('trois mots difficiles ne renvoient pas au choix du clavier', async ({ page }) => {
+  await espionnerLaVoix(page, 'presente');
+  await ouvrir(page, 'fr-FR', 3, false, 'Joueur 1', 'decouverte', 2, 600_000);
+  await creeListe(page, 'Semaine 13', ['chat', 'lune', 'midi', 'porte']);
+  await page.reload();
+  await page.waitForSelector('body[data-vue="V1"]');
+  await page.getByRole('button', { name: 'En dictée' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+
+  for (let k = 0; k < 3; k++) {
+    const mot = (await motCourant(page))!;
+    const fausse = mot.startsWith('x') ? 'w' : 'x';
+    for (let f = 0; f < 3; f++) {
+      await frapper(page, 'fr-FR', fausse);
+      await page.waitForTimeout(220);
+    }
+    await expect(allumees(page)).toHaveCount(1);
+    await jouerItem(page, 'fr-FR');
+  }
+  await page.waitForTimeout(300);
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 });
 
 test.describe('sans voix française', () => {
