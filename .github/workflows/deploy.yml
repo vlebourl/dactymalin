@@ -41,7 +41,9 @@ jobs:
       - name: Attendre le verdict
         run: |
           echo "Déploiement ${{ env.deploy_uuid }} en cours…"
-          for i in $(seq 1 24); do
+          # 10 min : l'image embarque Piper (#124) — la première construction
+          # télécharge ~110 Mo et ne profite d'aucune couche en cache.
+          for i in $(seq 1 40); do
             sleep 15
             ETAT=$(curl -s \
               "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
@@ -51,7 +53,7 @@ jobs:
             [ "$ETAT" = "finished" ] && exit 0
             [ "$ETAT" = "failed" ] && echo "Déploiement en échec." && exit 1
           done
-          echo "Toujours $ETAT après 360 s — abandon de l'attente."
+          echo "Toujours $ETAT après 600 s — abandon de l'attente."
           exit 1
 
       # Le déploiement peut « finir » sur un conteneur qui ne répond pas :
