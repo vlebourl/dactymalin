@@ -41,6 +41,19 @@ export function barreau(etat: EtatAide, ecoule: number): Barreau {
   return Math.max(b, etat.atteint) as Barreau;
 }
 
+/** Fautes sur une même lettre avant que la dictée ne la donne (#118). */
+export const FAUTES_AVANT_LETTRE_DICTEE = 3;
+
+/**
+ * Barreau d'une DICTÉE (#118) : tout ou rien, et jamais au temps. Les barreaux
+ * 1 et 2 allument la touche attendue — en dictée, ce serait donner
+ * l'orthographe à l'enfant qui réfléchit. Seules les fautes comptent, et la
+ * lettre n'est donnée qu'à la troisième.
+ */
+export function barreauDictee(etat: EtatAide): Barreau {
+  return etat.atteint === 3 || etat.erreurs >= FAUTES_AVANT_LETTRE_DICTEE ? 3 : 0;
+}
+
 /** Enregistre une frappe fausse. Le barreau ne redescend jamais. */
 export function surErreur(etat: EtatAide, ecoule: number): EtatAide {
   const suivant = { ...etat, erreurs: etat.erreurs + 1 };

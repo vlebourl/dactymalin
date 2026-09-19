@@ -1041,6 +1041,42 @@
   font-size: 0.85em;
 }
 
+/* #118 — sous la carte, la même liste à l'oreille. Un second bouton, pas une
+   option dans la carte : deux cibles larges valent mieux qu'un menu. */
+.cartesListes li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.carteDictee {
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--teal-vif);
+  background: var(--fond-carte);
+  border: 2px solid var(--liseré);
+  border-radius: var(--r-bloc);
+  cursor: pointer;
+}
+
+.carteDictee:hover,
+.carteDictee:focus-visible {
+  border-color: var(--teal-vif);
+}
+
+.carteDictee:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--liseré);
+}
+
+/* Lettre pas encore trouvée d'une dictée : un tiret, à la place de la lettre. */
+.lettreCachee {
+  color: var(--encre-doux);
+  font-weight: 500;
+}
+
 /* Écran parent : le seul de l'app à parler comme à un adulte. */
 .titrePetit {
   font-size: clamp(20px, 2.4vw, 28px);

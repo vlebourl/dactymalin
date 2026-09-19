@@ -3,7 +3,8 @@
  * DOM. Fonctions PURES : la vue n'apporte que l'horloge et les frappes.
  */
 import {
-  barreau as calculerBarreau,
+  barreau as barreauCopie,
+  barreauDictee,
   estPropre,
   etatInitial,
   prochaineLatence,
@@ -70,6 +71,12 @@ export type EtatLecon = {
   /** l'item courant a-t-il demandé de l'aide (barreau ≥ 2) ? ⇒ réinjection */
   itemAide: boolean;
   masque: boolean;
+  /**
+   * Dictée (#118) : le mot est ENTENDU, ses lettres restent cachées tant
+   * qu'elles ne sont pas tapées. Fixé à la création, jamais basculé en cours
+   * de leçon — c'est une façon de jouer la liste, pas un réglage.
+   */
+  dictee: boolean;
   fini: boolean;
   /** frappes d'affilée cohérentes avec l'AUTRE disposition (surveillance F7) */
   incoherentes: number;
@@ -151,6 +158,7 @@ export function creerEtat(
   maintenant: number,
   latence: number,
   dureeMs?: number,
+  dictee = false,
 ): EtatLecon {
   return {
     items,
@@ -160,7 +168,7 @@ export function creerEtat(
     i: 0,
     curseur: 0,
     aide: etatInitial(items[0]?.texte[0] ?? '', latence),
-    barreau: latence === 0 ? 1 : 0,
+    barreau: barreauDeDepart(dictee, latence),
     latence,
     fausse: null,
     majManquante: false,
@@ -173,6 +181,7 @@ export function creerEtat(
     valides: [],
     itemAide: false,
     masque: false,
+    dictee,
     fini: false,
     incoherentes: 0,
     itemsSatures: 0,
@@ -182,6 +191,15 @@ export function creerEtat(
     rapport: leconVierge(0),
     debut: maintenant,
   };
+}
+
+/** Le barreau suit l'échelle du mode joué : copie (temps + fautes) ou dictée. */
+function calculerBarreau(dictee: boolean, aide: EtatAide, ecoule: number): Barreau {
+  return dictee ? barreauDictee(aide) : barreauCopie(aide, ecoule);
+}
+
+function barreauDeDepart(dictee: boolean, latence: number): Barreau {
+  return !dictee && latence === 0 ? 1 : 0;
 }
 
 /**
@@ -248,7 +266,7 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       if (suivant.celebration !== null && a.maintenant - suivant.celebration >= DUREE_CELEBRATION) {
         suivant = itemSuivant(suivant, a.maintenant);
       }
-      const b = calculerBarreau(suivant.aide, a.maintenant - suivant.debutCaractere);
+      const b = calculerBarreau(suivant.dictee, suivant.aide, a.maintenant - suivant.debutCaractere);
       const compte = surBarreau(suivant, b);
       if (
         b !== suivant.barreau ||
@@ -282,8 +300,14 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
 
       // ---- frappe fausse : RIEN ne s'écrit, le curseur ne bouge pas (P3)
       if (verdict === 'faute') {
-        const aide = surErreur(e.aide, a.maintenant - e.debutCaractere);
-        const barreau = calculerBarreau(aide, a.maintenant - e.debutCaractere);
+        const ecoule = a.maintenant - e.debutCaractere;
+        /* `surErreur` note d'office le barreau de la COPIE, terminal dès la
+           deuxième faute : la dictée compte la faute sans passer par lui. */
+        const fautive = e.dictee
+          ? { ...e.aide, erreurs: e.aide.erreurs + 1 }
+          : surErreur(e.aide, ecoule);
+        const barreau = calculerBarreau(e.dictee, fautive, ecoule);
+        const aide = { ...fautive, atteint: barreau };
         return {
           ...e,
           aide,
@@ -338,7 +362,7 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
         curseur,
         latence,
         aide,
-        barreau: latence === 0 ? 1 : 0,
+        barreau: barreauDeDepart(e.dictee, latence),
         debutCaractere: a.maintenant,
       };
     }
@@ -380,7 +404,7 @@ export function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
     itemsSatures: e.satureCourant ? e.itemsSatures : 0,
     satureCourant: false,
     aide: etatInitial(e.items[i].texte[0], e.latence),
-    barreau: e.latence === 0 ? 1 : 0,
+    barreau: barreauDeDepart(e.dictee, e.latence),
     debutCaractere: maintenant,
   };
 }

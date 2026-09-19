@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { IdDisposition } from './core/layouts';
-import type { Liste } from './core/listes';
+import type { Liste, ListeJouee } from './core/listes';
 import {
   BLOC_MAX,
   charger,
@@ -105,7 +105,7 @@ export type EtatApp = Omit<Sauvegarde, 'palier' | 'blocsSurPalier' | 'bloc'> & {
    * drapeau « bloc perso » à côté pouvait se désynchroniser d'elle, et l'a
    * fait — « Notre leçon » rejouait alors la carte d'avant.
    */
-  listeJouee: Liste | null;
+  listeJouee: ListeJouee | null;
 };
 
 export type Action =
@@ -114,7 +114,7 @@ export type Action =
    * `liste` absent = on continue ce qu'on jouait (« On continue ! » de V5) ;
    * une liste = on joue celle-là ; `null` = on revient au parcours.
    */
-  | { type: 'commencer'; liste?: Liste | null }
+  | { type: 'commencer'; liste?: ListeJouee | null }
   | { type: 'listes'; listes: Liste[] }
   | { type: 'disposition'; id: IdDisposition; manuel: boolean }
   | { type: 'reglage'; cle: keyof Reglages; valeur: boolean }

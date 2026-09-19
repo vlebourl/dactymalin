@@ -1249,7 +1249,7 @@ texte et les animations, rejouer le guide-doigt.
 | **Autres dispositions** (belge, canadienne, QWERTY US, BÉPO, Dvorak) | Chaque disposition supplémentaire est une table **et** un corpus filtré **et** un jeu d'étapes. Deux, traitées à fond, valent mieux que six approximatives. |
 | **Pavé numérique** | Inutilisable sur portable, qui est la machine probable. |
 | **Rendu en portrait sur téléphone** | Deux mains latérales exigent de la largeur. Le MVP vise le paysage sur portable et tablette. **À trancher aux maquettes.** |
-| **Dictée audio, mode aveugle, fonte OpenDyslexic** | Le levier établi pour les lecteurs en difficulté est l'espacement, déjà présent en réglage. La fonte spéciale est contestée par les études contrôlées. |
+| **Audio comme aide à la lecture, mode aveugle, fonte OpenDyslexic** | Le levier établi pour les lecteurs en difficulté est l'espacement, déjà présent en réglage. La fonte spéciale est contestée par les études contrôlées. **Exclusion levée pour la dictée (#118)** : jouer une liste de la maison à l'oreille, mot caché, est un exercice d'ORTHOGRAPHE et non une aide à la lecture — c'est l'exercice que l'école donne déjà sur ces mêmes mots. Ce n'est pas non plus un mini-jeu séparé (ligne suivante) : même écran, mêmes listes, hors progression. La dictée reste exclue du PARCOURS, où l'enfant apprend des touches, pas des mots. |
 | **Mini-jeux séparés, avatars, monnaie virtuelle, collections** | Documenté : l'enfant ne veut plus faire que le jeu, et la coupure leçon/jeu tue la leçon. |
 | **WPM, précision affichée, courbes, historique de sessions** | Mesurés en interne (§4.7), jamais affichés. |
 | **Un quatrième barreau d'aide « montre-moi »** | Palier de repli identifié (§7.3), pas une fonctionnalité MVP. |
