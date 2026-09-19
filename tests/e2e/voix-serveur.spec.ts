@@ -35,15 +35,11 @@ async function espionner(page: Page, { voixNavigateur }: Regime): Promise<void> 
         removeEventListener: () => {},
       },
     });
-    /* Un vrai lecteur REJETTE `play()` quand la source ne se charge pas : c'est
-       ce rejet qui déclenche le repli. L'espion fait de même, sans rien jouer. */
+    /* Le son du serveur est téléchargé puis joué depuis la mémoire (`blob:`),
+       et l'élément porte le mot qu'il dit. Rien n'est réellement joué. */
     HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
-      const src = this.src;
-      if (!src.includes('/api/voix/')) return Promise.resolve();
-      return fetch(src).then((r) => {
-        if (!r.ok) throw new DOMException('source illisible', 'NotSupportedError');
-        joues.push(decodeURIComponent(new URL(src).searchParams.get('mot') ?? ''));
-      });
+      if (this.src.startsWith('blob:')) joues.push(this.dataset.mot ?? '');
+      return Promise.resolve();
     };
   }, voixNavigateur);
 }
@@ -60,9 +56,9 @@ async function serveurVocal(page: Page, etatDuMot: number): Promise<void> {
 const lire = (page: Page, cle: '__dits' | '__joues') =>
   page.evaluate((c) => (window as unknown as Record<string, string[]>)[c], cle);
 
-async function lancerLaDictee(page: Page): Promise<void> {
+async function lancerLaDictee(page: Page, mot = 'chat'): Promise<void> {
   await ouvrir(page, 'fr-FR', 3, true, 'Joueur 1', 'decouverte', 2, 600_000);
-  await creeListe(page, 'Semaine 12', ['chat']);
+  await creeListe(page, 'Semaine 12', [mot]);
   await page.reload();
   await page.waitForSelector('body[data-vue="V1"]');
   await page.getByRole('button', { name: 'En dictée' }).click();
@@ -101,4 +97,51 @@ test('sans voix française sur l’appareil, la voix du serveur suffit à ouvrir
 
   await expect.poll(() => lire(page, '__joues')).toEqual(['chat']);
   await expect(page.getByText('Il manque une voix française')).toHaveCount(0);
+});
+
+/* Revue #124 : le repli comparait l'URL demandée à `audio.src`, que le
+   navigateur réécrit — l'apostrophe y devient `%27`. Pour « c'est », la
+   comparaison échouait toujours : ni voix du serveur, ni repli, un mot MUET. */
+test("un mot à apostrophe n'est jamais muet quand la voix du serveur tombe", async ({ page }) => {
+  await espionner(page, { voixNavigateur: true });
+  await serveurVocal(page, 503);
+  await lancerLaDictee(page, "c'est");
+  await expect.poll(() => lire(page, '__dits')).toEqual(["c'est"]);
+});
+
+/* Revue #124 : une synthèse coincée dans la file du serveur laissait l'enfant
+   dans le silence, jusqu'à vingt secondes par mot. */
+test('voix du serveur trop lente : le navigateur parle sans attendre', async ({ page }) => {
+  await espionner(page, { voixNavigateur: true });
+  await page.route('**/api/voix/etat', (r) => r.fulfill({ json: { disponible: true } }));
+  await page.route('**/api/voix/mot*', () => {
+    /* jamais de réponse */
+  });
+  await lancerLaDictee(page);
+  await expect.poll(() => lire(page, '__dits'), { timeout: 6000 }).toEqual(['chat']);
+});
+
+/* Revue #124 : un seul échec de `/etat` (réseau qui tousse) était retenu pour
+   toute la vie de la page — sur une tablette jamais rechargée, la voix du
+   serveur ne revenait plus. */
+test("un échec passager de l'état n'écarte pas la voix du serveur pour de bon", async ({ page }) => {
+  await espionner(page, { voixNavigateur: true });
+  /* Une PANNE, pas « la première requête » : le harnais charge la page deux
+     fois avant d'arriver à l'accueil. */
+  let panne = true;
+  await page.route('**/api/voix/etat', (r) =>
+    panne ? r.abort() : r.fulfill({ json: { disponible: true } }),
+  );
+  await page.route('**/api/voix/mot*', (r) =>
+    r.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from('RIFF') }),
+  );
+  await lancerLaDictee(page);
+  await expect.poll(() => lire(page, '__dits')).toEqual(['chat']); // 1re fois : repli
+
+  panne = false;
+  await page.getByRole('button', { name: 'Quitter la leçon' }).click();
+  await page.getByRole('button', { name: "Oui, j'arrête" }).click();
+  await page.waitForSelector('body[data-vue="V1"]');
+  await page.getByRole('button', { name: 'En dictée' }).click();
+  await expect.poll(() => lire(page, '__joues')).toEqual(['chat']);
 });

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
-import { readFile, rename, rm } from 'node:fs/promises';
+import { readdir, readFile, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
@@ -21,6 +21,22 @@ import { basename, join } from 'node:path';
  * grand = plus lent. À régler À L'OREILLE, sur de vrais mots de dictée.
  */
 export const LENTEUR_DICTEE = 1.35;
+
+/**
+ * Synthèses en attente au-delà desquelles on REFUSE : trois listes pleines.
+ * `/api/listes` n'a pas de limite de débit, et une boucle de listes de mots
+ * aléatoires ferait attendre les vrais enfants derrière elle. Le client a son
+ * repli ; un refus ne coûte qu'un mot dit par le navigateur.
+ */
+export const FILE_MAX = 300;
+
+/**
+ * Sons gardés au-delà desquels le cache est VIDÉ. Un foyer plein, c'est 3 000
+ * mots ; ce plafond ne sert qu'à empêcher un compte malveillant de remplir le
+ * disque (~60 Ko par mot). ponytail: tout jeter plutôt qu'une éviction fine —
+ * resynthétiser coûte 200 ms par mot.
+ */
+const CACHE_MAX = 5000;
 
 /** Un mot isolé se synthétise en ~200 ms ; au-delà, Piper est bloqué. */
 const DELAI_MAX_MS = 20_000;
@@ -46,9 +62,16 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
      les leçons. `enCours` fait partager la même synthèse à deux demandes
      simultanées du même mot. */
   let file: Promise<unknown> = Promise.resolve();
+  let enAttente = 0;
   const enCours = new Map<string, Promise<Buffer | null>>();
 
   const synthetiser = async (phrase: string, chemin: string): Promise<Buffer | null> => {
+    /* AVANT d'écrire : le brouillon vit dans ce dossier, le vider après
+       emporterait le son qu'on vient de produire. */
+    if ((await readdir(dossier)).length > CACHE_MAX) {
+      await rm(dossier, { recursive: true, force: true });
+      mkdirSync(dossier, { recursive: true });
+    }
     const brouillon = `${chemin}.${process.pid}.tmp`;
     const reussi = await new Promise<boolean>((resoudre) => {
       const piper = spawn(
@@ -57,7 +80,10 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
         { stdio: ['pipe', 'ignore', 'ignore'] },
       );
       const garde = setTimeout(() => piper.kill('SIGKILL'), DELAI_MAX_MS);
-      piper.on('error', () => resoudre(false));
+      piper.on('error', () => {
+        clearTimeout(garde);
+        resoudre(false);
+      });
       piper.on('close', (code) => {
         clearTimeout(garde);
         resoudre(code === 0);
@@ -87,9 +113,14 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
     const promesse = (async () => {
       const garde = await readFile(chemin).catch(() => null);
       if (garde) return garde;
-      const tour = file.then(() => synthetiser(phrase, chemin));
-      file = tour.catch(() => {});
-      return tour.catch(() => null);
+      if (enAttente >= FILE_MAX) return null;
+      enAttente++;
+      const tour = file
+        .then(() => synthetiser(phrase, chemin))
+        .catch(() => null)
+        .finally(() => enAttente--);
+      file = tour;
+      return tour;
     })().finally(() => enCours.delete(chemin));
     enCours.set(chemin, promesse);
     return promesse;
