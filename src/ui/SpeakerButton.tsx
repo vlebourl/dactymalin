@@ -28,15 +28,6 @@ export function dire(texte: string, debit = 0.9): void {
   }
 }
 
-/**
- * iPad et Android ne laissent parler une page qu'APRÈS un geste. Le premier
- * mot d'une dictée est dit à l'ouverture de la leçon, donc hors du geste : une
- * phrase vide, dite DANS le clic qui lance la dictée, lève le verrou.
- */
-export function amorcerLaVoix(): void {
-  dire('');
-}
-
 /** Délai laissé aux voix pour se déclarer avant de conclure qu'il n'y en a pas. */
 const ATTENTE_VOIX_MS = 1500;
 
@@ -66,11 +57,12 @@ export function useVoixFrancaise(): boolean | null {
 export function SpeakerButton({
   texte,
   libelle = 'Écouter',
-  debit,
+  parler = dire,
 }: {
   texte: string;
   libelle?: string;
-  debit?: number;
+  /** Qui parle. La dictée y met sa propre voix, serveur d'abord (#124). */
+  parler?: (texte: string) => void;
 }) {
   return (
     <button
@@ -79,7 +71,7 @@ export function SpeakerButton({
         /* Un clic souris ne garde pas le focus : les frappes suivantes
            appartiennent à la leçon, pas au bouton. */
         if (ev.detail > 0) ev.currentTarget.blur();
-        dire(texte, debit);
+        parler(texte);
       }}
       aria-label={libelle}
     >
