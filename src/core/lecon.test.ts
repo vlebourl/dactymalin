@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cleDiction,
   creerEtat,
   reducer,
   verdictFrappe,
@@ -275,5 +276,68 @@ describe('les bornes des séries servies (#76)', () => {
   it("le temps qui passe n'ouvre aucune série", () => {
     const e = depart('la', 'le');
     expect(reducer(e, { type: 'tic', maintenant: 999_999 }).series).toEqual([2]);
+  });
+});
+
+/* #118 — dictée : le mot est entendu, pas lu. L'échelle d'aide ordinaire
+   allumerait la touche à la première hésitation, et l'exercice se résoudrait
+   tout seul. */
+describe('dictée', () => {
+  const dictee = (...textes: string[]) => creerEtat(items(...textes), 0, 0, undefined, true);
+
+  it("n'offre aucune aide au temps, même après cinq secondes d'hésitation", () => {
+    const e = reducer(dictee('chat'), { type: 'tic', maintenant: 5000 });
+    expect(e.barreau).toBe(0);
+    expect(e.itemAide).toBe(false);
+  });
+
+  it('garde la lettre cachée deux fautes durant, et ne la donne qu’à la troisième', () => {
+    let e = dictee('chat');
+    e = reducer(e, frappe('x', 100, 'c'));
+    expect([e.barreau, e.aide.erreurs]).toEqual([0, 1]);
+    e = reducer(e, frappe('x', 200, 'c'));
+    expect(e.barreau).toBe(0);
+    e = reducer(e, frappe('x', 300, 'c'));
+    expect(e.barreau).toBe(3);
+    // un tic ne fait pas redescendre le barreau donné
+    expect(reducer(e, { type: 'tic', maintenant: 400 }).barreau).toBe(3);
+  });
+
+  it('repart sans aide à la lettre suivante et au mot suivant', () => {
+    let e = dictee('ce', 'si');
+    e = reducer(e, frappe('c', 10, 'c'));
+    expect(e.barreau).toBe(0);
+    e = reducer(e, frappe('e', 20, 'e'));
+    e = reducer(e, { type: 'tic', maintenant: 900 });
+    expect([e.i, e.barreau]).toEqual([1, 0]);
+  });
+
+  it('envoie à revoir le mot dont une lettre a dû être donnée, et lui seul', () => {
+    let e = dictee('ce', 'si');
+    e = reducer(e, frappe('x', 10, 'c')); // une faute seule : le mot reste acquis
+    e = taper(e, 'ce', 20);
+    for (const t of [1000, 1100, 1200]) e = reducer(e, frappe('x', t, 's'));
+    e = taper(e, 'si', 1300);
+    expect(e.aRevoir).toEqual(['si']);
+  });
+
+  /* Ce que la voix doit dire, et QUAND : le mot à son arrivée, puis une seule
+     fois par lettre, à la première faute. La vue dit chaque clé une fois. */
+  it('fait dire le mot à son arrivée, le redit à la première faute, pas aux suivantes', () => {
+    let e = dictee('ce', 'si');
+    expect(cleDiction(e)).toBe('0');
+    e = reducer(e, frappe('x', 10, 'c'));
+    expect(cleDiction(e)).toBe('0:0');
+    e = reducer(e, frappe('x', 20, 'c'));
+    expect(cleDiction(e)).toBeNull();
+    e = reducer(e, frappe('c', 30, 'c'));
+    expect(cleDiction(e)).toBe('0'); // déjà dite : la vue ne la redit pas
+    e = reducer(e, frappe('x', 40, 'e'));
+    expect(cleDiction(e)).toBe('0:1');
+    expect(cleDiction(depart('ce'))).toBeNull(); // la copie ne parle pas
+  });
+
+  it('ne change rien à la copie : la première faute y monte toujours au barreau 2', () => {
+    expect(reducer(depart('chat'), frappe('x', 100, 'c')).barreau).toBe(2);
   });
 });

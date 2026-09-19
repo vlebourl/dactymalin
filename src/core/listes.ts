@@ -16,6 +16,14 @@ export type Liste = {
 };
 
 /**
+ * Une liste telle qu'elle est JOUÉE (#118). La dictée est une façon de jouer
+ * la liste, donc elle voyage AVEC elle : un drapeau posé à côté dans l'état de
+ * l'app pourrait s'en désynchroniser, et ce couple-là a déjà produit un défaut
+ * (#12). Jamais persisté, jamais envoyé au serveur.
+ */
+export type ListeJouee = Liste & { enDictee?: true };
+
+/**
  * Plafond de listes par compte. Il vit ici, avec le reste du validateur, pour
  * que l'écran et le serveur refusent au MÊME nombre : sinon l'écran promet une
  * trente-et-unième liste que le serveur rejette.

@@ -42,6 +42,13 @@ describe('lancer une liste depuis une carte', () => {
   /* Depuis #12, la liste jouée est le SEUL état du mode : il n'y a plus de
      drapeau à côté d'elle pour s'en désynchroniser. C'est ce couple-là qui
      avait produit le défaut où « Notre leçon » rejouait la carte d'avant. */
+  /* #118 — la dictée voyage AVEC la liste jouée, pour la même raison. */
+  it('« On continue ! » reste en dictée, et la carte rejouée en copie en sort', () => {
+    const enDictee = reducer(base(), { type: 'commencer', liste: { ...DICTEE, enDictee: true } });
+    expect(reducer(enDictee, { type: 'commencer' }).listeJouee?.enDictee).toBe(true);
+    expect(reducer(enDictee, { type: 'commencer', liste: DICTEE }).listeJouee?.enDictee).toBeUndefined();
+  });
+
   it('revenir au parcours oublie la liste', () => {
     const enCours = reducer(base(), { type: 'commencer', liste: DICTEE });
     expect(reducer(enCours, { type: 'commencer', liste: null }).listeJouee).toBeNull();
@@ -56,6 +63,13 @@ describe('un bloc de liste ne fait pas avancer le parcours', () => {
     items: ['dinosaure'],
     fin: 1_700_000_000_000,
   };
+
+  it('la dictée non plus : elle hérite du régime des listes (#118)', () => {
+    const enCours = reducer(base(), { type: 'commencer', liste: { ...DICTEE, enDictee: true } });
+    const apres = reducer(enCours, { type: 'leconTerminee', bilan });
+    expect([apres.etape, apres.leconsSurEtape]).toEqual([2, 4]);
+    expect(apres.maitrise).toEqual(enCours.maitrise);
+  });
 
   it('rapporte les étoiles, et ne bouge ni palier, ni maîtrise, ni compteur', () => {
     const enCours = reducer(base(), { type: 'commencer', liste: DICTEE });

@@ -3,6 +3,7 @@ import { estJouable } from '../core/listes';
 import { ensembleTouches, LECONS_PAR_ETAPE, parcoursFini, rangLecon } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
+import { amorcerLaVoix, useVoixFrancaise } from '../ui/SpeakerButton';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -29,6 +30,7 @@ export function V1Accueil() {
      COMPTE, la disposition vient de CET appareil, et les deux peuvent ne pas
      s'accorder. Mieux vaut pas de carte qu'une carte sans rien à taper. */
   const jouables = app.listes.filter((liste) => estJouable(liste, app.disposition));
+  const voixFrancaise = useVoixFrancaise();
 
   return (
     <div className={v.ecran}>
@@ -91,14 +93,37 @@ export function V1Accueil() {
                   className={v.carteListe}
                   onClick={() => envoi({ type: 'commencer', liste })}
                 >
-                  <span className={v.carteNom}>{liste.nom}</span>
+                  <span className={v.carteNom} id={`liste-${liste.id}`}>
+                    {liste.nom}
+                  </span>
                   <span className={v.carteMots}>
                     {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
                   </span>
                 </button>
+                {/* #118 — la même liste, À L'OREILLE. Le nom de la liste décrit
+                    le bouton sans entrer dans son nom : la carte reste seule à
+                    le porter. */}
+                <button
+                  className={v.carteDictee}
+                  disabled={!voixFrancaise}
+                  aria-describedby={`liste-${liste.id}`}
+                  onClick={() => {
+                    amorcerLaVoix();
+                    envoi({ type: 'commencer', liste: { ...liste, enDictee: true } });
+                  }}
+                >
+                  En dictée
+                </button>
               </li>
             ))}
           </ul>
+        )}
+        {/* Une dictée muette est impossible à réussir : pas de repli. */}
+        {jouables.length > 0 && voixFrancaise === false && (
+          <p className={v.ligneClavier}>
+            Il manque une voix française sur cet appareil. Un parent peut en ajouter une dans les
+            réglages du système.
+          </p>
         )}
 
         {/* Le parcours en cours, DIT : le parent l'a choisi dans les réglages,
