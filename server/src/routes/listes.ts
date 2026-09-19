@@ -5,12 +5,21 @@ import type { Auth } from '../auth';
 import type { Base } from '../db/client';
 import { liste } from '../db/schema';
 import { exigeSession, type AvecCompte } from '../lib/session';
+import type { Synthese } from '../lib/voix';
 /* Le serveur juge avec le MÊME validateur que l'écran : sinon l'écran promet
    une liste que le serveur refuse, ou l'inverse. */
 import { LISTES_MAX, listeValidee } from '../../../src/core/listes';
 
-export function routesListes(base: Base, auth: Auth) {
+export function routesListes(base: Base, auth: Auth, synthese: Synthese | null = null) {
   const app = new Hono<AvecCompte>();
+
+  /* La liste vient d'être enregistrée : ses mots sont synthétisés TOUT DE
+     SUITE, en arrière-plan, pour que l'enfant n'attende jamais le moteur (#124).
+     Jamais attendu, jamais fatal — la route `/api/voix/mot` synthétise de toute
+     façon à la demande ce qui manquerait. */
+  const prechauffer = (mots: string[]) => {
+    if (synthese) for (const mot of mots) void synthese(mot).catch(() => null);
+  };
 
   /* Une bibliothèque appartient au COMPTE : chaque requête filtre sur le
      propriétaire, pas seulement la lecture, et la dictée d'une famille ne fuit
@@ -46,6 +55,7 @@ export function routesListes(base: Base, auth: Auth) {
       .insert(liste)
       .values({ id: randomUUID(), userId, nom: valide.nom, mots: valide.mots })
       .returning({ id: liste.id, nom: liste.nom, mots: liste.mots, creeLe: liste.creeLe });
+    prechauffer(creee.mots);
     return c.json({ ...creee, creeLe: creee.creeLe.toISOString() }, 201);
   });
 
@@ -71,6 +81,7 @@ export function routesListes(base: Base, auth: Auth) {
     if (modifiees.length === 0) {
       return c.json({ erreur: 'liste introuvable', code: 'LISTE_INTROUVABLE' }, 404);
     }
+    prechauffer(modifiees[0].mots);
     return c.json({ ...modifiees[0], creeLe: modifiees[0].creeLe.toISOString() });
   });
 
