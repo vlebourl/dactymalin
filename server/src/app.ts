@@ -6,6 +6,8 @@ import type { Base } from './db/client';
 import { routesCompte } from './routes/compte';
 import { routesListes } from './routes/listes';
 import { routesProfils } from './routes/profils';
+import { routesVoix } from './routes/voix';
+import type { Synthese } from './lib/voix';
 import type { Env } from './env';
 import { identifiantVersion } from './version';
 
@@ -26,6 +28,8 @@ export type Deps = {
   auth?: Auth;
   /** Base de données ; absente sans `DATABASE_URL`. */
   base?: Base;
+  /** Voix de la dictée (Piper) ; absente hors de l'image de production (#124). */
+  synthese?: Synthese | null;
 };
 
 /**
@@ -70,7 +74,8 @@ export function creerApp(deps: Deps) {
 
   if (deps.auth && deps.base) {
     app.route('/api/profils', routesProfils(deps.base, deps.auth));
-    app.route('/api/listes', routesListes(deps.base, deps.auth));
+    app.route('/api/listes', routesListes(deps.base, deps.auth, deps.synthese ?? null));
+    app.route('/api/voix', routesVoix(deps.base, deps.auth, deps.synthese ?? null));
     app.route('/api/compte', routesCompte(deps.base, deps.auth));
   }
 

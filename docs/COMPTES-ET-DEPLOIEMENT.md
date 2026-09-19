@@ -148,7 +148,7 @@ secrets — c'est à toi.
   `BETTER_AUTH_SECRET` manquent en production.
 - `index.ts` : `GET /api/health` → `{ ok, version, db }` ; sert `dist/` en
   statique avec repli SPA sur `index.html`. Écoute sur `PORT` (défaut 3000).
-- `Dockerfile` multi-stage : `node:22-alpine`, stage build (`npm ci` +
+- `Dockerfile` multi-stage : `node:22-slim` (Debian — le binaire Piper de la dictée exige la glibc, #124 ; `node:22-alpine` à l'origine), stage build (`npm ci` +
   `vite build`), stage runtime (node_modules + `dist/` + `server/`).
 - `docker-compose.yml` : `app` + `postgres:17-alpine`, healthcheck
   `curl -f http://localhost:3000/api/health`.

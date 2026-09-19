@@ -26,7 +26,8 @@ import { doigtDe, ensembleTouches, etapes, ETAPE_MAX, type IdParcours } from '..
 import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
-import { DEBIT_DICTEE, dire, SpeakerButton } from '../ui/SpeakerButton';
+import { SpeakerButton } from '../ui/SpeakerButton';
+import { direMot, prechargerLesMots } from '../ui/voixDictee';
 import { useKeyInput } from '../hooks/useKeyInput';
 import { avancementEtape, avancementLecon } from '../core/progression';
 import { nomProfilActif } from '../core/profils';
@@ -339,8 +340,14 @@ export function V4Lecon() {
   useEffect(() => {
     if (aDire === null || !item || refClesDites.current.has(aDire)) return;
     refClesDites.current.add(aDire);
-    dire(item.texte, DEBIT_DICTEE);
+    direMot(item.texte);
   }, [aDire, item]);
+
+  /* Les sons de la liste sont demandés dès l'ouverture : le deuxième mot ne
+     doit pas attendre que le serveur le synthétise (#124). */
+  useEffect(() => {
+    if (e.dictee) prechargerLesMots(items.map((it) => it.texte));
+  }, [e.dictee, items]);
 
   /* -------------------- nom de la lettre prononcé au barreau 3 (fr-FR) */
   const refDit = useRef('');
@@ -599,7 +606,7 @@ export function V4Lecon() {
             })}
           </span>
           {e.dictee && item && !enCelebration && (
-            <SpeakerButton texte={item.texte} libelle="Réécouter le mot" debit={DEBIT_DICTEE} />
+            <SpeakerButton texte={item.texte} libelle="Réécouter le mot" parler={direMot} />
           )}
           {enCelebration && (
             <span className={v.celebration}>

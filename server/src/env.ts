@@ -39,6 +39,13 @@ const schema = z.object({
   /** Sauvegarde Coolify avant migration (étape 2). */
   COOLIFY_WEBHOOK_URL: z.string().url().optional(),
   COOLIFY_API_TOKEN: z.string().min(1).optional(),
+  /**
+   * Voix de la dictée (#124) : le binaire Piper et son modèle. Posés par le
+   * `Dockerfile`, donc présents en production sans rien configurer ; absents
+   * partout ailleurs, et la dictée parle alors avec la voix du navigateur.
+   */
+  PIPER_BIN: z.string().min(1).optional(),
+  PIPER_MODELE: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof schema>;
