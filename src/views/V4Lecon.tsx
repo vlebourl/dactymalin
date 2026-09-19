@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type MouseEvent } from 'react';
-import { creerEtat, dureeLecon, reducer, verdictFrappe, type FrappeLecon } from '../core/lecon';
+import {
+  cleDiction,
+  creerEtat,
+  dureeLecon,
+  lettreDonnee,
+  reducer,
+  verdictFrappe,
+  type FrappeLecon,
+} from '../core/lecon';
 import { composerBlocDeListe, pouceDeLEspace } from '../core/generator';
 import { creerSession, exercicesParLecon, optionsDeSession, rangLeconJouee } from '../core/session';
 import {
@@ -110,7 +118,9 @@ export function V4Lecon() {
   /* Une liste peut employer des lettres pas encore enseignées — le clavier les
      allume quand même : savoir où poser ses doigts n'attend pas le programme. */
   const ensemble = useMemo(() => {
-    const base = ensembleTouches(app.parcours, id, etapeJouee);
+    /* En DICTÉE, ouvrir les seules lettres de la liste afficherait l'anagramme
+       du mot sous ses tirets : tout le clavier du parcours est ouvert (#118). */
+    const base = ensembleTouches(app.parcours, id, app.listeJouee?.enDictee ? ETAPE_MAX : etapeJouee);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
   }, [id, etapeJouee, app.listeJouee, items]);
@@ -121,7 +131,7 @@ export function V4Lecon() {
      allumée, le doigt des mains dessinées, la consigne de Maj. Rien de cela ne
      se montre avant que la leçon ait décidé de donner la lettre (barreau 3),
      ou que l'enfant l'ait trouvée sans sa Maj (quasi-réussite). */
-  const lettreDonnee = !e.dictee || e.barreau === 3 || e.majManquante;
+  const indiceVisible = !enCelebration && lettreDonnee(e);
 
   // main de la lettre précédente, pour le pouce de l'espace (P8)
   const mainPrecedente = useMemo(() => {
@@ -140,7 +150,7 @@ export function V4Lecon() {
     attendu === ' ' ? pouceDeLEspace(mainPrecedente) : (mainDe(id, attendu) ?? 'gauche');
   /* Seul cas du MVP à DEUX touches allumées : la Maj contralatérale. */
   const besoinMaj = attendu !== ' ' && exigeMaj(id, attendu) && !enCelebration;
-  const montrerMaj = besoinMaj && lettreDonnee;
+  const montrerMaj = besoinMaj && indiceVisible;
   const cibleMaj = montrerMaj
     ? mainDeLaMaj(id, attendu) === 'gauche'
       ? MAJ_GAUCHE
@@ -322,21 +332,15 @@ export function V4Lecon() {
      Elle n'obéit PAS au réglage « Sons » : ce réglage coupe des effets, et ici
      la voix est l'exercice. Le mot est dit quand il arrive, et redit à la
      PREMIÈRE faute sur une lettre — pas aux suivantes, qui se couperaient
-     l'une l'autre. La clé dédoublonne : StrictMode rejoue les effets. */
-  const refMotDit = useRef('');
+     l'une l'autre (`cleDiction`). Chaque clé est dite UNE fois : StrictMode
+     rejoue les effets. */
+  const refClesDites = useRef(new Set<string>());
+  const aDire = cleDiction(e);
   useEffect(() => {
-    if (!e.dictee || e.fini || !item || e.aide.erreurs > 1) return;
-    const cle = e.aide.erreurs === 1 ? `${e.i}:${e.curseur}` : `${e.i}`;
-    /* Sans faute, seul un NOUVEAU mot fait parler : la clé d'une faute
-       commence par le rang du mot, et ne doit pas le faire redire ensuite. */
-    const dejaDit =
-      e.aide.erreurs === 1
-        ? refMotDit.current === cle
-        : refMotDit.current.split(':')[0] === cle;
-    if (dejaDit) return;
-    refMotDit.current = cle;
+    if (aDire === null || !item || refClesDites.current.has(aDire)) return;
+    refClesDites.current.add(aDire);
     dire(item.texte, DEBIT_DICTEE);
-  }, [e.dictee, e.fini, e.i, e.curseur, e.aide.erreurs, item]);
+  }, [aDire, item]);
 
   /* -------------------- nom de la lettre prononcé au barreau 3 (fr-FR) */
   const refDit = useRef('');
@@ -344,7 +348,9 @@ export function V4Lecon() {
     const cle = `${e.i}:${e.curseur}:${e.barreau}`;
     if (e.barreau !== 3 || refDit.current === cle) return;
     refDit.current = cle;
-    if (!app.reglages.sons || typeof speechSynthesis === 'undefined') return;
+    /* En dictée la voix est l'exercice : la lettre donnée se dit même sons
+       coupés, comme le mot (#118). */
+    if (!(app.reglages.sons || e.dictee) || typeof speechSynthesis === 'undefined') return;
     // Un navigateur exotique ne doit JAMAIS pouvoir effacer la leçon en cours :
     // la synthèse vocale est un confort, pas une dépendance.
     try {
@@ -358,7 +364,7 @@ export function V4Lecon() {
     } catch {
       /* voix indisponible : l'aide reste purement visuelle */
     }
-  }, [e.barreau, e.i, e.curseur, attendu, app.reglages.sons]);
+  }, [e.barreau, e.i, e.curseur, e.dictee, attendu, app.reglages.sons]);
 
   /* Le bandeau annonce l'ensemble CUMULÉ, pas les seules nouveautés du palier :
      c'est lui la référence de ce qui peut être proposé (P5). Les capitales
@@ -551,7 +557,7 @@ export function V4Lecon() {
         /* Le doigt visé, porté par la zone de leçon. Il vivait sur la bande de
            photographies ; celle-ci retirée, l'information reste — c'est elle
            que lisent l'annonce vocale et les tests, pas les images. */
-        data-doigt={enCelebration || !lettreDonnee ? 'aucun' : doigt}
+        data-doigt={indiceVisible ? doigt : 'aucun'}
       >
         <div className={v.zoneMot}>
           <span
@@ -579,7 +585,7 @@ export function V4Lecon() {
                     k < e.curseur ? v.lettreTapee : '',
                     k === e.curseur ? v.lettreCourante : '',
                     /* la couleur du soulignement dit la MAIN : c'est un indice */
-                    k === e.curseur && mainCible === 'droite' && lettreDonnee
+                    k === e.curseur && mainCible === 'droite' && lettreDonnee(e)
                       ? v.lettreCouranteDroite
                       : '',
                     k > e.curseur ? (cachee ? v.lettreCachee : v.lettreAVenir) : '',
@@ -641,16 +647,16 @@ export function V4Lecon() {
                 DOIGT — mais le libellé de niveau MAIN reste affiché à côté de
                 la main active, comme P4 l'exige. Le supprimer laissait l'enfant
                 sans aucun mot pour ce qu'il voit. */}
-            <div className={v.coteMain} data-main="gauche" data-main-active={mainCible === 'gauche' && !enCelebration && lettreDonnee ? 'oui' : 'non'}>
-              <img src={imageMain('gauche', enCelebration || !lettreDonnee ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
-              {mainCible === 'gauche' && !enCelebration && lettreDonnee && (
+            <div className={v.coteMain} data-main="gauche" data-main-active={mainCible === 'gauche' && indiceVisible ? 'oui' : 'non'}>
+              <img src={imageMain('gauche', indiceVisible ? doigt : undefined)} alt="" aria-hidden="true" draggable={false} />
+              {mainCible === 'gauche' && indiceVisible && (
                 <span className={v.consigneMain}>{CONSIGNES[doigt].join(' · ')}</span>
               )}
             </div>
             <Keyboard
               id={id}
               ensemble={ensemble}
-              cible={enCelebration || !lettreDonnee ? undefined : cible}
+              cible={indiceVisible ? cible : undefined}
               cibleMaj={cibleMaj}
               /* Les Maj sont dessinées dès l'étape qui les enseigne, et aussi
                  dès que la cible en réclame une — sans quoi la consigne
@@ -662,7 +668,7 @@ export function V4Lecon() {
                 etat:
                   e.fausse === 'Space'
                     ? 'fausse'
-                    : attendu === ' ' && !enCelebration && lettreDonnee
+                    : attendu === ' ' && indiceVisible
                       ? 'cible'
                       : 'ouvert',
                 pouce: mainCible,
@@ -671,9 +677,9 @@ export function V4Lecon() {
                  dessine, la touche rétrécit pour que rien ne déborde. */
               taille={etapeJouee >= 7 ? 'clamp(14px, 4.1vw, 48px)' : 'clamp(16px, 4.6vw, 56px)'}
             />
-            <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && !enCelebration && lettreDonnee ? 'oui' : 'non'}>
-              <img src={imageMain('droite', enCelebration || !lettreDonnee ? undefined : doigt)} alt="" aria-hidden="true" draggable={false} />
-              {mainCible === 'droite' && !enCelebration && lettreDonnee && (
+            <div className={v.coteMain} data-main="droite" data-main-active={mainCible === 'droite' && indiceVisible ? 'oui' : 'non'}>
+              <img src={imageMain('droite', indiceVisible ? doigt : undefined)} alt="" aria-hidden="true" draggable={false} />
+              {mainCible === 'droite' && indiceVisible && (
                 <span className={v.consigneMain}>{CONSIGNES[doigt].join(' · ')}</span>
               )}
             </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cleDiction,
   creerEtat,
   reducer,
   verdictFrappe,
@@ -318,6 +319,22 @@ describe('dictée', () => {
     for (const t of [1000, 1100, 1200]) e = reducer(e, frappe('x', t, 's'));
     e = taper(e, 'si', 1300);
     expect(e.aRevoir).toEqual(['si']);
+  });
+
+  /* Ce que la voix doit dire, et QUAND : le mot à son arrivée, puis une seule
+     fois par lettre, à la première faute. La vue dit chaque clé une fois. */
+  it('fait dire le mot à son arrivée, le redit à la première faute, pas aux suivantes', () => {
+    let e = dictee('ce', 'si');
+    expect(cleDiction(e)).toBe('0');
+    e = reducer(e, frappe('x', 10, 'c'));
+    expect(cleDiction(e)).toBe('0:0');
+    e = reducer(e, frappe('x', 20, 'c'));
+    expect(cleDiction(e)).toBeNull();
+    e = reducer(e, frappe('c', 30, 'c'));
+    expect(cleDiction(e)).toBe('0'); // déjà dite : la vue ne la redit pas
+    e = reducer(e, frappe('x', 40, 'e'));
+    expect(cleDiction(e)).toBe('0:1');
+    expect(cleDiction(depart('ce'))).toBeNull(); // la copie ne parle pas
   });
 
   it('ne change rien à la copie : la première faute y monte toujours au barreau 2', () => {

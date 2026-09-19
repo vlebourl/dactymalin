@@ -64,6 +64,13 @@ describe('un bloc de liste ne fait pas avancer le parcours', () => {
     fin: 1_700_000_000_000,
   };
 
+  it('la dictée non plus : elle hérite du régime des listes (#118)', () => {
+    const enCours = reducer(base(), { type: 'commencer', liste: { ...DICTEE, enDictee: true } });
+    const apres = reducer(enCours, { type: 'leconTerminee', bilan });
+    expect([apres.etape, apres.leconsSurEtape]).toEqual([2, 4]);
+    expect(apres.maitrise).toEqual(enCours.maitrise);
+  });
+
   it('rapporte les étoiles, et ne bouge ni palier, ni maîtrise, ni compteur', () => {
     const enCours = reducer(base(), { type: 'commencer', liste: DICTEE });
     const apres = reducer(enCours, { type: 'leconTerminee', bilan });

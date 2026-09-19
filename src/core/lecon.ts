@@ -9,6 +9,7 @@ import {
   etatInitial,
   prochaineLatence,
   surErreur,
+  surErreurDictee,
   type Barreau,
   type EtatAide,
 } from './aide';
@@ -301,13 +302,8 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       // ---- frappe fausse : RIEN ne s'écrit, le curseur ne bouge pas (P3)
       if (verdict === 'faute') {
         const ecoule = a.maintenant - e.debutCaractere;
-        /* `surErreur` note d'office le barreau de la COPIE, terminal dès la
-           deuxième faute : la dictée compte la faute sans passer par lui. */
-        const fautive = e.dictee
-          ? { ...e.aide, erreurs: e.aide.erreurs + 1 }
-          : surErreur(e.aide, ecoule);
-        const barreau = calculerBarreau(e.dictee, fautive, ecoule);
-        const aide = { ...fautive, atteint: barreau };
+        const aide = e.dictee ? surErreurDictee(e.aide) : surErreur(e.aide, ecoule);
+        const barreau = calculerBarreau(e.dictee, aide, ecoule);
         return {
           ...e,
           aide,
@@ -367,6 +363,22 @@ export function reducer(e: EtatLecon, a: ActionLecon): EtatLecon {
       };
     }
   }
+}
+
+/**
+ * Dictée : ce que la voix doit dire, sous forme de CLÉ — le mot à son arrivée
+ * (`"i"`), puis une fois par lettre, à la première faute (`"i:curseur"`). Les
+ * fautes suivantes ne redisent rien : elles se couperaient l'une l'autre.
+ * La vue dit chaque clé UNE fois ; la règle, elle, vit ici (P1).
+ */
+export function cleDiction(e: EtatLecon): string | null {
+  if (!e.dictee || e.fini || e.aide.erreurs > 1) return null;
+  return e.aide.erreurs === 1 ? `${e.i}:${e.curseur}` : `${e.i}`;
+}
+
+/** Dictée : la leçon a-t-elle DONNÉ la lettre courante (touche, doigt, Maj) ? */
+export function lettreDonnee(e: EtatLecon): boolean {
+  return !e.dictee || e.barreau === 3 || e.majManquante;
 }
 
 export function itemSuivant(e: EtatLecon, maintenant: number): EtatLecon {
