@@ -211,7 +211,11 @@ function barreauDeDepart(dictee: boolean, latence: number): Barreau {
  *   item du bloc n'était jamais compté du tout.
  */
 function surBarreau(e: EtatLecon, b: Barreau) {
-  const sature = b >= 3;
+  /* En DICTÉE, la lettre donnée ne dit rien du clavier : l'enfant ne savait
+     pas l'ÉCRIRE, il n'a pas manqué une touche allumée. La compter renvoyait au
+     choix du clavier (V2) après trois mots difficiles. Les frappes
+     incohérentes, elles, restent surveillées : elles lisent le clavier. */
+  const sature = b >= 3 && !e.dictee;
   return {
     itemAide: e.itemAide || b >= 2,
     satureCourant: e.satureCourant || sature,

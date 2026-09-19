@@ -337,6 +337,28 @@ describe('dictée', () => {
     expect(cleDiction(depart('ce'))).toBeNull(); // la copie ne parle pas
   });
 
+  /* Régression : en copie, trois mots d'affilée saturés au barreau 3 veulent
+     dire « mauvais clavier » — la touche était ALLUMÉE et l'enfant ne l'a pas
+     trouvée. En dictée, la lettre donnée dit seulement qu'il ne savait pas
+     l'écrire : l'app le renvoyait pourtant au choix du clavier (V2) au bout de
+     trois mots difficiles. */
+  it('ne prend pas trois mots difficiles pour un mauvais clavier', () => {
+    let e = dictee('un', 'du', 'ne', 'si');
+    for (let k = 0; k < ITEMS_SATURES_AVANT_BASCULE; k++) {
+      const attendu = e.items[e.i].texte[0];
+      for (const t of [100, 200, 300]) e = reducer(e, frappe('x', t, attendu));
+      expect(e.barreau).toBe(3);
+      e = taper(e, e.items[e.i].texte, 400);
+    }
+    expect(doitProposerV2(e.incoherentes, e.itemsSatures)).toBe(false);
+  });
+
+  it('garde la surveillance des frappes incohérentes : elle lit le clavier, pas l’orthographe', () => {
+    let e = dictee('chat');
+    for (let k = 0; k < 5; k++) e = reducer(e, frappe('x', 100 + k, 'c', { coherente: false }));
+    expect(doitProposerV2(e.incoherentes, e.itemsSatures)).toBe(true);
+  });
+
   it('ne change rien à la copie : la première faute y monte toujours au barreau 2', () => {
     expect(reducer(depart('chat'), frappe('x', 100, 'c')).barreau).toBe(2);
   });
