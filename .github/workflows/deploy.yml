@@ -66,3 +66,51 @@ jobs:
           done
           echo "L'application ne répond pas sur /api/health après le déploiement."
           exit 1
+
+  # Vérifications rouges = rien ne part, et jusqu'à #120 rien ne le DISAIT : le
+  # run finissait en « skipped », la production restait sur l'ancien commit.
+  # Une issue prévient par mail, sans aucun service à ajouter. Runner GitHub :
+  # il ne touche pas à Coolify, et `gh` y est déjà installé.
+  alerte:
+    name: Prévenir que main n'est pas déployée
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITRE: "main n'est pas déployée : vérifications rouges"
+    steps:
+      - name: Ouvrir l'alerte, ou commenter celle qui est ouverte
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          CORPS=$(printf '%s\n' \
+            "Les vérifications de \`main\` sont rouges sur \`${SHA:0:7}\` : le déploiement a été **sauté**, la production reste sur le commit précédent." \
+            "" \
+            "- Run : ${{ github.event.workflow_run.html_url }}" \
+            "- Si c'est un test instable : \`gh run rerun ${{ github.event.workflow_run.id }} --failed\` — le déploiement repart seul une fois vert." \
+            "- Ce qui tourne en production : \`curl https://dacty.tiarkaerell.com/api/health\`")
+          OUVERTE=$(gh issue list --state open --search "in:title \"$TITRE\"" --json number -q '.[0].number')
+          if [ -n "$OUVERTE" ]; then
+            gh issue comment "$OUVERTE" --body "$CORPS"
+          else
+            gh issue create --title "$TITRE" --label bug --body "$CORPS"
+          fi
+
+  # Une alerte restée ouverte après un déploiement réussi mentirait.
+  levee:
+    name: Lever l'alerte
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Fermer l'alerte ouverte, s'il y en a une
+        run: |
+          for N in $(gh issue list --state open --search "in:title \"main n'est pas déployée\"" --json number -q '.[].number'); do
+            gh issue close "$N" --comment "Déployé : \`${{ github.event.workflow_run.head_sha }}\`."
+          done
