@@ -85,6 +85,16 @@ test('le mot est dit lentement, caché, et se dévoile lettre par lettre', async
   await expect(page.locator('[data-mot]')).toHaveText('ch__');
 });
 
+/* Revue #118 : une liste ouvre sur le clavier les lettres de SES mots. En
+   dictée, c'était l'anagramme du mot, affichée sous les tirets. */
+test('le clavier ne trahit pas les lettres du mot', async ({ page }) => {
+  await espionnerLaVoix(page, 'presente');
+  await lancerLaDictee(page);
+  const etat = (code: string) => page.locator(`[data-code="${code}"]`).getAttribute('data-etat');
+  // « h » est dans « chat » mais pas encore enseignée à l'étape 3 ; « k » n'est nulle part
+  expect(await etat('KeyH')).toBe(await etat('KeyK'));
+});
+
 test("l'hésitation n'allume aucune touche", async ({ page }) => {
   await espionnerLaVoix(page, 'presente');
   await lancerLaDictee(page);
@@ -132,10 +142,15 @@ test('le bouton haut-parleur redit le mot, et rend le clavier à la leçon', asy
   await expect(page.locator('[data-mot]')).toHaveText('c___');
 });
 
-test('sons coupés : la voix de la dictée parle quand même', async ({ page }) => {
+test('sons coupés : la voix de la dictée parle quand même, lettre donnée comprise', async ({ page }) => {
   await espionnerLaVoix(page, 'presente');
   await lancerLaDictee(page, false);
   await expect.poll(() => dits(page)).toHaveLength(1);
+  for (let k = 0; k < 3; k++) {
+    await frapper(page, 'fr-FR', 'x');
+    await page.waitForTimeout(250);
+  }
+  await expect.poll(async () => (await dits(page)).map((d) => d.texte)).toEqual(['chat', 'chat', 'c']);
 });
 
 test('la copie reste la copie : mot écrit, touche allumée, aucune voix', async ({ page }) => {

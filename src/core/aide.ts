@@ -54,6 +54,12 @@ export function barreauDictee(etat: EtatAide): Barreau {
   return etat.atteint === 3 || etat.erreurs >= FAUTES_AVANT_LETTRE_DICTEE ? 3 : 0;
 }
 
+/** Frappe fausse EN DICTÉE : même comptabilité, sur l'échelle de la dictée. */
+export function surErreurDictee(etat: EtatAide): EtatAide {
+  const suivant = { ...etat, erreurs: etat.erreurs + 1 };
+  return { ...suivant, atteint: barreauDictee(suivant) };
+}
+
 /** Enregistre une frappe fausse. Le barreau ne redescend jamais. */
 export function surErreur(etat: EtatAide, ecoule: number): EtatAide {
   const suivant = { ...etat, erreurs: etat.erreurs + 1 };
