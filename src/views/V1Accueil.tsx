@@ -3,7 +3,7 @@ import { estJouable } from '../core/listes';
 import { ensembleTouches, LECONS_PAR_ETAPE, parcoursFini, rangLecon } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
-import { amorcerLaVoix, useVoixFrancaise } from '../ui/SpeakerButton';
+import { amorcerLaVoix, useVoixDictee } from '../ui/voixDictee';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -30,7 +30,7 @@ export function V1Accueil() {
      COMPTE, la disposition vient de CET appareil, et les deux peuvent ne pas
      s'accorder. Mieux vaut pas de carte qu'une carte sans rien à taper. */
   const jouables = app.listes.filter((liste) => estJouable(liste, app.disposition));
-  const voixFrancaise = useVoixFrancaise();
+  const voixDictee = useVoixDictee();
 
   return (
     <div className={v.ecran}>
@@ -105,7 +105,7 @@ export function V1Accueil() {
                     le porter. */}
                 <button
                   className={v.carteDictee}
-                  disabled={!voixFrancaise}
+                  disabled={!voixDictee}
                   aria-describedby={`liste-${liste.id}`}
                   onClick={() => {
                     amorcerLaVoix();
@@ -119,7 +119,7 @@ export function V1Accueil() {
           </ul>
         )}
         {/* Une dictée muette est impossible à réussir : pas de repli. */}
-        {jouables.length > 0 && voixFrancaise === false && (
+        {jouables.length > 0 && voixDictee === false && (
           <p className={v.ligneClavier}>
             Il manque une voix française sur cet appareil. Un parent peut en ajouter une dans les
             réglages du système.
