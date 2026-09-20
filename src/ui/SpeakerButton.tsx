@@ -12,7 +12,7 @@ const voixFrancaise = () =>
   speechSynthesis.getVoices().find((x) => x.lang?.toLowerCase().startsWith('fr'));
 
 /** Lit un texte à voix haute, si une voix française est disponible. */
-export function dire(texte: string, debit = 0.9): void {
+export function dire(texte: string, debit = 0.9, voixFrancaiseExigee = false): void {
   if (typeof speechSynthesis === 'undefined') return;
   // La synthèse vocale ne doit jamais pouvoir faire tomber l'écran qui l'appelle.
   try {
@@ -20,6 +20,10 @@ export function dire(texte: string, debit = 0.9): void {
     phrase.lang = 'fr-FR';
     phrase.rate = debit;
     const voix = voixFrancaise();
+    /* Un NOM DE LETTRE dit par une voix anglaise apprend « si » pour « c » :
+       sans voix française, il se tait et l'aide reste visuelle — la règle du
+       barreau 3 depuis toujours. Une consigne, elle, se comprend quand même. */
+    if (!voix && voixFrancaiseExigee) return;
     if (voix) phrase.voice = voix;
     speechSynthesis.cancel();
     speechSynthesis.speak(phrase);

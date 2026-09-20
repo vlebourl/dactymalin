@@ -3,7 +3,7 @@ import { estJouable } from '../core/listes';
 import { ensembleTouches, LECONS_PAR_ETAPE, parcoursFini, rangLecon } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
-import { amorcerLaVoix, useVoixDictee } from '../ui/voixDictee';
+import { amorcerLaVoix, useVoixDictee } from '../ui/voix';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
@@ -77,7 +77,12 @@ export function V1Accueil() {
         ) : (
           <button
             className={[u.bouton, u.primaire, u.geant].join(' ')}
-            onClick={() => envoi({ type: 'commencer', liste: null })}
+            onClick={() => {
+              /* La leçon dira peut-être une lettre (barreau 3), hors de tout
+                 geste : iPad et Android veulent que la voix soit amorcée ici. */
+              amorcerLaVoix();
+              envoi({ type: 'commencer', liste: null });
+            }}
           >
             On commence !
           </button>
@@ -91,7 +96,10 @@ export function V1Accueil() {
               <li key={liste.id}>
                 <button
                   className={v.carteListe}
-                  onClick={() => envoi({ type: 'commencer', liste })}
+                  onClick={() => {
+                    amorcerLaVoix();
+                    envoi({ type: 'commencer', liste });
+                  }}
                 >
                   <span className={v.carteNom} id={`liste-${liste.id}`}>
                     {liste.nom}
