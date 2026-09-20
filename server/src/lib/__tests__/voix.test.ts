@@ -82,6 +82,20 @@ describe('synthèse vocale du serveur', () => {
     expect(await dire('encore')).not.toBeNull();
   }, 30_000);
 
+  it('garde un son par LENTEUR : la même phrase, lente et vive, ne se confond pas', async () => {
+    const dire = creerSynthese({ PIPER_BIN: fauxPiper(HONNETE), PIPER_MODELE: __filename }, dossier)!;
+    await dire('papa', 1.35);
+    await dire('papa', 1.1);
+    await dire('papa', 1.1);
+    expect(appels()).toHaveLength(2);
+  });
+
+  it('ne double pas la ponctuation d’une phrase déjà finie', async () => {
+    const dire = creerSynthese({ PIPER_BIN: fauxPiper(HONNETE), PIPER_MODELE: __filename }, dossier)!;
+    await dire('Appuie sur la touche A.');
+    expect(appels()).toEqual(['Appuie sur la touche A.']);
+  });
+
   it('dit UNE phrase : un retour à la ligne glissé dans un mot ne devient pas deux énoncés', async () => {
     const dire = creerSynthese({ PIPER_BIN: fauxPiper(HONNETE), PIPER_MODELE: __filename }, dossier)!;
     await dire('un\ntemps');
