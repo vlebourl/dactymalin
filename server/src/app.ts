@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Hono, type MiddlewareHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { HTTPException } from 'hono/http-exception';
 import { googleDisponible, type Auth } from './auth';
 import type { Base } from './db/client';
 import { routesCompte } from './routes/compte';
@@ -41,6 +43,17 @@ export const IDENTIFIANT = identifiantVersion(process.env, new Date());
 
 export function creerApp(deps: Deps) {
   const app = new Hono();
+  app.onError((erreur, c) => {
+    if (erreur instanceof HTTPException && erreur.status < 500) {
+      return c.json({ erreur: 'requête invalide', code: 'REQUETE_INVALIDE' }, erreur.status);
+    }
+    console.error('Erreur serveur :', erreur);
+    return c.json({ erreur: 'erreur interne', code: 'ERREUR_INTERNE' }, 500);
+  });
+  app.use('/api/*', bodyLimit({
+    maxSize: 128 * 1024,
+    onError: (c) => c.json({ erreur: 'corps trop volumineux', code: 'CORPS_TROP_GRAND' }, 413),
+  }));
 
   /**
    * Healthcheck Coolify. Il répond 200 même sans base : un conteneur qui tourne
@@ -48,7 +61,20 @@ export function creerApp(deps: Deps) {
    * redémarrage — `db` dit la vérité, et c'est elle qu'on surveille.
    */
   app.get('/api/health', async (c) => {
-    const db = deps.pingBase ? ((await deps.pingBase().catch(() => false)) ? 'ok' : 'ko') : 'absente';
+    let db: 'ok' | 'ko' | 'absente' = 'absente';
+    if (deps.pingBase) {
+      let minuterie: ReturnType<typeof setTimeout> | undefined;
+      try {
+        db = await Promise.race([
+          deps.pingBase().then((ok) => ok ? 'ok' as const : 'ko' as const),
+          new Promise<'ko'>((resoudre) => { minuterie = setTimeout(() => resoudre('ko'), 1500); }),
+        ]);
+      } catch {
+        db = 'ko';
+      } finally {
+        if (minuterie) clearTimeout(minuterie);
+      }
+    }
     return c.json({ ok: true, status: db === 'ko' ? 'degraded' : 'healthy', ...IDENTIFIANT, db });
   });
 
