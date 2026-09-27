@@ -88,37 +88,11 @@ d('voix du serveur', () => {
     expect(synthetises.slice(avant).filter((m) => m !== 'chat')).toEqual([]);
   });
 
-  /* #126 — le nom de la lettre, au barreau 3. Un ensemble FERMÉ : le serveur
-     ne dit que ce que `nomDeLettre` sait nommer. */
-  describe('nom de lettre', () => {
-    const lettre = (app: typeof avecVoix, h: HeadersInit | undefined, c: string) =>
-      app.request(`/api/voix/lettre?c=${encodeURIComponent(c)}`, { headers: h });
-
-    it('refuse tout accès sans session', async () => {
-      expect((await lettre(avecVoix, undefined, 'a')).status).toBe(401);
-    });
-
-    it('dit le NOM du caractère, pas le caractère : « ? » serait muet', async () => {
-      const h = await inscrire(courriel());
-      const r = await lettre(avecVoix, h, '?');
-      expect(r.status).toBe(200);
-      expect(r.headers.get('content-type')).toBe('audio/wav');
-      expect(Buffer.from(await r.arrayBuffer()).toString()).toBe("RIFFpoint d'interrogation");
-    });
-
-    it('ne dit que ce qui a un nom : ni un mot, ni un caractère inconnu', async () => {
-      const h = await inscrire(courriel());
-      const avant = synthetises.length;
-      expect((await lettre(avecVoix, h, 'bonjour')).status).toBe(404);
-      expect((await lettre(avecVoix, h, '€')).status).toBe(404);
-      expect((await lettre(avecVoix, h, '')).status).toBe(404);
-      expect(synthetises.length).toBe(avant);
-    });
-
-    it('répond 503 sans Piper', async () => {
-      const h = await inscrire(courriel());
-      expect((await lettre(sansVoix, h, 'a')).status).toBe(503);
-    });
+  it('ne sert plus les lettres via l’API', async () => {
+    const h = await inscrire(courriel());
+    const avant = synthetises.length;
+    expect((await avecVoix.request('/api/voix/lettre?c=a', { headers: h })).status).toBe(404);
+    expect(synthetises.length).toBe(avant);
   });
 
   /* #126 — les consignes lues à voix haute (choix du clavier, guide des

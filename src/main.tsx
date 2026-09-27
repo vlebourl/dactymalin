@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { profilInitial } from './core/profils';
+import lettresAudio from './data/voix-lettres.json';
 import { compteCourant, listesDistantes, synchroniserProfils, type Compte } from './core/sync';
 import { FournisseurApp } from './state';
 import { BandeauCompte } from './ui/BandeauCompte';
@@ -98,6 +99,10 @@ if ('serviceWorker' in navigator) {
            voyage n'en ferait pas un. */
         const aGarder = [
           location.href,
+          /* Les lettres ne sont pas chargées pendant la visite initiale.
+             Les garder explicitement permet la même voix dès le premier
+             passage hors ligne. */
+          ...Object.values(lettresAudio),
           /* Le manifeste est demandé par le NAVIGATEUR à l'analyse du document,
              pas par ce script : selon le moment, il n'apparaît pas dans les
              entrées de performance. On le nomme donc explicitement, sinon

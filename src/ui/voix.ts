@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { estUneConsigne } from '../core/consignes';
 import { nomDeLettre } from '../core/nomDeLettre';
+import catalogue from '../data/voix-lettres.json';
 import { DEBIT_DICTEE, dire, useVoixFrancaise } from './SpeakerButton';
 
 /**
@@ -65,7 +66,7 @@ const PATIENCE_MS = 3000;
 const DEBIT_LETTRE = 0.85;
 
 const urlDuMot = (mot: string) => `/api/voix/mot?mot=${encodeURIComponent(mot)}`;
-const urlDeLaLettre = (c: string) => `/api/voix/lettre?c=${encodeURIComponent(c)}`;
+const sonsLettres: Record<string, string> = catalogue;
 const urlDeLaConsigne = (t: string) => `/api/voix/consigne?t=${encodeURIComponent(t)}`;
 
 /**
@@ -80,7 +81,7 @@ function sonDe(adresse: string): Promise<string | null> {
   let son = sons.get(adresse);
   if (!son) {
     son = fetch(adresse)
-      .then((r) => (r.ok ? r.blob() : null))
+      .then((r) => (r.ok && r.headers.get('content-type')?.startsWith('audio/') ? r.blob() : null))
       .then((b) => (b ? URL.createObjectURL(b) : null))
       .catch(() => null);
     sons.set(adresse, son);
@@ -110,9 +111,9 @@ let demande = 0;
  * `voixFrancaiseExigee` : un nom de lettre se tait plutôt que d'être dit par
  * une voix étrangère (voir `dire`).
  */
-function parler(adresse: string, texte: string, debit: number, voixFrancaiseExigee = false): void {
+function parler(adresse: string, texte: string, debit: number, voixFrancaiseExigee = false, statique = false): void {
   const navigateur = () => dire(texte, debit, voixFrancaiseExigee);
-  if (!voixServeur || !lecteur) return navigateur();
+  if ((!statique && !voixServeur) || !lecteur) return navigateur();
   const moi = ++demande;
   const repli = () => moi === demande && navigateur();
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
@@ -142,7 +143,9 @@ export function direMot(mot: string): void {
 export function direLettre(caractere: string): void {
   const nom = nomDeLettre(caractere);
   if (nom === null) return dire(caractere, DEBIT_LETTRE, true);
-  parler(urlDeLaLettre(caractere), nom, DEBIT_LETTRE, true);
+  const adresse = sonsLettres[nom];
+  if (!adresse) return dire(nom, DEBIT_LETTRE, true);
+  parler(adresse, nom, DEBIT_LETTRE, true, true);
 }
 
 /**
@@ -174,5 +177,6 @@ export function prechargerLesMots(mots: string[]): void {
 
 /** La lettre sur laquelle l'enfant bute : son nom sera là s'il faut le dire. */
 export function prechargerLaLettre(caractere: string): void {
-  if (voixServeur && nomDeLettre(caractere) !== null) void sonDe(urlDeLaLettre(caractere));
+  const nom = nomDeLettre(caractere);
+  if (nom && sonsLettres[nom]) void sonDe(sonsLettres[nom]);
 }
