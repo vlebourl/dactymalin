@@ -1,4 +1,4 @@
-import { boolean, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 /* Tables Better Auth (utilisateur, session, compte, vérification). Elles sont
    décrites ici pour que les migrations soient versionnées comme le reste :
@@ -26,7 +26,7 @@ export const session = pgTable('session', {
   userAgent: text('user_agent'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index('session_user_id_idx').on(table.userId)]);
 
 export const account = pgTable('account', {
   id: text('id').primaryKey(),
@@ -47,7 +47,7 @@ export const account = pgTable('account', {
   password: text('password'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index('account_user_id_idx').on(table.userId)]);
 
 export const verification = pgTable('verification', {
   id: text('id').primaryKey(),
@@ -70,7 +70,7 @@ export const profil = pgTable('profil', {
     .references(() => user.id, { onDelete: 'cascade' }),
   prenom: text('prenom').notNull(),
   creeLe: timestamp('cree_le', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index('profil_user_id_idx').on(table.userId)]);
 
 /**
  * La progression d'un profil, telle qu'elle vit dans `localStorage`. On la
@@ -102,4 +102,4 @@ export const liste = pgTable('liste', {
   nom: text('nom').notNull(),
   mots: jsonb('mots').notNull().$type<string[]>(),
   creeLe: timestamp('cree_le', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index('liste_user_id_idx').on(table.userId)]);

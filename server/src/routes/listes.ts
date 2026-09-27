@@ -5,6 +5,7 @@ import type { Auth } from '../auth';
 import type { Base } from '../db/client';
 import { liste } from '../db/schema';
 import { exigeSession, type AvecCompte } from '../lib/session';
+import { limiterDebit } from '../lib/debit';
 import type { Synthese } from '../lib/voix';
 /* Le serveur juge avec le MÊME validateur que l'écran : sinon l'écran promet
    une liste que le serveur refuse, ou l'inverse. */
@@ -25,6 +26,11 @@ export function routesListes(base: Base, auth: Auth, synthese: Synthese | null =
      propriétaire, pas seulement la lecture, et la dictée d'une famille ne fuit
      pas chez la voisine. */
   app.use('*', exigeSession(auth));
+  const debit = limiterDebit(40, 10 * 60_000);
+  app.use('*', async (c, suivant) => {
+    if (c.req.method === 'POST' || c.req.method === 'PUT') return debit(c, suivant);
+    await suivant();
+  });
 
   app.get('/', async (c) => {
     const lignes = await base
