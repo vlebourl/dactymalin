@@ -69,6 +69,10 @@ jobs:
       - name: Types
         run: npx tsc --noEmit
 
+      # Dépendances des hooks React et promesses flottantes, rien d'autre (#131).
+      - name: Lint
+        run: npm run lint
+
       - name: Tests unitaires
         run: npx vitest run
 
