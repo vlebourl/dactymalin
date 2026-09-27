@@ -35,8 +35,12 @@ export function V5FinDeBloc() {
         ensembleTouches(app.parcours, id, etape),
       );
     return [...source].sort(() => Math.random() - 0.5).slice(0, 3);
-    // un tirage par arrivée sur la vue, pas à chaque rendu
-  }, [app.itemsDuBloc, app.lecon]); // eslint-disable-line react-hooks/exhaustive-deps
+    /* Un tirage par bloc joué, pas à chaque rendu. L'étape, le parcours et la
+       disposition ne servent qu'au repli : une synchronisation qui les
+       rafraîchirait pendant que l'écran est affiché rebattrait les mots sous
+       les yeux de l'enfant. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app.itemsDuBloc, app.lecon]);
 
   // Seules les touches NOUVELLEMENT maîtrisées s'allument.
   const illuminees = new Set(

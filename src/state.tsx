@@ -475,7 +475,7 @@ export function FournisseurApp({
     if (etat === auMontage.current) return;
     /* Envoi en ARRIÈRE-PLAN. `pousser` ne lève jamais : une leçon ne doit
        pas dépendre du réseau. */
-    pousser(idProfil, sauvegarde);
+    void pousser(idProfil, sauvegarde);
   }, [etat, cle, idProfil]);
 
   /* Retour du réseau : on rejoue ce qui attendait. */

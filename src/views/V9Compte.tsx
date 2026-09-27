@@ -788,6 +788,10 @@ export function V9Compte() {
 
   useEffect(() => {
     void rafraichir();
+    /* À l'ouverture seulement. `rafraichir` est une fonction neuve à chaque
+       rendu, et chacun de ses `set…` en provoque un : en dépendance, elle
+       relirait le serveur en boucle. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const relire = async () => adopterListe(await profilsDistants());
