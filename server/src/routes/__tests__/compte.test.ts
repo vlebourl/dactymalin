@@ -39,7 +39,7 @@ d('suppression du compte', () => {
    * est vérifiée — sans quoi « 0 ligne après suppression » serait vrai d'un
    * foyer qui n'a jamais rien contenu, et le test ne prouverait rien.
    */
-  const foyerGarni = async (h: HeadersInit) => {
+  const foyerGarni = async (h: Record<string, string>) => {
     const cree = await app.request('/api/profils', {
       method: 'POST',
       headers: h,
