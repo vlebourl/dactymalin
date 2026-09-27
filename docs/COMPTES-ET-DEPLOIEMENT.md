@@ -35,7 +35,7 @@ compte parent (Better Auth)
 | ORM | Drizzle | même outillage qu'ecoride, migrations versionnées |
 | Base | PostgreSQL, ressource Coolify séparée | idem ecoride, sauvegardes planifiées incluses |
 | Auth | Better Auth, email + mot de passe | socle éprouvé sur ecoride ; Google OAuth possible plus tard |
-| Hébergement | Coolify sur `192.168.1.48`, domaine `dacty.tiarkaerell.com` | même instance, même proxy TLS |
+| Hébergement | Coolify sur le réseau de la maison, domaine `dacty.tiarkaerell.com` | même instance, même proxy TLS |
 
 Un seul conteneur sert l'API **et** le `dist/` du client, comme ecoride.
 
@@ -128,7 +128,7 @@ vers une adresse privée.
 | 0.2 | Remote `origin` en HTTPS ajouté | local | **fait** |
 | 0.3 | Premier `git push -u origin main` | local | Vincent |
 | 0.4 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com | Vincent |
-| 0.5 | Créer l'application Coolify — source GitHub `vlebourl/dactymalin`, branche `main`, build pack Dockerfile, webhook de push | UI Coolify, `192.168.1.48` | Vincent |
+| 0.5 | Créer l'application Coolify — source GitHub `vlebourl/dactymalin`, branche `main`, build pack Dockerfile, webhook de push | UI Coolify | Vincent |
 | 0.6 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify | Vincent |
 | 0.7 | Renseigner les variables d'environnement de l'app | UI Coolify | Vincent |
 
@@ -323,7 +323,7 @@ Les sept étapes sont faites. Ce qui a changé par rapport au plan :
 
 - **GitHub**, dépôt public `vlebourl/dactymalin`. Coolify le clone en HTTPS
   sans clé. Le montage Gitea précédent clonait par clé de déploiement sur
-  l'adresse LAN `192.168.1.225:30143` : il fonctionnait pour le clone, mais
+  une adresse LAN : il fonctionnait pour le clone, mais
   aucun webhook ne pouvait en sortir vers une adresse privée.
 - **Un seul workflow**, le déploiement. Les tests restent tenus par le hook
   `pre-push` versionné (`.githooks/pre-push`), qui refuse un push non vert :

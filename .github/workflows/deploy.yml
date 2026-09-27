@@ -58,12 +58,17 @@ jobs:
 
       # Le déploiement peut « finir » sur un conteneur qui ne répond pas :
       # c'est la santé de l'application qui fait foi, pas celle du build.
+      # Le runner vit sur l'hôte Coolify (il l'appelle déjà en localhost:8000) :
+      # le port hôte 3003 y répond en localhost, comme dans scripts/deployer.sh.
+      # Pas d'adresse LAN dans un dépôt et des journaux publics (#140).
       - name: Vérifier que l'application répond
+        env:
+          URL_SANTE: http://localhost:3003/api/health
         run: |
           for i in $(seq 1 10); do
             sleep 6
-            if curl -sf http://192.168.1.48:3003/api/health | grep -q '"ok":true'; then
-              curl -s http://192.168.1.48:3003/api/health; echo; exit 0
+            if curl -sf "$URL_SANTE" | grep -q '"ok":true'; then
+              curl -s "$URL_SANTE"; echo; exit 0
             fi
           done
           echo "L'application ne répond pas sur /api/health après le déploiement."

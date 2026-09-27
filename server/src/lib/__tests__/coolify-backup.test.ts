@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sauvegarderAvantMigration, uuidBaseDepuisUrl } from '../coolify-backup';
 
-const BASE = 'postgresql://u:p@hrfpcwechi8tb7imlir13b1a:5432/tapeavecmoi';
+const BASE = 'postgresql://u:p@abcdefghij0123456789klmn:5432/tapeavecmoi';
 const COMMUN = {
   databaseUrl: BASE,
   webhookUrl: 'http://coolify:8000/api/v1/deploy',
@@ -27,7 +27,7 @@ function faux(routes: Record<string, unknown[]>): typeof fetch {
 
 describe("l'UUID de la base", () => {
   it("est l'hôte de DATABASE_URL", () => {
-    expect(uuidBaseDepuisUrl(BASE)).toBe('hrfpcwechi8tb7imlir13b1a');
+    expect(uuidBaseDepuisUrl(BASE)).toBe('abcdefghij0123456789klmn');
   });
 });
 
