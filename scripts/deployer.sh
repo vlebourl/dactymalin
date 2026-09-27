@@ -7,9 +7,12 @@
 #
 # Prérequis : `ssh lyra@coolify` fonctionne, et le jeton API est sur l'hôte
 # dans /root/.coolify-claude-token (lisible par root seulement).
+#
+# L'UUID de l'application n'est plus dans le dépôt public (#140) : le poser
+# dans COOLIFY_APP_UUID, même valeur que le secret GitHub du même nom.
 set -euo pipefail
 
-APP=${COOLIFY_APP_UUID:-x9tbvf1mbspphk7ml1c68dlv}
+APP=${COOLIFY_APP_UUID:?"COOLIFY_APP_UUID absent : l'UUID de l'application Coolify typing-app"}
 HOTE=${COOLIFY_SSH:-lyra@coolify}
 PORT_APP=${PORT_APP:-3003}
 

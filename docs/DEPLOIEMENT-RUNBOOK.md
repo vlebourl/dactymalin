@@ -10,7 +10,7 @@ conteneur ; celui-ci sauvegarde la base, migre, puis démarre.
 
 Ce qui a rendu l'automatisme possible : le dépôt est passé sur **GitHub**, et
 GitHub appelle Coolify par son **domaine public**. Le montage précédent visait
-`192.168.1.48` depuis Gitea, qui refuse par défaut d'appeler une adresse privée
+l'adresse LAN de l'hôte Coolify depuis Gitea, qui refuse par défaut d'appeler une adresse privée
 (`ALLOWED_HOST_LIST`) — le webhook existait, actif, et n'a jamais rien livré.
 La leçon n'est pas « ouvrir Gitea » mais « ne pas viser une adresse privée
 depuis l'extérieur ».
@@ -21,19 +21,20 @@ depuis l'extérieur ».
 |---|---|
 | Dépôt | `https://github.com/vlebourl/dactymalin` (public) |
 | Clone par Coolify | `https://github.com/vlebourl/dactymalin.git`, dépôt public, aucune clé |
-| Hôte Coolify | `192.168.1.48`, `ssh lyra@coolify`, API sur `localhost:8000/api/v1` |
-| Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` (noms Coolify, pas renommés) |
+| Hôte Coolify | `ssh lyra@coolify`, API sur `localhost:8000/api/v1`. Son adresse LAN n'est pas écrite ici : le dépôt est public (#140) |
+| Application | `typing-app`, projet `tape-avec-moi` (noms Coolify, pas renommés). UUID dans le secret GitHub `COOLIFY_APP_UUID`, et dans `COOLIFY_APP_UUID` en local pour `npm run deploy` |
 | Webhook | GitHub → `https://coolify.tiarkaerell.com/webhooks/source/github/events/manual`, secret partagé stocké dans Coolify |
-| Base | `typing-app-db`, UUID `hrfpcwechi8tb7imlir13b1a`, PostgreSQL 17 |
-| Sauvegarde planifiée | UUID `i101zg9ef5sh78fy1yheqtkw`, tous les jours à 03:00 |
+| Base | `typing-app-db`, PostgreSQL 17 (UUID lisible dans Coolify) |
+| Sauvegarde planifiée | tous les jours à 03:00 (UUID lisible dans Coolify) |
 | Port hôte | **3003** → 3000 dans le conteneur |
-| Domaine | `dacty.tiarkaerell.com`, **seul domaine vivant** : `BETTER_AUTH_URL`, `FRONTEND_URL`, retour de Google, cookie de session. Publié par **Nginx Proxy Manager** vers `192.168.1.48:3003`. `typing.tiarkaerell.com` est **abandonné** — son TLS ne répond plus (525 Cloudflare) et il ne figure plus dans `FRONTEND_URL` : un domaine mort dans les origines de confiance est une porte ouverte sur rien (#66) |
+| Domaine | `dacty.tiarkaerell.com`, **seul domaine vivant** : `BETTER_AUTH_URL`, `FRONTEND_URL`, retour de Google, cookie de session. Publié par **Nginx Proxy Manager** vers le port 3003 de l'hôte Coolify. `typing.tiarkaerell.com` est **abandonné** — son TLS ne répond plus (525 Cloudflare) et il ne figure plus dans `FRONTEND_URL` : un domaine mort dans les origines de confiance est une porte ouverte sur rien (#66) |
 | Jetons API | fichiers `root` sur l'hôte : `/root/.coolify-claude-token`, `/root/.typing-app-coolify-token` |
 
 ## Vérifier que tout va bien
 
 ```sh
-curl -s http://192.168.1.48:3003/api/health
+curl -s https://dacty.tiarkaerell.com/api/health
+# ou, sans passer par le proxy : ssh lyra@coolify curl -s http://localhost:3003/api/health
 # {"ok":true,"status":"healthy","version":"0.1.0","commit":"c03a379",
 #  "demarre":"2026-08-31T15:45:10.412Z","db":"ok"}
 ```
@@ -77,7 +78,7 @@ saine. Le conteneur en cours n'est remplacé qu'une fois le nouveau démarré.
 | `vite: not found` au build | Coolify injecte `NODE_ENV=production` dès le build, `npm ci` saute les devDependencies | `ENV NODE_ENV=development` + `npm ci --include=dev` dans l'étage de build |
 | Le conteneur démarre puis meurt | pas de sauvegarde planifiée ACTIVE sur la base | l'activer dans Coolify — c'est volontaire : pas de sauvegarde, pas de migration |
 | `Invalid origin` en développement | Vite sert sur `:3000` et proxifie vers `:3001` | déjà traité : les origines locales sont déclarées de confiance hors production |
-| `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur `http://192.168.1.48:8000/api/v1/deploy` |
+| `Démarrage refusé : fetch failed` en boucle | `host.docker.internal` ne résout pas dans un conteneur sous Linux | `COOLIFY_WEBHOOK_URL` pointe sur l'adresse LAN de l'hôte Coolify, port 8000, chemin `/api/v1/deploy` |
 | Un push ne déclenche rien | le runner `homelab-runner` est hors ligne | `sudo systemctl status actions.runner.vlebourl-dactymalin.homelab-runner` sur l'hôte Coolify |
 | Webhook GitHub renvoyant 403 | Cloudflare défie les POST de GitHub (« Just a moment… ») | ne pas utiliser de webhook : le runner appelle Coolify en localhost |
 | Le bouton Google est absent en production | une seule des deux variables du fournisseur est posée, ou aucune | vérifier `GET /api/config` ; poser `GOOGLE_CLIENT_ID` **et** `GOOGLE_CLIENT_SECRET` dans Coolify, puis redéployer |
