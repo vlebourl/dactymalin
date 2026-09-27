@@ -8,7 +8,10 @@ export function memeContenu(a: unknown, b: unknown): boolean {
   }
   const gauche = a as Record<string, unknown>;
   const droite = b as Record<string, unknown>;
-  const cles = Object.keys(gauche);
-  return cles.length === Object.keys(droite).length &&
+  // La file passe par JSON : une propriété undefined y disparaît.
+  const clesDefinies = (objet: Record<string, unknown>) =>
+    Object.keys(objet).filter((cle) => objet[cle] !== undefined);
+  const cles = clesDefinies(gauche);
+  return cles.length === clesDefinies(droite).length &&
     cles.every((cle) => Object.prototype.hasOwnProperty.call(droite, cle) && memeContenu(gauche[cle], droite[cle]));
 }

@@ -72,6 +72,17 @@ describe('points d’envoi de progression', () => {
     expect(aSauvegarder(reducer(depart, { type: 'fusionRecue', avant, apres })).reglages.sons)
       .toBe(apres.reglages.sons);
   });
+
+  it('reconnaît un état relu de la file quand JSON a retiré les champs indéfinis', () => {
+    const depart = etatDeDepart();
+    const local = aSauvegarder(depart);
+    const avant = JSON.parse(JSON.stringify(local)) as typeof local;
+    expect(Object.keys(avant).length).toBeLessThan(Object.keys(local).length);
+    const apres = { ...avant, reglages: { ...avant.reglages, sons: !avant.reglages.sons } };
+
+    const recu = reducer(depart, { type: 'fusionRecue', avant, apres });
+    expect(aSauvegarder(recu).reglages.sons).toBe(apres.reglages.sons);
+  });
 });
 
 /** Une leçon close à une date fixe : les tests qui datent la leçon la posent. */

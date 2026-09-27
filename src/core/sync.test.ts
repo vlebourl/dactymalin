@@ -21,6 +21,7 @@ import {
 } from './sync';
 import { CLE_PROFILS, chargerIndex, cleDe, remplacerIndex } from './profils';
 import { bornerMajLe } from '../../server/src/routes/profils';
+import { aSauvegarder, etatDeDepart, reducer } from '../state';
 import {
   CLE,
   DEFAUTS,
@@ -185,6 +186,20 @@ describe('file d’attente des progressions', () => {
 });
 
 describe('conflit de version', () => {
+  it('réinjecte le réglage distant après relecture JSON de la file', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    const depart = etatDeDepart();
+    const local = aSauvegarder(depart);
+    s.couper();
+    await pousser('a', local);
+    const avant = (JSON.parse(localStorage.getItem(CLE_FILE)!) as { etat: Sauvegarde }[])[0].etat;
+    expect(Object.keys(avant).length).toBeLessThan(Object.keys(local).length);
+    const apres = { ...avant, reglages: { ...avant.reglages, sons: !avant.reglages.sons } };
+
+    const recu = reducer(depart, { type: 'fusionRecue', avant, apres });
+    expect(aSauvegarder(recu).reglages.sons).toBe(apres.reglages.sons);
+  });
+
   it('persiste la fusion avant le PUT pour survivre à sa réponse perdue et au redémarrage', async () => {
     const s = serveur([{ id: 'a', prenom: 'Timo', etat: { ...DEFAUTS, palier: 5 }, majLe: new Date(Date.now() + 60_000).toISOString() }]);
     const original = s.fetchFaux.getMockImplementation()!;
