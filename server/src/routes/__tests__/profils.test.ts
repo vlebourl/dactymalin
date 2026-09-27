@@ -1,7 +1,9 @@
 import { describe, expect, it, beforeAll } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { creerApp } from '../../app';
 import { creerAuth } from '../../auth';
 import { creerBase } from '../../db/client';
+import { progression } from '../../db/schema';
 import { lireEnv } from '../../env';
 import { DEFAUTS } from '../../../../src/core/storage';
 import { PROFILS_MAX, PRENOM_MAX } from '../../../../src/core/profils';
@@ -20,6 +22,7 @@ const d = URL_TEST ? describe : describe.skip;
 
 d('profils et progression', () => {
   let app: ReturnType<typeof creerApp>;
+  let base: ReturnType<typeof creerBase>;
 
   const inscrire = async (email: string) => {
     const r = await app.request('/api/auth/sign-up/email', {
@@ -38,7 +41,7 @@ d('profils et progression', () => {
       DATABASE_URL: URL_TEST,
       BETTER_AUTH_SECRET: 'x'.repeat(40),
     } as NodeJS.ProcessEnv);
-    const base = creerBase(URL_TEST!);
+    base = creerBase(URL_TEST!);
     app = creerApp({ env, base, auth: creerAuth(base, env) });
   });
 
@@ -160,6 +163,42 @@ d('profils et progression', () => {
       body: corps('2026-08-28T11:00:00.000Z'),
     });
     expect(vieux.status).toBe(409);
+  });
+
+  it('plafonne l’horloge cliente et remplace une date future déjà persistée', async () => {
+    const h = await inscrire(`horloge${Date.now()}@exemple.fr`);
+    const cree = await app.request('/api/profils', {
+      method: 'POST', headers: h, body: JSON.stringify({ prenom: 'Milo' }),
+    });
+    expect(cree.status).toBe(201);
+    const { id } = (await cree.json()) as { id: string };
+    const url = `/api/profils/${id}/progression`;
+    const pousser = (majLe: string, palier: number) => app.request(url, {
+      method: 'PUT', headers: h,
+      body: JSON.stringify({ etat: { ...DEFAUTS, palier }, majLe }),
+    });
+
+    const avant = Date.now();
+    const premier = await pousser('2099-01-01T00:00:00.000Z', 2);
+    expect(premier.status).toBe(200);
+    const accuse = (await premier.json()) as { majLe: string };
+    expect(Date.parse(accuse.majLe)).toBeGreaterThanOrEqual(avant);
+    expect(Date.parse(accuse.majLe)).toBeLessThanOrEqual(Date.now());
+
+    /* Simule une ligne écrite avant le plafonnement, encore dans la base. */
+    await base.update(progression).set({ majLe: new Date('2099-01-01T00:00:00.000Z') })
+      .where(eq(progression.profilId, id));
+    const reprise = await pousser('2099-01-01T00:00:00.001Z', 3);
+    expect(reprise.status).toBe(200);
+    const majReprise = (await reprise.json()) as { majLe: string };
+    expect(Date.parse(majReprise.majLe)).toBeLessThanOrEqual(Date.now());
+
+    const liste = (await (await app.request('/api/profils', { headers: h })).json()) as {
+      profils: { id: string; majLe: string; etat: { palier: number } }[];
+    };
+    expect(liste.profils[0].majLe).toBe(majReprise.majLe);
+    expect(liste.profils[0].etat.palier).toBe(3);
+    expect((await pousser('2020-01-01T00:00:00.000Z', 1)).status).toBe(409);
   });
 
   /* La règle la plus importante du serveur : un id deviné ne donne rien. */
