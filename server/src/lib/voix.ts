@@ -41,7 +41,10 @@ const CACHE_MAX = 5000;
 /** Un mot isolé se synthétise en ~200 ms ; au-delà, Piper est bloqué. */
 const DELAI_MAX_MS = 20_000;
 
-export type Synthese = (mot: string) => Promise<Buffer | null>;
+/** Lenteur d'une CONSIGNE : une phrase à la lenteur d'une dictée traînerait. */
+export const LENTEUR_CONSIGNE = 1.1;
+
+export type Synthese = (texte: string, lenteur?: number) => Promise<Buffer | null>;
 
 type EnvVoix = { PIPER_BIN?: string; PIPER_MODELE?: string };
 
@@ -52,9 +55,9 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
   /* ponytail: cache sur le disque du CONTENEUR — il repart vide à chaque
      déploiement, et chaque mot se resynthétise une fois (~200 ms). Une table
      en base le rendrait durable, au prix d'une migration ; à faire si les
-     listes grossissent ou si le CPU de l'hôte peine. La voix et la lenteur
-     sont DANS le chemin : changer l'une ou l'autre ne ressert aucun vieux son. */
-  const dossier = join(racineCache, `voix-${basename(modele)}-${LENTEUR_DICTEE}`);
+     listes grossissent ou si le CPU de l'hôte peine. La voix est DANS le chemin,
+     la lenteur dans le nom du fichier : en changer ne ressert aucun vieux son. */
+  const dossier = join(racineCache, `voix-${basename(modele)}`);
   mkdirSync(dossier, { recursive: true });
 
   /* UNE synthèse à la fois : Piper prend un cœur entier, et une liste de
@@ -65,7 +68,11 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
   let enAttente = 0;
   const enCours = new Map<string, Promise<Buffer | null>>();
 
-  const synthetiser = async (phrase: string, chemin: string): Promise<Buffer | null> => {
+  const synthetiser = async (
+    phrase: string,
+    lenteur: number,
+    chemin: string,
+  ): Promise<Buffer | null> => {
     /* AVANT d'écrire : le brouillon vit dans ce dossier, le vider après
        emporterait le son qu'on vient de produire. */
     if ((await readdir(dossier)).length > CACHE_MAX) {
@@ -76,7 +83,7 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
     const reussi = await new Promise<boolean>((resoudre) => {
       const piper = spawn(
         bin,
-        ['--model', modele, '--length_scale', String(LENTEUR_DICTEE), '--output_file', brouillon],
+        ['--model', modele, '--length_scale', String(lenteur), '--output_file', brouillon],
         { stdio: ['pipe', 'ignore', 'ignore'] },
       );
       const garde = setTimeout(() => piper.kill('SIGKILL'), DELAI_MAX_MS);
@@ -100,12 +107,14 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
     return readFile(chemin);
   };
 
-  return (mot) => {
-    /* Piper lit UNE phrase par ligne : un retour à la ligne dans le mot en
+  return (texte, lenteur = LENTEUR_DICTEE) => {
+    /* Piper lit UNE phrase par ligne : un retour à la ligne dans le texte en
        ferait deux énoncés. Le point final pose la voix — un mot nu est dit
-       avec l'intonation d'une phrase coupée. */
-    const phrase = `${mot.replace(/\s+/g, ' ').trim()}.`;
-    const chemin = join(dossier, `${createHash('sha256').update(phrase).digest('hex')}.wav`);
+       avec l'intonation d'une phrase coupée ; une phrase déjà finie le garde. */
+    const propre = texte.replace(/\s+/g, ' ').trim();
+    const phrase = /[.!?…]$/.test(propre) ? propre : `${propre}.`;
+    const cle = createHash('sha256').update(`${lenteur}|${phrase}`).digest('hex');
+    const chemin = join(dossier, `${cle}.wav`);
 
     const deja = enCours.get(chemin);
     if (deja) return deja;
@@ -116,7 +125,7 @@ export function creerSynthese(env: EnvVoix, racineCache = tmpdir()): Synthese | 
       if (enAttente >= FILE_MAX) return null;
       enAttente++;
       const tour = file
-        .then(() => synthetiser(phrase, chemin))
+        .then(() => synthetiser(phrase, lenteur, chemin))
         .catch(() => null)
         .finally(() => enAttente--);
       file = tour;

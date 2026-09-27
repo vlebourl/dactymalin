@@ -27,7 +27,7 @@ import { Keyboard } from '../ui/Keyboard';
 import { Stars } from '../ui/Stars';
 import { sonItem, sonLettre } from '../ui/son';
 import { SpeakerButton } from '../ui/SpeakerButton';
-import { direMot, prechargerLesMots } from '../ui/voixDictee';
+import { direLettre, direMot, prechargerLaLettre, prechargerLesMots } from '../ui/voix';
 import { useKeyInput } from '../hooks/useKeyInput';
 import { avancementEtape, avancementLecon } from '../core/progression';
 import { nomProfilActif } from '../core/profils';
@@ -356,22 +356,16 @@ export function V4Lecon() {
     if (e.barreau !== 3 || refDit.current === cle) return;
     refDit.current = cle;
     /* En dictée la voix est l'exercice : la lettre donnée se dit même sons
-       coupés, comme le mot (#118). */
-    if (!(app.reglages.sons || e.dictee) || typeof speechSynthesis === 'undefined') return;
-    // Un navigateur exotique ne doit JAMAIS pouvoir effacer la leçon en cours :
-    // la synthèse vocale est un confort, pas une dépendance.
-    try {
-      const voix = speechSynthesis.getVoices().find((x) => x.lang?.toLowerCase().startsWith('fr'));
-      if (!voix) return; // pas de voix française : l'aide reste purement visuelle
-      const phrase = new SpeechSynthesisUtterance(attendu === ' ' ? 'espace' : attendu);
-      phrase.voice = voix;
-      phrase.lang = 'fr-FR';
-      phrase.rate = 0.85;
-      speechSynthesis.speak(phrase);
-    } catch {
-      /* voix indisponible : l'aide reste purement visuelle */
-    }
+       coupés, comme le mot (#118). La voix du serveur d'abord, celle du
+       navigateur en repli (#126) — `direLettre` ne lève jamais. */
+    if (app.reglages.sons || e.dictee) direLettre(attendu);
   }, [e.barreau, e.i, e.curseur, e.dictee, attendu, app.reglages.sons]);
+
+  /* Dès la première faute, le nom de la lettre est demandé au serveur : s'il
+     faut le dire à la suivante, il sera déjà là. */
+  useEffect(() => {
+    if (e.aide.erreurs >= 1 && (app.reglages.sons || e.dictee)) prechargerLaLettre(attendu);
+  }, [e.aide.erreurs, e.dictee, attendu, app.reglages.sons]);
 
   /* Le bandeau annonce l'ensemble CUMULÉ, pas les seules nouveautés du palier :
      c'est lui la référence de ce qui peut être proposé (P5). Les capitales

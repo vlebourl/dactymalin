@@ -5,10 +5,11 @@ import { useKeyInput } from '../hooks/useKeyInput';
 import { useApp, useEnvoi } from '../state';
 import { MiniClavier } from '../ui/MiniClavier';
 import { SpeakerButton } from '../ui/SpeakerButton';
+import { direConsigne } from '../ui/voix';
+import { CONSIGNE_CLAVIER } from '../core/consignes';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
-const CONSIGNE = 'Appuie sur la touche A';
 
 export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
   const app = useApp();
@@ -49,10 +50,10 @@ export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
 
   const consigne =
     raison === 'incoherence'
-      ? 'Tes touches ne sont pas là où je croyais. Appuie sur la touche A.'
+      ? CONSIGNE_CLAVIER.incoherence
       : source === 'carte'
-        ? 'Je crois avoir reconnu ton clavier. Appuie sur la touche A pour vérifier.'
-        : CONSIGNE;
+        ? CONSIGNE_CLAVIER.reconnu
+        : CONSIGNE_CLAVIER.defaut;
 
   const choisir = (id: IdDisposition) => {
     envoi({ type: 'disposition', id, manuel: true });
@@ -77,7 +78,7 @@ export function V2Clavier({ raison }: { raison?: 'incoherence' }) {
         <h1 className={v.titre}>Regarde ton vrai clavier</h1>
         <p className={v.consigneGeante}>
           {consigne}
-          <SpeakerButton texte={consigne} libelle="Écouter la consigne" />
+          <SpeakerButton texte={consigne} libelle="Écouter la consigne" parler={direConsigne} />
         </p>
 
         <div className={v.cartes}>

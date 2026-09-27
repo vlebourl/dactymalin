@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useApp } from './state';
+import { sonderLaVoixDuServeur } from './ui/voix';
 import { V1Accueil } from './views/V1Accueil';
 import { V2Clavier } from './views/V2Clavier';
 import { V3GuideDoigt } from './views/V3GuideDoigt';
@@ -10,6 +12,8 @@ import { V9Compte } from './views/V9Compte';
 
 export function App() {
   const app = useApp();
+  /* `App` n'existe qu'une fois connecté : la question a donc sa session. */
+  useEffect(sonderLaVoixDuServeur, []);
   switch (app.vue) {
     case 'V1':
       return <V1Accueil />;
