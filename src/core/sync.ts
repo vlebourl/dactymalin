@@ -2,6 +2,7 @@ import { listesValides, type Liste } from './listes';
 import { CLE, charger, estIntact, sauver, type Sauvegarde } from './storage';
 import { cleDe, oublierProfils, remplacerIndex } from './profils';
 import { fusionner } from './fusion';
+import { memeContenu } from './egalite';
 
 /**
  * Synchronisation LOCAL D'ABORD.
@@ -460,13 +461,35 @@ export const supprimerListeDistante = (id: string) =>
 
 /* ------------------------------------------------------------------- envoi */
 
-async function envoyer(e: EnAttente): Promise<{ etat: Sauvegarde; majLe: string } | null> {
+const memeEntree = (a: EnAttente, b: EnAttente): boolean =>
+  a.profilDistant === b.profilDistant && a.majLe === b.majLe && memeContenu(a.etat, b.etat);
+
+/** La fusion doit être durable AVANT le PUT : son accusé peut se perdre. */
+function preparerFusion(avant: EnAttente, fusion: EnAttente): void {
+  const file = lireFile();
+  const nouveau = file.find((e) => e.profilDistant === avant.profilDistant && !memeEntree(e, avant));
+  const aGarder = nouveau ? {
+    ...nouveau,
+    etat: fusionner(
+      { etat: fusion.etat, majLe: Date.parse(fusion.majLe) },
+      { etat: nouveau.etat, majLe: Math.max(Date.parse(nouveau.majLe), Date.parse(fusion.majLe) + 1) },
+    ),
+  } : fusion;
+  ecrireFile(file.map((e) => memeEntree(e, avant) || e === nouveau ? aGarder : e));
+  sauver(aGarder.etat, cleDe(avant.profilDistant));
+  for (const fn of auditeursFusion.get(avant.profilDistant) ?? []) {
+    try { fn(avant.etat, aGarder.etat); }
+    catch (erreur) { console.warn('[tapeavecmoi] notification de fusion impossible', erreur); }
+  }
+}
+
+async function envoyer(e: EnAttente): Promise<{ accepte: { etat: Sauvegarde; majLe: string } | null; transmis: EnAttente }> {
   try {
     await json(`/api/profils/${e.profilDistant}/progression`, {
       method: 'PUT',
       body: JSON.stringify({ etat: e.etat, majLe: e.majLe }),
     });
-    return null;
+    return { accepte: null, transmis: e };
   } catch (erreur) {
     /* 409 : le serveur a plus récent. On refait la fusion et on rejoue UNE
        fois — jamais de boucle, l'enfant est en train de taper. */
@@ -482,11 +505,20 @@ async function envoyer(e: EnAttente): Promise<{ etat: Sauvegarde; majLe: string 
        du serveur avançait sur celle de l'appareil — la fusion était faite,
        puis jetée. */
     const majLe = new Date(Math.max(Date.now(), Date.parse(distant.majLe) + 1)).toISOString();
-    const accuse = await json<{ majLe: string }>(`/api/profils/${e.profilDistant}/progression`, {
-      method: 'PUT',
-      body: JSON.stringify({ etat: fusionne, majLe }),
-    });
-    return { etat: fusionne, majLe: accuse.majLe };
+    const transmis = { ...e, etat: fusionne, majLe };
+    preparerFusion(e, transmis);
+    let accuse: { majLe: string };
+    try {
+      accuse = await json<{ majLe: string }>(`/api/profils/${e.profilDistant}/progression`, {
+        method: 'PUT',
+        body: JSON.stringify({ etat: fusionne, majLe }),
+      });
+    } catch (echec) {
+      /* Le second PUT peut aussi être définitivement refusé. La vidange doit
+         alors retirer la version fusionnée, pas l'ancienne entrée remplacée. */
+      throw Object.assign(echec as Error, { transmis });
+    }
+    return { accepte: { etat: fusionne, majLe: accuse.majLe }, transmis };
   }
 }
 
@@ -503,9 +535,10 @@ export function viderLaFile(): Promise<void> {
 async function vidange(): Promise<void> {
   while (lireFile().length > 0) {
     const premier = lireFile()[0];
-    let accepte: { etat: Sauvegarde; majLe: string } | null = null;
+    let resultat: Awaited<ReturnType<typeof envoyer>> | null = null;
+    let refuse: EnAttente | null = null;
     try {
-      accepte = await envoyer(premier);
+      resultat = await envoyer(premier);
     } catch (erreur) {
       const statut = (erreur as { statut?: number }).statut;
       /* 400 et 404 : le serveur n'en voudra JAMAIS (profil supprimé sur un
@@ -513,14 +546,13 @@ async function vidange(): Promise<void> {
          toutes les progressions suivantes, pour toujours — un seul envoi
          mort-né condamnait la synchronisation de la famille entière. */
       if (statut !== 400 && statut !== 404) return; // hors ligne : on réessaiera
+      refuse = (erreur as { transmis?: EnAttente }).transmis ?? premier;
     }
     /* Relire APRÈS l'attente réseau : pousser a pu remplacer cette entrée.
        Une réponse à l'ancien état n'acquitte jamais la nouvelle intention. */
     const courant = lireFile();
-    const memeEntree = (e: EnAttente) =>
-      e.profilDistant === premier.profilDistant && e.majLe === premier.majLe &&
-      JSON.stringify(e.etat) === JSON.stringify(premier.etat);
-    let suite = courant.filter((e) => !memeEntree(e));
+    let suite = courant.filter((e) => !memeEntree(e, resultat?.transmis ?? refuse ?? premier));
+    const accepte = resultat?.accepte;
     if (accepte) {
       fusionsAcceptees.set(premier.profilDistant, accepte);
       const nouveau = suite.find((e) => e.profilDistant === premier.profilDistant);

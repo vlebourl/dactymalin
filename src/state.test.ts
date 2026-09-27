@@ -31,10 +31,15 @@ beforeEach(() => {
 });
 
 describe('points d’envoi de progression', () => {
-  it('ne déclenche aucun envoi pour une vue, une liste ou un réglage', () => {
+  it('ne déclenche aucun envoi pour une vue ou une liste', () => {
     expect(actionTermineExercice({ type: 'vue', vue: 'V1' })).toBe(false);
     expect(actionTermineExercice({ type: 'listes', listes: [] })).toBe(false);
-    expect(actionTermineExercice({ type: 'reglage', cle: 'animationsDouces', valeur: true })).toBe(false);
+  });
+
+  it('envoie les choix durables du parent sans attendre une leçon', () => {
+    expect(actionTermineExercice({ type: 'reglage', cle: 'animationsDouces', valeur: true })).toBe(true);
+    expect(actionTermineExercice({ type: 'parcours', parcours: 'dactylo' })).toBe(true);
+    expect(actionTermineExercice({ type: 'disposition', id: 'fr-CH', manuel: true })).toBe(true);
   });
 
   it('déclenche un envoi en fin de leçon et à la validation manuelle', () => {
@@ -50,6 +55,22 @@ describe('points d’envoi de progression', () => {
     const recu = reducer(courant, { type: 'fusionRecue', avant, apres });
     expect(recu.vue).toBe('V9');
     expect(recu.etape).toBe(5);
+  });
+
+  it('reconnaît un état identique malgré un ordre de clés différent', () => {
+    const depart = etatDeDepart();
+    const local = aSauvegarder(depart);
+    const avant = {
+      ...local,
+      reglages: {
+        animationsDouces: local.reglages.animationsDouces,
+        texteEspace: local.reglages.texteEspace,
+        sons: local.reglages.sons,
+      },
+    };
+    const apres = { ...avant, reglages: { ...avant.reglages, sons: !avant.reglages.sons } };
+    expect(aSauvegarder(reducer(depart, { type: 'fusionRecue', avant, apres })).reglages.sons)
+      .toBe(apres.reglages.sons);
   });
 });
 

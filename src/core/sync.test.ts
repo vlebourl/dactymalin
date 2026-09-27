@@ -185,6 +185,31 @@ describe('file d’attente des progressions', () => {
 });
 
 describe('conflit de version', () => {
+  it('persiste la fusion avant le PUT pour survivre à sa réponse perdue et au redémarrage', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: { ...DEFAUTS, palier: 5 }, majLe: new Date(Date.now() + 60_000).toISOString() }]);
+    const original = s.fetchFaux.getMockImplementation()!;
+    let puts = 0;
+    s.fetchFaux.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT' && ++puts === 2) {
+        await original(url, init);
+        throw new TypeError('réponse du PUT fusionné perdue');
+      }
+      return original(url, init);
+    });
+
+    await pousser('a', { ...DEFAUTS, palier: 3, guideDoigtVu: true });
+    expect(enAttente()).toBe(1);
+    expect(JSON.parse(localStorage.getItem(CLE_FILE)!)[0].etat.palier).toBe(5);
+    expect(charger(cleDe('a')).palier).toBe(5);
+
+    oublierFileMemoire();
+    await viderLaFile();
+    await pousser('a', { ...charger(cleDe('a')), dispositionChoisieALaMain: true });
+    expect(s.puts.at(-1)?.etat.palier).toBe(5);
+    expect(s.puts.at(-1)?.etat.guideDoigtVu).toBe(true);
+    expect(enAttente()).toBe(0);
+  });
+
   it('garde la fusion sur cet appareil pour le prochain envoi', async () => {
     const distant = { id: 'a', prenom: 'Timo', etat: { ...DEFAUTS, palier: 5 }, majLe: new Date(Date.now() + 60_000).toISOString() };
     const s = serveur([distant]);
@@ -225,6 +250,18 @@ describe('conflit de version', () => {
     const puts = s.fetchFaux.mock.calls.filter(([, i]) => (i as RequestInit)?.method === 'PUT');
     expect(puts).toHaveLength(2); // l'envoi, puis UN rejeu — pas davantage
     expect(enAttente()).toBe(1);
+  });
+
+  it('un 404 sur le PUT fusionné ne laisse pas une entrée bloquante', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: { ...DEFAUTS, palier: 5 }, majLe: new Date(Date.now() + 60_000).toISOString() }]);
+    const original = s.fetchFaux.getMockImplementation()!;
+    let puts = 0;
+    s.fetchFaux.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT' && ++puts === 2) return rep({ erreur: 'profil supprimé' }, 404);
+      return original(url, init);
+    });
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(enAttente()).toBe(0);
   });
 });
 

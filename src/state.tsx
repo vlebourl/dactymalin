@@ -16,6 +16,7 @@ import {
 } from './core/storage';
 import { ecouterFusion, listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
 import { fusionner } from './core/fusion';
+import { memeContenu } from './core/egalite';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
 import { etapeFinie, ETAPE_MAX, LECONS_PAR_ETAPE, parcoursFini, type IdParcours } from './core/parcours';
@@ -135,13 +136,14 @@ export type Action =
 
 /** Les données restent locales pendant la navigation ; la fin d'un exercice valide l'envoi. */
 export const actionTermineExercice = (action: Action): boolean =>
-  action.type === 'leconTerminee' || action.type === 'leconFaite';
+  action.type === 'leconTerminee' || action.type === 'leconFaite' ||
+  action.type === 'parcours' || action.type === 'disposition' || action.type === 'reglage';
 
 export function reducer(etat: EtatApp, action: Action): EtatApp {
   switch (action.type) {
     case 'fusionRecue': {
       const local = aSauvegarder(etat);
-      const sauve = JSON.stringify(local) === JSON.stringify(action.avant)
+      const sauve = memeContenu(local, action.avant)
         ? action.apres
         : fusionner(
             { etat: action.apres, majLe: 0 },
