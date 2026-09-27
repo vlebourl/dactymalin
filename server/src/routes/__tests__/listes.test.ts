@@ -26,20 +26,20 @@ d('bibliothèque de listes', () => {
     return { Cookie: r.headers.get('set-cookie')!.split(';')[0], 'Content-Type': 'application/json' };
   };
 
-  const creer = (h: HeadersInit, nom: unknown, mots: unknown) =>
+  const creer = (h: Record<string, string>, nom: unknown, mots: unknown) =>
     app.request('/api/listes', { method: 'POST', headers: h, body: JSON.stringify({ nom, mots }) });
 
-  const modifier = (h: HeadersInit, id: string, nom: unknown, mots: unknown) =>
+  const modifier = (h: Record<string, string>, id: string, nom: unknown, mots: unknown) =>
     app.request(`/api/listes/${id}`, {
       method: 'PUT',
       headers: h,
       body: JSON.stringify({ nom, mots }),
     });
 
-  const supprimer = (h: HeadersInit, id: string) =>
+  const supprimer = (h: Record<string, string>, id: string) =>
     app.request(`/api/listes/${id}`, { method: 'DELETE', headers: h });
 
-  const lire = async (h: HeadersInit) =>
+  const lire = async (h: Record<string, string>) =>
     (await (await app.request('/api/listes', { headers: h })).json()) as {
       listes: { id: string; nom: string; mots: string[]; creeLe: string }[];
     };

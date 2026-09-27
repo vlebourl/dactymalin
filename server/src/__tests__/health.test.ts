@@ -23,7 +23,7 @@ describe('healthcheck', () => {
     const app = creerApp({ env, pingBase: () => Promise.reject(new Error('coupée')) });
     const r = await app.request('/api/health');
     expect(r.status).toBe(200);
-    expect((await r.json()).status).toBe('degraded');
+    expect(((await r.json()) as { status: string }).status).toBe('degraded');
   });
 });
 

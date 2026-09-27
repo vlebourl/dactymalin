@@ -33,13 +33,13 @@ d('voix du serveur', () => {
     expect(r.status).toBe(200);
     return { Cookie: r.headers.get('set-cookie')!.split(';')[0], 'Content-Type': 'application/json' };
   };
-  const creerListe = (h: HeadersInit, mots: string[]) =>
+  const creerListe = (h: Record<string, string>, mots: string[]) =>
     avecVoix.request('/api/listes', {
       method: 'POST',
       headers: h,
       body: JSON.stringify({ nom: 'Semaine', mots }),
     });
-  const mot = (app: typeof avecVoix, h: HeadersInit | undefined, m: string) =>
+  const mot = (app: typeof avecVoix, h: Record<string, string> | undefined, m: string) =>
     app.request(`/api/voix/mot?mot=${encodeURIComponent(m)}`, { headers: h });
   const courriel = () => `voix-${Date.now()}-${Math.random().toString(36).slice(2)}@exemple.fr`;
 
@@ -91,7 +91,7 @@ d('voix du serveur', () => {
   /* #126 — le nom de la lettre, au barreau 3. Un ensemble FERMÉ : le serveur
      ne dit que ce que `nomDeLettre` sait nommer. */
   describe('nom de lettre', () => {
-    const lettre = (app: typeof avecVoix, h: HeadersInit | undefined, c: string) =>
+    const lettre = (app: typeof avecVoix, h: Record<string, string> | undefined, c: string) =>
       app.request(`/api/voix/lettre?c=${encodeURIComponent(c)}`, { headers: h });
 
     it('refuse tout accès sans session', async () => {
@@ -124,7 +124,7 @@ d('voix du serveur', () => {
   /* #126 — les consignes lues à voix haute (choix du clavier, guide des
      doigts). Ensemble FERMÉ, lui aussi : les phrases de `consignes.ts`. */
   describe('consigne', () => {
-    const consigne = (h: HeadersInit | undefined, t: string) =>
+    const consigne = (h: Record<string, string> | undefined, t: string) =>
       avecVoix.request(`/api/voix/consigne?t=${encodeURIComponent(t)}`, { headers: h });
 
     it('dit une consigne de l’app, à un débit de phrase', async () => {
