@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import {
   adopterProgressionHistorique,
   compteCourant,
@@ -18,6 +20,7 @@ import {
   viderLaFile,
 } from './sync';
 import { CLE_PROFILS, chargerIndex, cleDe, remplacerIndex } from './profils';
+import { bornerMajLe } from '../../server/src/routes/profils';
 import {
   CLE,
   DEFAUTS,
@@ -96,6 +99,23 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('file d’attente des progressions', () => {
+  it('conserve le dernier état poussé pendant un envoi déjà en vol', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    let liberer!: () => void;
+    const attente = new Promise<void>((resolve) => { liberer = resolve; });
+    const original = s.fetchFaux.getMockImplementation()!;
+    s.fetchFaux.mockImplementationOnce(async (url: string, init?: RequestInit) => {
+      await attente;
+      return original(url, init);
+    });
+    const premier = pousser('a', { ...DEFAUTS, palier: 2 });
+    await Promise.resolve();
+    const second = pousser('a', { ...DEFAUTS, palier: 4 });
+    liberer();
+    await Promise.all([premier, second]);
+    expect(s.puts.at(-1)?.etat.palier).toBe(4);
+    expect(enAttente()).toBe(0);
+  });
   it('un envoi part tout de suite et la file se vide', async () => {
     const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
     await pousser('a', { ...DEFAUTS, palier: 3 });
@@ -115,6 +135,21 @@ describe('file d’attente des progressions', () => {
     await viderLaFile();
     expect(s.puts).toHaveLength(1);
     expect(enAttente()).toBe(0);
+  });
+
+  it('rejoue après redémarrage un envoi accepté sans accusé de réception', async () => {
+    const s = serveur([{ id: 'a', prenom: 'Timo', etat: null, majLe: null }]);
+    const original = s.fetchFaux.getMockImplementation()!;
+    s.fetchFaux.mockImplementationOnce(async (url: string, init?: RequestInit) => {
+      await original(url, init); // effet serveur appliqué, réponse perdue
+      throw new TypeError('réponse perdue');
+    });
+    await pousser('a', { ...DEFAUTS, palier: 3 });
+    expect(enAttente()).toBe(1);
+    oublierFileMemoire(); // seule la file persistée survit au redémarrage
+    await viderLaFile();
+    expect(enAttente()).toBe(0);
+    expect(s.puts.at(-1)?.etat.palier).toBe(3);
   });
 
   it('une seule entrée par profil : le rejeu n’envoie que le plus récent', async () => {
@@ -150,6 +185,15 @@ describe('file d’attente des progressions', () => {
 });
 
 describe('conflit de version', () => {
+  it('garde la fusion sur cet appareil pour le prochain envoi', async () => {
+    const distant = { id: 'a', prenom: 'Timo', etat: { ...DEFAUTS, palier: 5 }, majLe: new Date(Date.now() + 60_000).toISOString() };
+    const s = serveur([distant]);
+    sauver({ ...DEFAUTS, palier: 3, guideDoigtVu: true }, cleDe('a'));
+    await pousser('a', charger(cleDe('a')));
+    expect(charger(cleDe('a')).palier).toBe(5);
+    await pousser('a', { ...charger(cleDe('a')), dispositionChoisieALaMain: true });
+    expect(s.puts.at(-1)?.etat.palier).toBe(5);
+  });
   it('un 409 est rejoué UNE fois, fusionné, et la file se vide', async () => {
     const plusRecent = new Date(Date.now() + 60_000).toISOString();
     const s = serveur([
@@ -181,6 +225,52 @@ describe('conflit de version', () => {
     const puts = s.fetchFaux.mock.calls.filter(([, i]) => (i as RequestInit)?.method === 'PUT');
     expect(puts).toHaveLength(2); // l'envoi, puis UN rejeu — pas davantage
     expect(enAttente()).toBe(1);
+  });
+});
+
+describe('bornes réseau et horloge', () => {
+  it('borne un horodatage client dans le futur à l’heure serveur', () => {
+    const maintenant = new Date('2026-09-27T10:00:00.000Z');
+    expect(bornerMajLe('2099-01-01T00:00:00.000Z', maintenant)).toEqual(maintenant);
+  });
+
+  it('donne un délai maximal aux requêtes API', async () => {
+    let signal: AbortSignal | null | undefined;
+    const fetchFaux = vi.fn(async (_url: string, init?: RequestInit) => {
+      signal = init?.signal;
+      return rep({ user: null });
+    });
+    vi.stubGlobal('fetch', fetchFaux);
+    await compteCourant();
+    expect(fetchFaux).toHaveBeenCalledOnce();
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('borne aussi la requête réseau du service worker avant le repli cache', async () => {
+    const gestionnaires = new Map<string, (evenement: Record<string, unknown>) => void>();
+    let signal: AbortSignal | undefined;
+    const cache = { put: vi.fn(async () => {}), match: vi.fn(async () => undefined) };
+    const code = readFileSync(new URL('../../public/sw.js', import.meta.url), 'utf8');
+    runInNewContext(code, {
+      self: {
+        location: { origin: 'https://exemple.test' },
+        addEventListener: (nom: string, fn: (e: Record<string, unknown>) => void) => gestionnaires.set(nom, fn),
+      },
+      caches: { open: async () => cache },
+      fetch: async (_requete: Request, init?: RequestInit) => {
+        signal = init?.signal ?? undefined;
+        return new Response('ok');
+      },
+      AbortSignal,
+      URL,
+    });
+    let reponse: Promise<Response> | undefined;
+    gestionnaires.get('fetch')!({
+      request: new Request('https://exemple.test/'),
+      respondWith: (promise: Promise<Response>) => { reponse = promise; },
+    });
+    await reponse;
+    expect(signal).toBeInstanceOf(AbortSignal);
   });
 });
 

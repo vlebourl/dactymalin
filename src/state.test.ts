@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
+import { aSauvegarder, actionTermineExercice, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
 import {
   BLOC_MAX,
   blocDeDepart,
@@ -28,6 +28,29 @@ class FauxStockage {
 
 beforeEach(() => {
   globalThis.localStorage = new FauxStockage() as unknown as Storage;
+});
+
+describe('points d’envoi de progression', () => {
+  it('ne déclenche aucun envoi pour une vue, une liste ou un réglage', () => {
+    expect(actionTermineExercice({ type: 'vue', vue: 'V1' })).toBe(false);
+    expect(actionTermineExercice({ type: 'listes', listes: [] })).toBe(false);
+    expect(actionTermineExercice({ type: 'reglage', cle: 'animationsDouces', valeur: true })).toBe(false);
+  });
+
+  it('déclenche un envoi en fin de leçon et à la validation manuelle', () => {
+    expect(actionTermineExercice({ type: 'leconTerminee', bilan: bilan([]) })).toBe(true);
+    expect(actionTermineExercice({ type: 'leconFaite', etape: 1, lecon: 1 })).toBe(true);
+  });
+
+  it('réinjecte la fusion acceptée sans perdre la vue ouverte', () => {
+    const depart = etatDeDepart();
+    const avant = aSauvegarder(depart);
+    const apres = { ...avant, palier: 5, progressions: { ...avant.progressions, 'decouverte:fr-FR': { etape: 5, leconsSurEtape: 0 } } };
+    const courant = reducer(depart, { type: 'vue', vue: 'V9' });
+    const recu = reducer(courant, { type: 'fusionRecue', avant, apres });
+    expect(recu.vue).toBe('V9');
+    expect(recu.etape).toBe(5);
+  });
 });
 
 /** Une leçon close à une date fixe : les tests qui datent la leçon la posent. */

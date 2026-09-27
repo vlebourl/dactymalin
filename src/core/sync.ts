@@ -49,6 +49,19 @@ type EnAttente = { profilDistant: string; etat: Sauvegarde; majLe: string };
  * être persisté reste donc ici, envoyable et COMPTÉ, jusqu'au rechargement.
  */
 let fileMemoire: EnAttente[] | null = null;
+/** Dernière fusion acceptée : protège aussi une vue React encore en mémoire. */
+const fusionsAcceptees = new Map<string, { etat: Sauvegarde; majLe: string }>();
+const auditeursFusion = new Map<string, Set<(avant: Sauvegarde, apres: Sauvegarde) => void>>();
+
+export function ecouterFusion(id: string, fn: (avant: Sauvegarde, apres: Sauvegarde) => void): () => void {
+  const ensemble = auditeursFusion.get(id) ?? new Set();
+  ensemble.add(fn);
+  auditeursFusion.set(id, ensemble);
+  return () => {
+    ensemble.delete(fn);
+    if (ensemble.size === 0) auditeursFusion.delete(id);
+  };
+}
 
 /** La file : celle de la mémoire tant que le stockage n'en a pas voulu. */
 const lireFile = (): EnAttente[] => fileMemoire ?? lire<EnAttente[]>(CLE_FILE, []);
@@ -57,7 +70,10 @@ const lireFile = (): EnAttente[] => fileMemoire ?? lire<EnAttente[]>(CLE_FILE, [
  * Repart d'une session vierge. La file de repli n'appartient qu'à la session
  * en cours : la déconnexion la jette, et un test qui change de stockage aussi.
  */
-export const oublierFileMemoire = (): void => void (fileMemoire = null);
+export const oublierFileMemoire = (): void => {
+  fileMemoire = null;
+  fusionsAcceptees.clear();
+};
 
 /** Écrit la file, et la garde en mémoire si le stockage l'a refusée. */
 function ecrireFile(file: EnAttente[]): void {
@@ -141,6 +157,7 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, {
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(8_000),
     ...init,
   });
   if (!r.ok) {
@@ -443,12 +460,13 @@ export const supprimerListeDistante = (id: string) =>
 
 /* ------------------------------------------------------------------- envoi */
 
-async function envoyer(e: EnAttente): Promise<void> {
+async function envoyer(e: EnAttente): Promise<{ etat: Sauvegarde; majLe: string } | null> {
   try {
     await json(`/api/profils/${e.profilDistant}/progression`, {
       method: 'PUT',
       body: JSON.stringify({ etat: e.etat, majLe: e.majLe }),
     });
+    return null;
   } catch (erreur) {
     /* 409 : le serveur a plus récent. On refait la fusion et on rejoue UNE
        fois — jamais de boucle, l'enfant est en train de taper. */
@@ -464,10 +482,11 @@ async function envoyer(e: EnAttente): Promise<void> {
        du serveur avançait sur celle de l'appareil — la fusion était faite,
        puis jetée. */
     const majLe = new Date(Math.max(Date.now(), Date.parse(distant.majLe) + 1)).toISOString();
-    await json(`/api/profils/${e.profilDistant}/progression`, {
+    const accuse = await json<{ majLe: string }>(`/api/profils/${e.profilDistant}/progression`, {
       method: 'PUT',
       body: JSON.stringify({ etat: fusionne, majLe }),
     });
+    return { etat: fusionne, majLe: accuse.majLe };
   }
 }
 
@@ -482,11 +501,11 @@ export function viderLaFile(): Promise<void> {
 }
 
 async function vidange(): Promise<void> {
-  let file = lireFile();
-  while (file.length > 0) {
-    const [premier, ...reste] = file;
+  while (lireFile().length > 0) {
+    const premier = lireFile()[0];
+    let accepte: { etat: Sauvegarde; majLe: string } | null = null;
     try {
-      await envoyer(premier);
+      accepte = await envoyer(premier);
     } catch (erreur) {
       const statut = (erreur as { statut?: number }).statut;
       /* 400 et 404 : le serveur n'en voudra JAMAIS (profil supprimé sur un
@@ -495,8 +514,34 @@ async function vidange(): Promise<void> {
          mort-né condamnait la synchronisation de la famille entière. */
       if (statut !== 400 && statut !== 404) return; // hors ligne : on réessaiera
     }
-    file = reste;
-    ecrireFile(file);
+    /* Relire APRÈS l'attente réseau : pousser a pu remplacer cette entrée.
+       Une réponse à l'ancien état n'acquitte jamais la nouvelle intention. */
+    const courant = lireFile();
+    const memeEntree = (e: EnAttente) =>
+      e.profilDistant === premier.profilDistant && e.majLe === premier.majLe &&
+      JSON.stringify(e.etat) === JSON.stringify(premier.etat);
+    let suite = courant.filter((e) => !memeEntree(e));
+    if (accepte) {
+      fusionsAcceptees.set(premier.profilDistant, accepte);
+      const nouveau = suite.find((e) => e.profilDistant === premier.profilDistant);
+      let etatLocal = accepte.etat;
+      if (nouveau) {
+        const fusionne = fusionner(
+          { etat: accepte.etat, majLe: Date.parse(accepte.majLe) },
+          { etat: nouveau.etat, majLe: Math.max(Date.parse(nouveau.majLe), Date.parse(accepte.majLe) + 1) },
+        );
+        suite = suite.map((e) => e === nouveau ? { ...e, etat: fusionne } : e);
+        sauver(fusionne, cleDe(premier.profilDistant));
+        etatLocal = fusionne;
+      } else {
+        sauver(accepte.etat, cleDe(premier.profilDistant));
+      }
+      for (const fn of auditeursFusion.get(premier.profilDistant) ?? []) {
+        try { fn(premier.etat, etatLocal); }
+        catch (erreur) { console.warn('[tapeavecmoi] notification de fusion impossible', erreur); }
+      }
+    }
+    ecrireFile(suite);
   }
 }
 
@@ -508,7 +553,16 @@ async function vidange(): Promise<void> {
  */
 export function pousser(idProfil: string, etat: Sauvegarde): Promise<void> {
   if (!estIntact(etat)) return Promise.resolve();
-  const majLe = new Date().toISOString();
+  const precedente = fusionsAcceptees.get(idProfil);
+  const horodatage = Math.max(Date.now(), precedente ? Date.parse(precedente.majLe) + 1 : 0);
+  const majLe = new Date(horodatage).toISOString();
+  if (precedente) {
+    etat = fusionner(
+      { etat: precedente.etat, majLe: Date.parse(precedente.majLe) },
+      { etat, majLe: horodatage },
+    );
+    sauver(etat, cleDe(idProfil));
+  }
   /* L'écriture locale est datée ICI, à l'instant où elle a lieu. La fusion la
      comparera à celle du serveur — et non plus à `Date.now()`, qui faisait
      gagner cet appareil à tous les coups, y compris sur des préférences
