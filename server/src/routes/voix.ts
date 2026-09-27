@@ -7,7 +7,6 @@ import { exigeSession, type AvecCompte } from '../lib/session';
 import { limiterDebit } from '../lib/debit';
 import { LENTEUR_CONSIGNE, type Synthese } from '../lib/voix';
 import { estUneConsigne } from '../../../src/core/consignes';
-import { nomDeLettre } from '../../../src/core/nomDeLettre';
 
 /** Un son, ou 503 : sans Piper ou synthèse en échec, le client a son repli. */
 function rendreLeSon(c: Context, son: Buffer | null) {
@@ -48,17 +47,6 @@ export function routesVoix(base: Base, auth: Auth, synthese: Synthese | null) {
       return c.json({ erreur: 'mot inconnu', code: 'MOT_INCONNU' }, 404);
     }
     return rendreLeSon(c, synthese ? await synthese(mot) : null);
-  });
-
-  /**
-   * Le nom d'UN caractère, dit au barreau 3 (#126). Ensemble fermé : seuls les
-   * caractères que `nomDeLettre` sait nommer — une soixantaine de sons, les
-   * mêmes pour tous les comptes.
-   */
-  app.get('/lettre', async (c) => {
-    const nom = nomDeLettre(c.req.query('c') ?? '');
-    if (nom === null) return c.json({ erreur: 'caractère inconnu', code: 'LETTRE_INCONNUE' }, 404);
-    return rendreLeSon(c, synthese ? await synthese(nom) : null);
   });
 
   /** Une consigne lue à voix haute — et seulement une consigne de l'app (#126). */
