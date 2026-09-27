@@ -58,6 +58,20 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      # Les failles connues des dépendances qui partent en production (#132).
+      #
+      # `--omit=optional` n'est pas là pour faire taire l'audit : better-auth
+      # déclare vitest, vite et drizzle-kit en `peerOptional`, si bien que npm
+      # les range en « devOptional » et que `--omit=dev` seul les AUDITE comme
+      # de la production. Ce sont nos outils de test et de build — Dependabot
+      # s'en charge. Côté production, `optional` ne retire en plus que des
+      # binaires natifs par plateforme (esbuild, rollup, fsevents).
+      #
+      # Seuil `high` : une faille modérée sans correctif publié bloquerait
+      # sinon TOUS les déploiements jusqu'à sa sortie. Dependabot la signale.
+      - name: Audit des dépendances de production
+        run: npm audit --omit=dev --omit=optional --audit-level=high
+
       # Firefox et WebKit ne portent qu'une spec (le repli de détection de
       # disposition), mais c'est justement celle qui casse par navigateur.
       - name: Installer les navigateurs
