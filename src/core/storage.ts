@@ -696,5 +696,8 @@ export function sauver(etat: Sauvegarde, cle: string = CLE): void {
 }
 
 export function demanderPersistance(): void {
-  void navigator.storage?.persist?.().catch(() => undefined);
+  /* Le serveur importe ce module (pour `estIntact`) et le compile sans la lib
+     DOM (#135) : `navigator.storage` y est décrit à la main, tel qu'il est lu. */
+  const stockage = (navigator as { storage?: { persist?: () => Promise<boolean> } }).storage;
+  void stockage?.persist?.().catch(() => undefined);
 }
