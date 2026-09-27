@@ -5,7 +5,7 @@ Deux familles de scripts, à ne pas confondre :
 * **La chaîne v2** (§ « Chaîne v2 » plus bas) produit `src/data/parcours.json`
   et `src/data/lexique-v3.json`, que l'app importe. C'est elle qu'il faut
   savoir rejouer.
-* **Les analyses T3/T6** ont servi les rapports `recherche/v2/`. Elles sont
+* **Les analyses T3/T6** ont servi les rapports `archive/recherche/v2/`. Elles sont
   historiques, et une partie n'est plus jouable (§ « Chaîne historique »).
 
 Rien ici n'est importé par l'app : la circulation va des scripts vers
@@ -29,7 +29,7 @@ lors de la refonte v2. Tout ce qui touche à `app["dispositions"][...]["paliers"
 ou à `app["corpus"]` échoue donc aujourd'hui : `rendement.py`, `diagnostic.py`,
 `variantes.py`, `p1-cible.py`, `equilibre.py`, `robustesse.py`, `ch.py`, et la
 sous-commande `parcours` de `t6.py`. Les rapports qu'ils ont produits restent
-dans `recherche/v2/` ; les rejouer demanderait de ressusciter les paliers v1,
+dans `archive/recherche/v2/` ; les rejouer demanderait de ressusciter les paliers v1,
 ce que personne ne veut. Ce qui ne lit que la table des touches
 (`doigts.py`, et `spec-parcours.py` de la chaîne v2) tourne toujours.
 
@@ -53,7 +53,7 @@ python3 t6.py          $D prix      # prix du sas a quatre doigts
 python3 t6.py          $D parcours  # parcours 6 etapes sous contrainte (~2 min)
 ```
 
-`t6.py` sert `recherche/v2/T6-budget-doigts.md`. Il s'appuie sur `doigts.py` :
+`t6.py` sert `archive/recherche/v2/T6-budget-doigts.md`. Il s'appuie sur `doigts.py` :
 carte doigt->touche derivee du `code` PHYSIQUE (donc CH-FR est deduit, pas
 recopie) et solveur EXACT du meilleur jeu de k touches (transformee zeta sur
 les sous-ensembles, jusqu'a 2^30 masques / 4 Gio de RAM). Contrairement a
@@ -80,7 +80,7 @@ qui bat l'ordre actuel suffit à réfuter « optimisé ».
 
 ## Chaîne v2 — cahier des charges v2 (2026-08-30)
 
-Les scripts ci-dessus servaient les rapports `recherche/v2/T3` et `T6`. Les
+Les scripts ci-dessus servaient les rapports `archive/recherche/v2/T3` et `T6`. Les
 trois suivants servent le **cahier v2** et produisent les données que
 l'application importe.
 
