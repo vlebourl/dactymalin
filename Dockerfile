@@ -12,6 +12,13 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY . .
 RUN npx vite build
+FROM build AS production-dependencies
+# Better Auth déclare vite/vitest/drizzle-kit comme peers facultatifs ; npm les
+# garde sans ce mode même avec --omit=dev.
+RUN npm prune --omit=dev --legacy-peer-deps \
+ && test ! -d node_modules/vite \
+ && test ! -d node_modules/vitest \
+ && test ! -d node_modules/drizzle-kit
 
 FROM node:22-slim AS runtime
 WORKDIR /app
@@ -30,7 +37,7 @@ ARG VOIX_URL=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR
 # Chaque téléchargement est VÉRIFIÉ : une archive remplacée en amont doit faire
 # échouer la construction, pas entrer dans l'image qui sert des enfants.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl wget \
+ && apt-get install -y --no-install-recommends ca-certificates curl wget tini \
  && rm -rf /var/lib/apt/lists/* \
  && case "$(dpkg --print-architecture)" in \
       amd64) PLATEFORME=x86_64  SOMME=a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992 ;; \
@@ -52,9 +59,9 @@ RUN apt-get update \
 ENV PIPER_BIN=/opt/piper/piper
 ENV PIPER_MODELE=/opt/voix/fr_FR-siwis-medium.onnx
 
-# `tsx` et `drizzle-kit` servent à l'exécution (démarrage TypeScript, migrations
-# au boot) : on garde les node_modules complets plutôt que de compiler.
-COPY --from=build /app/node_modules ./node_modules
+# Seul `tsx` est nécessaire à l'exécution TS. Les migrations utilisent
+# drizzle-orm ; vite, vitest et drizzle-kit restent dans l'étage de build.
+COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/tsconfig.json ./tsconfig.json
@@ -62,4 +69,6 @@ COPY --from=build /app/server ./server
 COPY --from=build /app/src ./src
 COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
 EXPOSE 3000
+USER node
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "--import", "tsx", "server/scripts/start-production.ts"]

@@ -130,6 +130,10 @@ export function routesProfils(base: Base, auth: Auth) {
   app.put('/:id/progression', async (c) => {
     const corps = corpsProgression.safeParse(await c.req.json().catch(() => null));
     if (!corps.success) return c.json({ erreur: 'corps invalide' }, 400);
+    const tailleEtat = JSON.stringify(corps.data.etat);
+    if (tailleEtat && Buffer.byteLength(tailleEtat, 'utf8') > 32 * 1024) {
+      return c.json({ erreur: 'état trop volumineux', code: 'ETAT_TROP_GRAND' }, 413);
+    }
     if (!estIntact(corps.data.etat)) return c.json({ erreur: 'état invalide' }, 400);
 
     const userId = c.get('userId');
