@@ -14,7 +14,9 @@ import {
   type Reglages,
   type Sauvegarde,
 } from './core/storage';
-import { listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
+import { ecouterFusion, listesDistantes, MARQUEUR_RATTACHEMENT, pousser, viderLaFile } from './core/sync';
+import { fusionner } from './core/fusion';
+import { memeContenu } from './core/egalite';
 import { cleDe } from './core/profils';
 import { estMaitrisee, noterOccurrence } from './core/progression';
 import { etapeFinie, ETAPE_MAX, LECONS_PAR_ETAPE, parcoursFini, type IdParcours } from './core/parcours';
@@ -129,10 +131,35 @@ export type Action =
   | { type: 'leconFaite'; etape: number; lecon: number }
   | { type: 'guideDoigtVu' }
   | { type: 'leconTerminee'; bilan: BilanBloc }
+  | { type: 'fusionRecue'; avant: Sauvegarde; apres: Sauvegarde }
   | { type: 'verrMaj'; actif: boolean };
+
+/** Les données restent locales pendant la navigation ; la fin d'un exercice valide l'envoi. */
+export const actionTermineExercice = (action: Action): boolean =>
+  action.type === 'leconTerminee' || action.type === 'leconFaite' ||
+  action.type === 'parcours' || action.type === 'disposition' || action.type === 'reglage';
 
 export function reducer(etat: EtatApp, action: Action): EtatApp {
   switch (action.type) {
+    case 'fusionRecue': {
+      const local = aSauvegarder(etat);
+      const sauve = memeContenu(local, action.avant)
+        ? action.apres
+        : fusionner(
+            { etat: action.apres, majLe: 0 },
+            { etat: local, majLe: 1 },
+          );
+      const parcours = sauve.parcours ?? etat.parcours;
+      const progression = progressionDe(sauve, parcours, sauve.disposition);
+      return {
+        ...etat,
+        ...sauve,
+        parcours,
+        etape: progression.etape,
+        leconsSurEtape: progression.leconsSurEtape,
+        lecon: sauve.bloc,
+      };
+    }
     case 'vue':
       return {
         ...etat,
@@ -456,26 +483,31 @@ export function FournisseurApp({
   idProfil: string;
 }) {
   const cle = cleDe(idProfil);
-  const [etat, dispatch] = useReducer(reducer, cle, etatDeDepart);
-  /* L'état tel qu'il sortait du stockage au montage : tant que le reducer
-     renvoie le même objet, rien n'a changé et il n'y a rien à envoyer. */
-  const auMontage = useRef(etat);
+  const [etat, dispatchReact] = useReducer(reducer, cle, etatDeDepart);
+  const finAEnvoyer = useRef(false);
+  const derniereSauvegarde = useRef<string | null>(null);
+  const envoi = useMemo(() => (action: Action) => {
+    if (actionTermineExercice(action)) finAEnvoyer.current = true;
+    dispatchReact(action);
+  }, [dispatchReact]);
 
-  /* Checkpoint : fin d'item ou de bloc, jamais à chaque frappe. La dépendance
-     porte sur l'état ENTIER — le reducer renvoie l'objet inchangé quand rien ne
-     bouge (verrMaj), et une liste de champs à tenir à jour finissait toujours
-     par oublier le dernier ajouté. */
+  useEffect(() => ecouterFusion(idProfil, (avant, apres) => {
+    dispatchReact({ type: 'fusionRecue', avant, apres });
+  }), [idProfil]);
+
+  /* La sauvegarde locale suit seulement les données durables ; une vue ou les
+     listes reçues du serveur ne doivent pas écrire ni provoquer un envoi. */
   useEffect(() => {
     const sauvegarde = aSauvegarder(etat);
-    sauver(sauvegarde, cle);
-    /* Rien joué encore : l'état vient d'être LU, le renvoyer avec un
-       horodatage neuf ferait gagner cet appareil sur des préférences changées
-       ailleurs il y a une minute. Ce qui restait à envoyer est dans la file,
-       et l'effet ci-dessous la vide. */
-    if (etat === auMontage.current) return;
-    /* Envoi en ARRIÈRE-PLAN. `pousser` ne lève jamais : une leçon ne doit
-       pas dépendre du réseau. */
-    pousser(idProfil, sauvegarde);
+    const signature = JSON.stringify(sauvegarde);
+    if (signature !== derniereSauvegarde.current) {
+      sauver(sauvegarde, cle);
+      derniereSauvegarde.current = signature;
+    }
+    if (finAEnvoyer.current) {
+      finAEnvoyer.current = false;
+      void pousser(idProfil, sauvegarde);
+    }
   }, [etat, cle, idProfil]);
 
   /* Retour du réseau : on rejoue ce qui attendait. */
@@ -492,7 +524,7 @@ export function FournisseurApp({
      dépend jamais du réseau. */
   useEffect(() => {
     void listesDistantes()
-      .then((listes) => dispatch({ type: 'listes', listes }))
+      .then((listes) => envoi({ type: 'listes', listes }))
       .catch(() => {});
   }, []);
 
@@ -509,7 +541,6 @@ export function FournisseurApp({
     racine.dataset.animations = etat.reglages.animationsDouces ? 'oui' : 'non';
   }, [etat.reglages.texteEspace, etat.reglages.animationsDouces]);
 
-  const envoi = useMemo(() => dispatch, [dispatch]);
   return (
     <CtxEtat.Provider value={etat}>
       <CtxDispatch.Provider value={envoi}>{children}</CtxDispatch.Provider>

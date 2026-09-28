@@ -14,6 +14,10 @@ import { memePrenom, PRENOM_MAX, PROFILS_MAX } from '../../../src/core/profils';
 const corpsProfil = z.object({ prenom: z.string().trim().min(1).max(PRENOM_MAX) });
 const corpsProgression = z.object({ etat: z.unknown(), majLe: z.string().datetime() });
 
+/** Une horloge cliente avancée ne doit pas verrouiller le profil des autres appareils. */
+export const bornerMajLe = (dateClient: string, maintenant = new Date()): Date =>
+  new Date(Math.min(Date.parse(dateClient), maintenant.getTime()));
+
 export function routesProfils(base: Base, auth: Auth) {
   const app = new Hono<AvecCompte>();
 
@@ -140,12 +144,13 @@ export function routesProfils(base: Base, auth: Auth) {
       .where(and(eq(profil.id, id), eq(profil.userId, userId)));
     if (!leProfil) return c.json({ erreur: 'profil introuvable' }, 404);
 
-    const majLe = new Date(corps.data.majLe);
+    const maintenant = new Date();
+    const majLe = bornerMajLe(corps.data.majLe, maintenant);
     const [existante] = await base
       .select({ majLe: progression.majLe })
       .from(progression)
       .where(eq(progression.profilId, id));
-    if (existante && existante.majLe > majLe) {
+    if (existante && Math.min(existante.majLe.getTime(), maintenant.getTime()) > majLe.getTime()) {
       return c.json({ erreur: 'version plus récente en base', majLe: existante.majLe }, 409);
     }
 

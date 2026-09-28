@@ -103,7 +103,7 @@ const aGarder = (reponse) =>
 async function reseauPuisCache(requete) {
   const cache = await caches.open(CACHE);
   try {
-    const reponse = await fetch(requete);
+    const reponse = await fetch(requete, { signal: AbortSignal.timeout(8_000) });
     /* L'écriture est ATTENDUE — sinon la coquille reste à moitié gardée quand
        le réseau se coupe juste après le chargement — mais son échec est avalé.
        Un `cache.put` qui rate (quota plein, réponse partielle) ne doit jamais
