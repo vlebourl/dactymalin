@@ -5,8 +5,4 @@ playwright-report
 .git
 .env
 .env.*
-gan-harness
-maquettes
-recherche
-vues
-*.pdf
+archive

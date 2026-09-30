@@ -4,16 +4,17 @@ Tout est en place. Ce document sert le jour où quelque chose cloche.
 
 ## En une phrase
 
-Un push sur `main` déclenche le déploiement. GitHub appelle le webhook de
-Coolify, qui reconstruit l'image depuis le `Dockerfile` et remplace le
-conteneur ; celui-ci sauvegarde la base, migre, puis démarre.
+Un push sur `main` déclenche le déploiement, **sans webhook** : le workflow
+`Vérifications` (types, tests, e2e, build) tourne d'abord ; s'il est vert, le
+workflow `deploy.yml` part sur le runner auto-hébergé `homelab-runner`, qui
+vit dans le réseau et appelle l'API Coolify en localhost. Coolify reconstruit
+alors l'image depuis le `Dockerfile` et remplace le conteneur ; celui-ci
+sauvegarde la base, migre, puis démarre.
 
-Ce qui a rendu l'automatisme possible : le dépôt est passé sur **GitHub**, et
-GitHub appelle Coolify par son **domaine public**. Le montage précédent visait
-`192.168.1.48` depuis Gitea, qui refuse par défaut d'appeler une adresse privée
-(`ALLOWED_HOST_LIST`) — le webhook existait, actif, et n'a jamais rien livré.
-La leçon n'est pas « ouvrir Gitea » mais « ne pas viser une adresse privée
-depuis l'extérieur ».
+Un webhook GitHub → Coolify a été essayé et abandonné : Coolify est derrière
+Cloudflare, qui répond « Just a moment… » (403) aux POST de GitHub. Le runner
+auto-hébergé contourne le problème en appelant Coolify depuis l'intérieur du
+réseau — aucune connexion entrante, donc rien à traverser.
 
 ## Les coordonnées
 
@@ -23,7 +24,7 @@ depuis l'extérieur ».
 | Clone par Coolify | `https://github.com/vlebourl/dactymalin.git`, dépôt public, aucune clé |
 | Hôte Coolify | `192.168.1.48`, `ssh lyra@coolify`, API sur `localhost:8000/api/v1` |
 | Application | `typing-app`, UUID `x9tbvf1mbspphk7ml1c68dlv`, projet `tape-avec-moi` (noms Coolify, pas renommés) |
-| Webhook | GitHub → `https://coolify.tiarkaerell.com/webhooks/source/github/events/manual`, secret partagé stocké dans Coolify |
+| Déclencheur | `.github/workflows/deploy.yml`, sur le runner auto-hébergé `homelab-runner` — appelle l'API Coolify en localhost, aucun webhook |
 | Base | `typing-app-db`, UUID `hrfpcwechi8tb7imlir13b1a`, PostgreSQL 17 |
 | Sauvegarde planifiée | UUID `i101zg9ef5sh78fy1yheqtkw`, tous les jours à 03:00 |
 | Port hôte | **3003** → 3000 dans le conteneur |
@@ -150,7 +151,5 @@ suffit.
    `push --force`.
 3. Le workflow `Vérifications` (types, tests unitaires, tests serveur, e2e,
    build) tourne sur chaque PR et sur `main`. **Le déploiement n'est déclenché
-   qu'après son verdict vert** : une fusion rouge n'atteint pas la production.
-4. Le hook `.githooks/pre-push` refuse de pousser sur `main` si les types, les
-   tests unitaires ou les e2e échouent. À activer sur chaque clone :
-   `git config core.hooksPath .githooks`.
+   qu'après son verdict vert** : une fusion rouge n'atteint pas la production
+   (et une issue d'alerte s'ouvre automatiquement si `main` reste rouge).
