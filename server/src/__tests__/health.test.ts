@@ -25,6 +25,15 @@ describe('healthcheck', () => {
     expect(r.status).toBe(200);
     expect((await r.json()).status).toBe('degraded');
   });
+
+  it('borne le délai de la sonde bloquée', async () => {
+    const app = creerApp({ env, pingBase: () => new Promise<boolean>(() => {}) });
+    const debut = Date.now();
+    const r = await app.request('/api/health');
+    expect(r.status).toBe(200);
+    expect((await r.json()).db).toBe('ko');
+    expect(Date.now() - debut).toBeLessThan(2500);
+  });
 });
 
 describe('routage', () => {
@@ -32,6 +41,23 @@ describe('routage', () => {
     const r = await creerApp({ env, racineClient: 'dist' }).request('/api/nawak');
     expect(r.status).toBe(404);
     expect(r.headers.get('content-type')).toContain('application/json');
+  });
+
+  it('répond en JSON pour une erreur inattendue', async () => {
+    const app = creerApp({ env, statique: () => { throw new Error('secret interne'); } });
+    const r = await app.request('/fichier');
+    expect(r.status).toBe(500);
+    expect(r.headers.get('content-type')).toContain('application/json');
+    expect(await r.json()).toEqual({ erreur: 'erreur interne', code: 'ERREUR_INTERNE' });
+  });
+
+  it('rejette un corps API supérieur à 128 Kio', async () => {
+    const r = await creerApp({ env }).request('/api/auth/inconnu', {
+      method: 'POST',
+      body: 'x'.repeat(128 * 1024 + 1),
+    });
+    expect(r.status).toBe(413);
+    expect((await r.json()).code).toBe('CORPS_TROP_GRAND');
   });
 });
 
