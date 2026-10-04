@@ -3,7 +3,7 @@
 > **ARCHIVE — 2026-08-30.** Ce document est une *proposition*, contredite en
 > session le 2026-08-30 puis remplacée par `CAHIER-DES-CHARGES.md` v2. Il est
 > conservé pour la trace du raisonnement, au même titre que
-> `recherche/06-plaidoyers.md`. **Il ne fait plus autorité.**
+> `archive/recherche/06-plaidoyers.md`. **Il ne fait plus autorité.**
 >
 > Ses trois erreurs principales, pour mémoire : il condamne le sas demi-clavier
 > avec une mesure qui ne visait que les colonnes d'index (§2.3) ; il attribue au
@@ -12,7 +12,7 @@
 > fois.
 
 Statut : **proposition, non arbitrée.** Écrite le 2026-08-29 au terme de six
-recherches parallèles (`recherche/v2/T1` à `T6`). Elle ne remplace pas
+recherches parallèles (`archive/recherche/v2/T1` à `T6`). Elle ne remplace pas
 `CAHIER-DES-CHARGES.md` tant qu'elle n'a pas été contredite puis validée.
 
 Ce document dit trois choses : ce que la mesure a invalidé dans le parcours

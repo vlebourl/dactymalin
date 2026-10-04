@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-T6 — runner. Produit tous les chiffres du rapport recherche/v2/T6-budget-doigts.md.
+T6 — runner. Produit tous les chiffres du rapport archive/recherche/v2/T6-budget-doigts.md.
 Usage : python3 scripts/analyse/t6.py <dossier-donnees> [section]
 """
 import itertools, json, sys, time

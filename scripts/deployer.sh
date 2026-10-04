@@ -1,9 +1,10 @@
 #!/bin/bash
 # Déclenche un déploiement Coolify et attend le verdict.
 #
-# Un push sur main déclenche déjà le déploiement (webhook GitHub → Coolify).
-# Ce script sert à redéployer SANS pousser, ou à voir le verdict et les logs
-# sans ouvrir l'interface.
+# Un push sur main déclenche déjà le déploiement, une fois les vérifications
+# CI vertes : le workflow `deploy.yml` appelle l'API Coolify directement
+# depuis le runner auto-hébergé, sans webhook. Ce script sert à redéployer
+# SANS pousser, ou à voir le verdict et les logs sans ouvrir l'interface.
 #
 # Prérequis : `ssh lyra@coolify` fonctionne, et le jeton API est sur l'hôte
 # dans /root/.coolify-claude-token (lisible par root seulement).

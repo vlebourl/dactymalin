@@ -17,6 +17,8 @@ export type OptionsSauvegarde = {
   attendre?: (ms: number) => Promise<void>;
   /** budget total d'attente, en millisecondes */
   budgetMs?: number;
+  /** Horloge injectable pour comparer la sauvegarde au déclenchement. */
+  maintenant?: () => number;
 };
 
 export type Verdict = { fait: boolean; raison: string };
@@ -52,6 +54,7 @@ export async function sauvegarderAvantMigration(o: OptionsSauvegarde): Promise<V
   const fetchImpl = o.fetchImpl ?? fetch;
   const attendre = o.attendre ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const budget = o.budgetMs ?? BUDGET_MS;
+  const maintenant = o.maintenant ?? Date.now;
   const api = baseApi(webhookUrl);
   const uuid = uuidBaseDepuisUrl(databaseUrl);
   const entetes = { Authorization: `Bearer ${apiToken}`, 'Content-Type': 'application/json' };
@@ -74,6 +77,7 @@ export async function sauvegarderAvantMigration(o: OptionsSauvegarde): Promise<V
     );
   }
 
+  const declencheA = maintenant();
   const lance = await fetchImpl(`${api}/databases/${uuid}/backups/${active.uuid}`, {
     method: 'PATCH',
     headers: entetes,
@@ -81,8 +85,8 @@ export async function sauvegarderAvantMigration(o: OptionsSauvegarde): Promise<V
   });
   if (!lance.ok) throw new Error(`Coolify : sauvegarde non déclenchée (${lance.status}).`);
 
-  const debut = Date.now();
-  while (Date.now() - debut < budget) {
+  const debut = maintenant();
+  while (maintenant() - debut < budget) {
     await attendre(PAS_MS);
     const r = await fetchImpl(`${api}/databases/${uuid}/backups/${active.uuid}/executions`, {
       headers: entetes,
@@ -92,9 +96,12 @@ export async function sauvegarderAvantMigration(o: OptionsSauvegarde): Promise<V
        des configurations est un tableau nu : on accepte les deux formes. */
     const brut = (await r.json()) as Execution[] | { executions?: Execution[] };
     const execs = Array.isArray(brut) ? brut : (brut.executions ?? []);
-    const derniere = [...execs].sort((a, b) =>
-      String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')),
-    )[execs.length - 1];
+    // Une ancienne sauvegarde réussie ne protège pas la migration courante.
+    // Une date absente ou invalide n'est pas une preuve de fraîcheur.
+    const recentes = execs
+      .filter((e) => e.created_at && Date.parse(e.created_at) >= declencheA)
+      .sort((a, b) => Date.parse(a.created_at!) - Date.parse(b.created_at!));
+    const derniere = recentes[recentes.length - 1];
     if (!derniere) continue;
     if (derniere.status === 'success') return { fait: true, raison: 'sauvegarde_ok' };
     if (derniere.status === 'failed') throw new Error('Coolify : la sauvegarde a échoué.');

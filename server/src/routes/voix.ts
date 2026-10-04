@@ -4,6 +4,7 @@ import type { Auth } from '../auth';
 import type { Base } from '../db/client';
 import { liste } from '../db/schema';
 import { exigeSession, type AvecCompte } from '../lib/session';
+import { limiterDebit } from '../lib/debit';
 import { LENTEUR_CONSIGNE, type Synthese } from '../lib/voix';
 import { estUneConsigne } from '../../../src/core/consignes';
 import { nomDeLettre } from '../../../src/core/nomDeLettre';
@@ -28,6 +29,7 @@ export function routesVoix(base: Base, auth: Auth, synthese: Synthese | null) {
   const app = new Hono<AvecCompte>();
 
   app.use('*', exigeSession(auth));
+  app.use('*', limiterDebit(120, 60_000));
 
   app.get('/etat', (c) => c.json({ disponible: synthese !== null }));
 

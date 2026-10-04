@@ -4,11 +4,21 @@
 
 ## Décision
 
-**Vite + React + TypeScript, application 100 % statique, zéro backend.**
+**Vite + React + TypeScript au client, Hono + Drizzle + PostgreSQL + Better
+Auth au serveur, Piper pour la voix, un seul conteneur déployé par Coolify.**
 
-Dépendances (7) :
-- runtime : `react`, `react-dom`
-- dev : `vite`, `@vitejs/plugin-react`, `typescript`, `vitest`, `@playwright/test` (+ `@types/react`, `@types/react-dom`)
+Le MVP tenait la promesse du cahier des charges « zéro backend » ; ce n'est
+plus le cas depuis `docs/COMPTES-ET-DEPLOIEMENT.md` (décidé le 2026-08-28) :
+un compte parent optionnel permet de retrouver la progression d'un enfant sur
+un autre appareil. Ce qui **ne change pas** : l'enfant joue toujours hors
+ligne, sans compte, et `localStorage` reste la source de vérité de la partie
+en cours. Voir ce document pour l'architecture serveur, la synchronisation
+« le plus avancé gagne » et l'arbitrage détaillé ; `docs/DEPLOIEMENT-RUNBOOK.md`
+pour le déploiement.
+
+Dépendances : voir `package.json` — le client a gardé `react`/`react-dom`,
+le serveur a ajouté `hono`, `@hono/node-server`, `drizzle-orm`, `postgres`,
+`better-auth`, `zod`.
 
 ## Choix et justifications
 
@@ -19,28 +29,41 @@ Dépendances (7) :
 - **Style : CSS Modules + `tokens.css`.** Contraste 7:1, discriminabilité en niveaux de gris, pas de rouge/vert, `prefers-reduced-motion` : des variables et deux media queries. Pas de Tailwind (illisible face à la règle P1 « teinte de base jamais repeinte »).
 - **Persistance : `localStorage`, clé `tapeavecmoi.v1`, JSON versionné.** Validation obligatoire au chargement (frontière de confiance) : champ absent ou hors domaine → défaut. Pas de zod (~20 lignes de gardes testables).
 - **Tests : vitest sur `src/core/` (env node, sans DOM, aucun import React) + Playwright pour tout le visuel.** Pas de jsdom ni @testing-library. Tests noyau : tables de layouts (ç direct FR-FR vs Maj+4 CH-FR, ù touche morte exclue en CH-FR), invariant corpus×palier (« aucune exception » P5), palier vide = build cassé, critère de progression 3 occ./2 blocs + plafond anti-mur, escalade d'aide 1→3 et latences 0/0,8/1,5/2,5 s. E2e : boucle V1→V4→V5→V4, frappe fausse muette, détection en une frappe, bascule V2, bandeau Verr.Maj.
-- **Backend : aucun.** Pas de compte, pas de synchro, corpus embarqué dans le bundle, télémétrie §7 locale (`?instrumentation=1`). Livraison : `vite build` → `dist/` servi par n'importe quoi.
+- **Backend : Hono + Drizzle + PostgreSQL + Better Auth** (décidé le 2026-08-28, voir `docs/COMPTES-ET-DEPLOIEMENT.md`). Compte parent optionnel, synchronisation « le plus avancé gagne », corpus toujours embarqué dans le bundle, télémétrie §7 locale (`?instrumentation=1`). Livraison : un seul conteneur (client `dist/` + API) construit par le `Dockerfile`, déployé par Coolify.
 - **APIs natives** : `navigator.keyboard.getLayoutMap()` (détection silencieuse, repli « appuie sur A »), `getModifierState('CapsLock')`, `speechSynthesis` fr-FR pour le nom de lettre du barreau 3.
 
 ## Arborescence
 
+Carte détaillée et graphe des modules : voir `README.md`. Résumé :
+
 ```
+Dockerfile  docker-compose.yml  drizzle.config.ts
 index.html  package.json  tsconfig.json  vite.config.ts  playwright.config.ts
-public/doigts/  public/sons/reussite.mp3
+public/         doigts/ sw.js manifest.webmanifest
 src/
-  main.tsx  App.tsx
-  core/     layouts.ts detect.ts paliers.ts corpus.ts generator.ts
-            progression.ts aide.ts storage.ts encouragements.ts   ← 0 import React
-  hooks/    useKeyInput.ts useProgress.ts
-  ui/       Keyboard.tsx Key.tsx FingerBar.tsx Stars.tsx SpeakerButton.tsx
-  views/    V1Accueil.tsx V2Clavier.tsx V3GuideDoigt.tsx V4Lecon.tsx
-            V5FinDeBloc.tsx V6Carte.tsx V7Reglages.tsx
+  main.tsx  App.tsx  state.tsx
+  core/     0 import React — lecon, sync, fusion, storage, generator,
+            progression, layouts, listes, profils, session, aide, mesures…
+  hooks/    useKeyInput.ts
+  ui/       Keyboard.tsx Key.tsx MainSchematique.tsx Stars.tsx voix.ts …
+  views/    V0Profils V1Accueil V2Clavier V3GuideDoigt V4Lecon V5FinDeBloc
+            V6Carte V7Reglages V9Compte Connexion
   styles/tokens.css
-tests/e2e/  boucle.spec.ts detection.spec.ts erreur.spec.ts capslock.spec.ts
+server/
+  src/      index.ts app.ts auth.ts env.ts
+            routes/ profils.ts listes.ts voix.ts compte.ts
+            lib/     session.ts voix.ts (Piper) coolify-backup.ts
+            db/      schema.ts client.ts
+  drizzle/  migrations générées par `drizzle-kit generate`
+  scripts/  start-production.ts
+tests/e2e/  ~45 specs (boucle, sync, compte, google, dictee…)
             helpers/keyboard.ts   ← frappes (code, key) réalistes via CDP
+docs/       runbook de déploiement, décision comptes/serveur, agents
+archive/    traces de la phase de conception (cahier des charges PDF/HTML,
+            maquettes, recherche, gan-harness…), hors image Docker
 ```
 
-Écarté : eslint, prettier, router, lib d'état, lib de test de composants, service worker, backend.
+Écarté : eslint, prettier, router, lib d'état, lib de test de composants.
 
 ## Risques identifiés par l'architecte
 

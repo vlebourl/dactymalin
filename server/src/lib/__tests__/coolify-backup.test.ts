@@ -8,6 +8,10 @@ const COMMUN = {
   apiToken: 'jeton',
   attendre: () => Promise.resolve(),
   budgetMs: 20,
+  maintenant: (() => {
+    let n = 0;
+    return () => Date.parse('2026-08-28T19:24:00Z') + n++;
+  })(),
 };
 
 /** Faux serveur Coolify : une réponse par motif d'URL. */
@@ -75,7 +79,7 @@ describe('sauvegarde avant migration', () => {
 
   it('refuse de migrer si la sauvegarde échoue', async () => {
     const fetchImpl = faux({
-      '/executions': [{ executions: [{ status: 'failed' }] }],
+      '/executions': [{ executions: [{ status: 'failed', created_at: '2026-08-28T19:24:46Z' }] }],
       '/backups/b1': [{}],
       '/backups': [[{ uuid: 'b1', enabled: true }]],
     });
@@ -84,12 +88,21 @@ describe('sauvegarde avant migration', () => {
 
   it("refuse de migrer si la sauvegarde n'aboutit pas dans le temps imparti", async () => {
     const fetchImpl = faux({
-      '/executions': [{ executions: [{ status: 'running' }] }],
+      '/executions': [{ executions: [{ status: 'running', created_at: '2026-08-28T19:24:46Z' }] }],
       '/backups/b1': [{}],
       '/backups': [[{ uuid: 'b1', enabled: true }]],
     });
     await expect(sauvegarderAvantMigration({ ...COMMUN, fetchImpl })).rejects.toThrow(
       /temps imparti/,
     );
+  });
+
+  it('ignore le succès périmé qui précède le PATCH', async () => {
+    const fetchImpl = faux({
+      '/executions': [{ executions: [{ status: 'success', created_at: '2026-08-28T19:00:00Z' }] }],
+      '/backups/b1': [{}],
+      '/backups': [[{ uuid: 'b1', enabled: true }]],
+    });
+    await expect(sauvegarderAvantMigration({ ...COMMUN, fetchImpl })).rejects.toThrow(/temps imparti/);
   });
 });
