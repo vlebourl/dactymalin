@@ -84,14 +84,16 @@ export function V4Lecon() {
              la dernière leçon (#47), puis la maîtrise (#71) — sans qu'aucun
              test ne tombe, parce qu'ils vivaient dans une vue. */
           creerSession(optionsDeSession(app, id, Date.now())),
-    // une nouvelle séance à chaque entrée dans la vue
+    /* Une nouvelle séance à chaque entrée dans la vue, JAMAIS en cours de
+       leçon. `optionsDeSession` lit l'état entier, mais `app` change sous la
+       leçon — bandeau Verr.Maj, synchronisation — et l'avoir en dépendance
+       recréerait la séance, donc ses items, au milieu d'un mot. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, app.parcours, etapeJouee, app.leconRejouee, app.lecon, app.listeJouee],
   );
 
   const items = useMemo(
     () => (app.listeJouee ? composerBlocDeListe(app.listeJouee.mots, id) : session!.items()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [session, app.listeJouee, id],
   );
 
@@ -124,7 +126,7 @@ export function V4Lecon() {
     const base = ensembleTouches(app.parcours, id, app.listeJouee?.enDictee ? ETAPE_MAX : etapeJouee);
     if (app.listeJouee) for (const it of items) for (const c of it.texte) base.add(c);
     return base;
-  }, [id, etapeJouee, app.listeJouee, items]);
+  }, [app.parcours, id, etapeJouee, app.listeJouee, items]);
   const item = e.items[e.i];
   const attendu = item?.texte[e.curseur] ?? '';
   const enCelebration = e.celebration !== null;
@@ -319,7 +321,11 @@ export function V4Lecon() {
       fin: Date.now(),
     };
     envoi({ type: 'leconTerminee', bilan });
-  }, [e.fini]); // eslint-disable-line react-hooks/exhaustive-deps
+    /* La fin se déclare UNE fois, sur la bascule de `e.fini`. Le bilan est lu
+       à cet instant ; le relire à chaque nouvel état — la boucle rAF en
+       produit un par image — enverrait la même leçon plusieurs fois. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [e.fini]);
 
   /* ------------------------------------ surveillance de disposition (F7)
      5 frappes d'affilée cohérentes avec l'autre clavier, ou 3 items saturés
@@ -327,7 +333,7 @@ export function V4Lecon() {
   const proposerV2 = doitProposerV2(e.incoherentes, e.itemsSatures);
   useEffect(() => {
     if (proposerV2) envoi({ type: 'vue', vue: 'V2', raison: 'incoherence' });
-  }, [proposerV2]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [proposerV2, envoi]);
 
   /* ------------------------------------------- la voix de la dictée (#118)
      Elle n'obéit PAS au réglage « Sons » : ce réglage coupe des effets, et ici

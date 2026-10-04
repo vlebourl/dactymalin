@@ -128,7 +128,7 @@ vers une adresse privée.
 | 0.2 | Remote `origin` en HTTPS ajouté | local | **fait** |
 | 0.3 | Premier `git push -u origin main` | local | Vincent |
 | 0.4 | Pointer `typing.tiarkaerell.com` (A/CNAME) vers l'hôte Coolify | DNS tiarkaerell.com | Vincent |
-| 0.5 | Créer l'application Coolify — source GitHub `vlebourl/dactymalin`, branche `main`, build pack Dockerfile, webhook de push | UI Coolify, `192.168.1.48` | Vincent |
+| 0.5 | Créer l'application Coolify — source GitHub `vlebourl/dactymalin`, branche `main`, build pack Dockerfile. Déclenchée par le runner GitHub Actions `homelab-runner` (voir Étape 6), pas par un webhook — Coolify est derrière Cloudflare, qui rejette les POST de GitHub | UI Coolify, `192.168.1.48` | Vincent |
 | 0.6 | Créer la ressource PostgreSQL et **activer une sauvegarde planifiée** (sans elle, les migrations refuseront de tourner) | UI Coolify | Vincent |
 | 0.7 | Renseigner les variables d'environnement de l'app | UI Coolify | Vincent |
 
@@ -280,11 +280,12 @@ l'autre, et couper le serveur en pleine leçon ne se voit pas.
   pousser si `npm run build`, `npm test` ou `npm run e2e` échouent. Sans runner
   CI, c'était alors la seule barrière — et elle valait mieux qu'un
   déploiement rouge. (Depuis le 2026-08-29, le workflow `Vérifications` la
-  double côté GitHub, et le déploiement attend son verdict.)
+  double côté GitHub, et le déploiement attend son verdict. Devenu
+  entièrement redondant avec la CI, le hook a été retiré le 2026-09-27.)
 - Le runbook documente le rollback : Coolify garde les révisions précédentes,
   on redéploie l'avant-dernière depuis l'UI.
 
-**Fini quand** : un push sur `main` met `https://typing.tiarkaerell.com` à jour
+**Fini quand** : un push sur `main` met `https://dacty.tiarkaerell.com` à jour
 tout seul.
 
 ## Étape 7 — Le garde-fou réseau, réécrit (≈ 30 min)

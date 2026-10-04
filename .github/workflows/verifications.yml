@@ -58,16 +58,40 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      # Les navigateurs ne changent qu'avec la version de Playwright : la clé
+      # du cache, c'est elle, lue dans le lockfile (#133).
+      - name: Version de Playwright
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache des navigateurs
+        id: cache-navigateurs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       # Firefox et WebKit ne portent qu'une spec (le repli de détection de
       # disposition), mais c'est justement celle qui casse par navigateur.
       - name: Installer les navigateurs
+        if: steps.cache-navigateurs.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium firefox webkit
+
+      # Le cache ne garde que les binaires : les bibliothèques système qu'ils
+      # chargent s'installent par apt, à chaque exécution.
+      - name: Installer les dépendances système des navigateurs
+        if: steps.cache-navigateurs.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium firefox webkit
 
       - name: Migrer la base de test
         run: npm run db:migrate
 
       - name: Types
         run: npx tsc --noEmit
+
+      # Dépendances des hooks React et promesses flottantes, rien d'autre (#131).
+      - name: Lint
+        run: npm run lint
 
       - name: Tests unitaires
         run: npx vitest run
