@@ -63,7 +63,8 @@ export function V7Reglages() {
   const [version, setVersion] = useState('');
   useEffect(() => {
     let vivant = true;
-    versionServeur().then((v) => vivant && setVersion(v));
+    // `versionServeur` ne rejette jamais : sans réponse, elle rend ''.
+    void versionServeur().then((v) => vivant && setVersion(v));
     return () => {
       vivant = false;
     };
