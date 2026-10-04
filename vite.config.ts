@@ -19,9 +19,9 @@ export default defineConfig({
   // Publication locale : tailscale serve (HTTPS tailnet) proxifie vers preview.
   preview: { port: 4173, strictPort: true, allowedHosts: ['lyra.weasel-micro.ts.net'] },
   test: {
-    // `src/core` reste en env node, sans DOM. Les rares tests de hook portent
-    // leur propre docblock `@vitest-environment jsdom`.
+    // `src/core` reste en env node, sans DOM. Les tests de hook et de vue
+    // (`.test.tsx`) portent leur propre docblock `@vitest-environment jsdom`.
     environment: 'node',
-    include: ['src/**/*.test.ts', 'server/**/*.test.ts', 'scripts/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });
