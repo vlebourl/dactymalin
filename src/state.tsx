@@ -526,7 +526,7 @@ export function FournisseurApp({
     void listesDistantes()
       .then((listes) => envoi({ type: 'listes', listes }))
       .catch(() => {});
-  }, []);
+  }, [envoi]); // envoi est stable : l'effet ne tourne qu'au montage
 
   useEffect(() => demanderPersistance(), []);
 
