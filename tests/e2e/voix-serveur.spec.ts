@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { creeListe, ouvrir } from './helpers/app';
+import { readFileSync } from 'node:fs';
+import { coquilleGardee, creeListe, ouvrir } from './helpers/app';
 import { frapper } from './helpers/keyboard';
+
+const lettresAudio = JSON.parse(readFileSync(new URL('../../src/data/voix-lettres.json', import.meta.url), 'utf8')) as Record<string, string>;
 
 /**
  * #124 — la dictée parle avec la voix du SERVEUR (Piper) quand il en a une, et
@@ -46,7 +49,7 @@ async function espionner(page: Page, { voixNavigateur }: Regime): Promise<void> 
 
 async function serveurVocal(page: Page, etatDuMot: number): Promise<void> {
   await page.route('**/api/voix/etat', (r) => r.fulfill({ json: { disponible: true } }));
-  for (const route of ['**/api/voix/mot*', '**/api/voix/lettre*', '**/api/voix/consigne*'])
+  for (const route of ['**/api/voix/mot*', '**/api/voix/consigne*'])
     await page.route(route, (r) =>
       etatDuMot === 200
         ? r.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from('RIFF') })
@@ -165,7 +168,7 @@ async function deuxFautes(page: Page): Promise<void> {
   }
 }
 
-test('au barreau 3, la lettre est dite par la voix du serveur', async ({ page }) => {
+test('au barreau 3, la lettre est dite par le fichier Piper', async ({ page }) => {
   await espionner(page, { voixNavigateur: true });
   await serveurVocal(page, 200);
   await lancerLaCopie(page, 'chat', true);
@@ -174,12 +177,46 @@ test('au barreau 3, la lettre est dite par la voix du serveur', async ({ page })
   expect(await lire(page, '__dits')).toEqual([]);
 });
 
-test('voix du serveur en panne : le navigateur dit le NOM, « à » ne sonne pas comme « a »', async ({ page }) => {
+test('fichier Piper indisponible : le navigateur dit le NOM, « à » ne sonne pas comme « a »', async ({ page, context }) => {
   await espionner(page, { voixNavigateur: true });
   await serveurVocal(page, 503);
   await lancerLaCopie(page, 'à', true);
+  const adresse = lettresAudio['a accent grave'];
+  await page.waitForFunction(async (url) =>
+    (await Promise.all((await caches.keys()).map(async (nom) => (await caches.open(nom)).match(url)))).some(Boolean),
+  adresse);
+  await page.evaluate(async (url) => {
+    for (const nom of await caches.keys()) await (await caches.open(nom)).delete(url);
+  }, adresse);
+  await context.setOffline(true);
   await deuxFautes(page);
   await expect.poll(() => lire(page, '__dits')).toEqual(['a accent grave']);
+});
+
+test('après un passage en ligne, la même voix Piper dit les lettres sans réseau ni API', async ({ page, context }) => {
+  await espionner(page, { voixNavigateur: true });
+  await lancerLaCopie(page, 'chat', true);
+  const appelsLettre: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/voix/lettre')) appelsLettre.push(r.url());
+  });
+  await coquilleGardee(page);
+  const adresses = Object.values(lettresAudio);
+  await page.waitForFunction(async (urls) => {
+    const cachesOuverts = await Promise.all((await caches.keys()).map((nom) => caches.open(nom)));
+    return (await Promise.all(urls.map(async (url) =>
+      (await Promise.all(cachesOuverts.map((cache) => cache.match(url)))).some(Boolean),
+    ))).every(Boolean);
+  }, adresses, { timeout: 30_000 });
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+  await page.getByRole('button', { name: /Semaine 12/ }).click();
+  await deuxFautes(page);
+  await expect.poll(() => lire(page, '__joues')).toEqual(['c']);
+  expect(await lire(page, '__dits')).toEqual([]);
+  expect(appelsLettre).toEqual([]);
 });
 
 test('sons coupés, en copie : aucune voix, ni serveur ni navigateur', async ({ page }) => {

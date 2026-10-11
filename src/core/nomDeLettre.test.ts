@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { nomDeLettre } from './nomDeLettre';
 import { ensembleTouches, ETAPE_MAX } from './parcours';
+import lettresAudio from '../data/voix-lettres.json';
 
 /* #126 — ce que la voix DIT quand la leçon donne une lettre. Le moteur de
    Piper lit « à » comme « a » et reste muet sur toute la ponctuation : le nom
@@ -43,5 +44,14 @@ describe('nom de lettre', () => {
       for (const d of ['fr-FR', 'fr-CH'] as const)
         for (const c of ensembleTouches(p, d, ETAPE_MAX)) if (nomDeLettre(c) === null) sansNom.push(c);
     expect(sansNom).toEqual([]);
+  });
+
+  it('a un fichier Piper pour chaque caractère enseigné', () => {
+    const sons: Record<string, string> = lettresAudio;
+    for (const p of ['decouverte', 'dactylo'] as const)
+      for (const d of ['fr-FR', 'fr-CH'] as const)
+        for (const c of ensembleTouches(p, d, ETAPE_MAX)) {
+          expect(sons[nomDeLettre(c)!], `son manquant pour ${c}`).toMatch(/^\/voix\/lettres\/[a-f0-9]{64}\.wav$/);
+        }
   });
 });

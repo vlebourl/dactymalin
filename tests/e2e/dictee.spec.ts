@@ -41,6 +41,14 @@ async function espionnerLaVoix(page: Page, voix: 'presente' | 'absente' | 'diffe
         removeEventListener: () => {},
       },
     });
+    /* Les noms de lettre sont des fichiers Piper (#139), joués depuis la
+       mémoire (`blob:`) : l'élément porte le nom qu'il dit. Rien n'est joué. */
+    const joues: string[] = [];
+    w.__joues = joues;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      if (this.src.startsWith('blob:')) joues.push(this.dataset.dit ?? '');
+      return Promise.resolve();
+    };
   }, voix);
 }
 
@@ -150,7 +158,9 @@ test('sons coupés : la voix de la dictée parle quand même, lettre donnée com
     await frapper(page, 'fr-FR', 'x');
     await page.waitForTimeout(250);
   }
-  await expect.poll(async () => (await dits(page)).map((d) => d.texte)).toEqual(['chat', 'chat', 'c']);
+  // le mot par le navigateur, le nom de la lettre par son fichier Piper
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __joues: string[] }).__joues)).toEqual(['c']);
+  expect((await dits(page)).map((d) => d.texte)).toEqual(['chat', 'chat']);
 });
 
 test('la copie reste la copie : mot écrit, touche allumée, aucune voix', async ({ page }) => {

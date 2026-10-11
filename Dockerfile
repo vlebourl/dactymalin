@@ -1,34 +1,15 @@
 # Construction et exécution dans la même image : le serveur sert l'API ET le
 # dist/ du client, comme sur ecoride. Un seul conteneur à déployer.
 # `slim` (Debian) et non `alpine` : le binaire Piper exige la glibc (#124). Les
-# DEUX étages partagent la base — `node_modules` passe de l'un à l'autre, et un
+# étages partagent la base — `node_modules` passe de l'un à l'autre, et un
 # module natif construit pour musl ne se chargerait pas sous glibc.
-FROM node:22-slim AS build
-WORKDIR /app
-# Coolify injecte NODE_ENV=production dans le BUILD : `npm ci` sautait alors
-# les devDependencies, et `vite` — l'outil de construction — n'existait pas.
-ENV NODE_ENV=development
-COPY package.json package-lock.json ./
-RUN npm ci --include=dev
-COPY . .
-RUN npx vite build
-FROM build AS production-dependencies
-# Better Auth déclare vite/vitest/drizzle-kit comme peers facultatifs ; npm les
-# garde sans ce mode même avec --omit=dev.
-RUN npm prune --omit=dev --legacy-peer-deps \
- && test ! -d node_modules/vite \
- && test ! -d node_modules/vitest \
- && test ! -d node_modules/drizzle-kit
-
-FROM node:22-slim AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
-
-# La voix de la dictée (#124) : Piper et la voix fr_FR-siwis-medium, DANS
+# Piper et la voix fr_FR-siwis-medium, DANS
 # l'image — un seul conteneur à déployer, rien à configurer dans Coolify. Posé
 # AVANT les COPY : cette couche de ~110 Mo ne bouge jamais, elle reste en cache
 # d'un déploiement à l'autre. Versions ÉPINGLÉES : une image reconstruite
 # demain doit parler avec la même voix qu'aujourd'hui.
+FROM node:22-slim AS voix
+WORKDIR /app
 ARG PIPER_VERSION=2023.11.14-2
 ARG VOIX_URL=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx
 # `curl` et `wget` RESTENT dans l'image : le healthcheck de Coolify et celui de
@@ -58,6 +39,28 @@ RUN apt-get update \
 # celle du navigateur : c'est le régime du développement et de la CI.
 ENV PIPER_BIN=/opt/piper/piper
 ENV PIPER_MODELE=/opt/voix/fr_FR-siwis-medium.onnx
+
+# Le build et le serveur partagent ce modèle : les lettres statiques sont
+# synthétisées pendant le build, avec la voix exacte de la dictée au runtime.
+FROM voix AS build
+# Coolify injecte NODE_ENV=production dans le BUILD : `npm ci` sautait alors
+# les devDependencies, et `vite` — l'outil de construction — n'existait pas.
+ENV NODE_ENV=development
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
+COPY . .
+RUN ./node_modules/.bin/tsx scripts/generer-voix-lettres.ts && npx vite build
+
+FROM build AS production-dependencies
+# Better Auth déclare vite/vitest/drizzle-kit comme peers facultatifs ; npm les
+# garde sans ce mode même avec --omit=dev.
+RUN npm prune --omit=dev --legacy-peer-deps \
+ && test ! -d node_modules/vite \
+ && test ! -d node_modules/vitest \
+ && test ! -d node_modules/drizzle-kit
+
+FROM voix AS runtime
+ENV NODE_ENV=production
 
 # Seul `tsx` est nécessaire à l'exécution TS. Les migrations utilisent
 # drizzle-orm ; vite, vitest et drizzle-kit restent dans l'étage de build.
