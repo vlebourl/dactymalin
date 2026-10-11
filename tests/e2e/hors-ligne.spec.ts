@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { coquilleGardee, creeListe, jouerItem, motCourant, ouvrir, sauvegarde } from './helpers/app';
+import { coquilleGardee, creeListe, jouerBlocParfait, jouerItem, motCourant, ouvrir, sauvegarde } from './helpers/app';
 
 /**
  * #3 — « l'enfant peut s'entraîner dans le train ». Une fois le parent
@@ -85,7 +85,14 @@ test('la progression faite hors ligne part au retour du réseau', async ({ page,
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
   await jouerItem(page, 'fr-FR');
 
-  // l'appareil garde le travail, et le dit
+  /* #129 : un exercice isolé reste LOCAL. L'envoi attend la fin de la leçon —
+     chaque item ne doit plus empiler une progression dans la file. */
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]').length),
+  ).toBe(0);
+  await jouerBlocParfait(page, 'fr-FR');
+
+  // la leçon finie, l'appareil garde le travail, et le dit
   await page.waitForFunction(
     () => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]').length > 0,
   );
@@ -187,11 +194,12 @@ test('hors ligne, créer une liste est refusé et dit pourquoi', async ({ page, 
   await context.setOffline(true);
   await page.reload();
 
-  /* On joue d'abord un mot : la file porte alors une progression, et la
+  /* On joue d'abord une leçon : la file porte alors une progression, et la
      vérification d'en bas cesse d'être vraie par vacuité — une file vide
      satisfait n'importe quelle assertion sur son contenu. */
   await page.getByRole('button', { name: 'On commence !' }).click();
-  await jouerItem(page, 'fr-FR');
+  /* Une leçon ENTIÈRE : depuis #129, seule sa fin met la progression en file. */
+  await jouerBlocParfait(page, 'fr-FR');
   await page.waitForFunction(
     () => JSON.parse(localStorage.getItem('tapeavecmoi.file') ?? '[]').length === 1,
   );

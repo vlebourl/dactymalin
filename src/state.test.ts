@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { aSauvegarder, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
+import { aSauvegarder, actionTermineExercice, etatDeDepart, reducer, type BilanBloc, type EtatApp } from './state';
 import {
   BLOC_MAX,
   blocDeDepart,
@@ -28,6 +28,61 @@ class FauxStockage {
 
 beforeEach(() => {
   globalThis.localStorage = new FauxStockage() as unknown as Storage;
+});
+
+describe('points d’envoi de progression', () => {
+  it('ne déclenche aucun envoi pour une vue ou une liste', () => {
+    expect(actionTermineExercice({ type: 'vue', vue: 'V1' })).toBe(false);
+    expect(actionTermineExercice({ type: 'listes', listes: [] })).toBe(false);
+  });
+
+  it('envoie les choix durables du parent sans attendre une leçon', () => {
+    expect(actionTermineExercice({ type: 'reglage', cle: 'animationsDouces', valeur: true })).toBe(true);
+    expect(actionTermineExercice({ type: 'parcours', parcours: 'dactylo' })).toBe(true);
+    expect(actionTermineExercice({ type: 'disposition', id: 'fr-CH', manuel: true })).toBe(true);
+  });
+
+  it('déclenche un envoi en fin de leçon et à la validation manuelle', () => {
+    expect(actionTermineExercice({ type: 'leconTerminee', bilan: bilan([]) })).toBe(true);
+    expect(actionTermineExercice({ type: 'leconFaite', etape: 1, lecon: 1 })).toBe(true);
+  });
+
+  it('réinjecte la fusion acceptée sans perdre la vue ouverte', () => {
+    const depart = etatDeDepart();
+    const avant = aSauvegarder(depart);
+    const apres = { ...avant, palier: 5, progressions: { ...avant.progressions, 'decouverte:fr-FR': { etape: 5, leconsSurEtape: 0 } } };
+    const courant = reducer(depart, { type: 'vue', vue: 'V9' });
+    const recu = reducer(courant, { type: 'fusionRecue', avant, apres });
+    expect(recu.vue).toBe('V9');
+    expect(recu.etape).toBe(5);
+  });
+
+  it('reconnaît un état identique malgré un ordre de clés différent', () => {
+    const depart = etatDeDepart();
+    const local = aSauvegarder(depart);
+    const avant = {
+      ...local,
+      reglages: {
+        animationsDouces: local.reglages.animationsDouces,
+        texteEspace: local.reglages.texteEspace,
+        sons: local.reglages.sons,
+      },
+    };
+    const apres = { ...avant, reglages: { ...avant.reglages, sons: !avant.reglages.sons } };
+    expect(aSauvegarder(reducer(depart, { type: 'fusionRecue', avant, apres })).reglages.sons)
+      .toBe(apres.reglages.sons);
+  });
+
+  it('reconnaît un état relu de la file quand JSON a retiré les champs indéfinis', () => {
+    const depart = etatDeDepart();
+    const local = aSauvegarder(depart);
+    const avant = JSON.parse(JSON.stringify(local)) as typeof local;
+    expect(Object.keys(avant).length).toBeLessThan(Object.keys(local).length);
+    const apres = { ...avant, reglages: { ...avant.reglages, sons: !avant.reglages.sons } };
+
+    const recu = reducer(depart, { type: 'fusionRecue', avant, apres });
+    expect(aSauvegarder(recu).reglages.sons).toBe(apres.reglages.sons);
+  });
 });
 
 /** Une leçon close à une date fixe : les tests qui datent la leçon la posent. */
