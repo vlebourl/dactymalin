@@ -31,7 +31,7 @@ describe('healthcheck', () => {
     const debut = Date.now();
     const r = await app.request('/api/health');
     expect(r.status).toBe(200);
-    expect((await r.json()).db).toBe('ko');
+    expect(((await r.json()) as { db: string }).db).toBe('ko');
     expect(Date.now() - debut).toBeLessThan(2500);
   });
 });
@@ -57,7 +57,7 @@ describe('routage', () => {
       body: 'x'.repeat(128 * 1024 + 1),
     });
     expect(r.status).toBe(413);
-    expect((await r.json()).code).toBe('CORPS_TROP_GRAND');
+    expect(((await r.json()) as { code: string }).code).toBe('CORPS_TROP_GRAND');
   });
 });
 

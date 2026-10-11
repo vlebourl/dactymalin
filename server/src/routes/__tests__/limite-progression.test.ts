@@ -13,6 +13,6 @@ describe('taille de la progression', () => {
       body: JSON.stringify({ etat: { contenu: 'x'.repeat(33 * 1024) }, majLe: new Date().toISOString() }),
     });
     expect(r.status).toBe(413);
-    expect((await r.json()).code).toBe('ETAT_TROP_GRAND');
+    expect(((await r.json()) as { code: string }).code).toBe('ETAT_TROP_GRAND');
   });
 });
