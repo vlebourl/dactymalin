@@ -20,7 +20,7 @@ describe('limite de débit par compte', () => {
     const refus = await appel('a');
     expect(refus.status).toBe(429);
     expect(refus.headers.get('Retry-After')).toBe('10');
-    expect((await refus.json()).code).toBe('DEBIT_DEPASSE');
+    expect(((await refus.json()) as { code: string }).code).toBe('DEBIT_DEPASSE');
     expect((await appel('b')).status).toBe(200);
     maintenant = 11_001;
     expect((await appel('a')).status).toBe(200);
