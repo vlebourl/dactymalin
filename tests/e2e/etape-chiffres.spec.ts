@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { motCourant, ouvrir } from './helpers/app';
-import { coteMajAttendu, coteMajHomolateral, frapper, frapperCouple } from './helpers/keyboard';
+import { jouerItem, motCourant, ouvrir } from './helpers/app';
+import { coteMajAttendu, coteMajHomolateral, frapperCouple } from './helpers/keyboard';
 import { toucheDe } from '../../src/core/layouts';
 
 /**
@@ -24,11 +24,7 @@ test.describe('étape des chiffres : le piège de la Majuscule', () => {
       if (mot && /^[0-9]/.test(mot)) break;
       if (!mot) break;
       // on saute l'item en le tapant
-      for (const c of mot) {
-        await frapper(page, 'fr-FR', c);
-        await page.waitForTimeout(20);
-      }
-      await page.waitForTimeout(820);
+      await jouerItem(page, 'fr-FR');
     }
 
     const mot = await motCourant(page);
@@ -84,11 +80,7 @@ test.describe('étape des chiffres : le piège de la Majuscule', () => {
         await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
         return;
       }
-      for (const c of mot) {
-        await frapper(page, 'fr-FR', c);
-        await page.waitForTimeout(20);
-      }
-      await page.waitForTimeout(820);
+      await jouerItem(page, 'fr-FR');
     }
     throw new Error("aucun item numérique servi à l'étape des chiffres");
   });
@@ -110,7 +102,7 @@ test.describe('étape des chiffres : le piège de la Majuscule', () => {
         await frapperCouple(page, porteuse.code, chiffre, {
           maj: coteMajHomolateral('fr-FR', chiffre),
         });
-        await page.waitForTimeout(60);
+
         expect(await page.locator('[data-mot]').getAttribute('data-curseur')).toBe('0');
         await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
         await expect(page.locator('[data-etat="cible"]')).toHaveCount(2);
@@ -122,11 +114,7 @@ test.describe('étape des chiffres : le piège de la Majuscule', () => {
         await expect(page.locator('[data-mot]')).toHaveAttribute('data-curseur', '1');
         return;
       }
-      for (const c of mot) {
-        await frapper(page, 'fr-FR', c);
-        await page.waitForTimeout(20);
-      }
-      await page.waitForTimeout(820);
+      await jouerItem(page, 'fr-FR');
     }
     throw new Error("aucun item numérique servi à l'étape des chiffres");
   });
@@ -156,11 +144,7 @@ test.describe('étape des chiffres : le piège de la Majuscule', () => {
         await expect(page.locator('[data-mot]')).toHaveAttribute('data-curseur', '1');
         return;
       }
-      for (const c of mot) {
-        await frapper(page, 'fr-FR', c);
-        await page.waitForTimeout(20);
-      }
-      await page.waitForTimeout(820);
+      await jouerItem(page, 'fr-FR');
     }
     throw new Error("aucun item à capitale servi à l'étape des chiffres");
   });

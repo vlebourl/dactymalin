@@ -21,6 +21,8 @@ for (const id of ['fr-FR', 'fr-CH'] as const) {
   test(`${id} : l'étape 9 sert de la ponctuation, lisible et frappable à 375 px`, async ({
     page,
   }) => {
+    // Jusqu’à 24 phrases complètes : chaque caractère attend son accusé visuel.
+    test.slow();
     await page.setViewportSize({ width: LARGEUR, height: 900 });
     await ouvrir(page, id, 9, false, 'Joueur 1', 'decouverte', 0, 600_000);
     await page.getByRole('button', { name: 'On commence !' }).click();

@@ -19,12 +19,11 @@ const BDD_E2E =
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  /* En CI seulement : un timeout isolé sur main sautait le déploiement sans
-     prévenir personne (#120). Un flake repasse seul, un vrai défaut échoue
-     trois fois. En local, zéro : un test instable doit s'y VOIR. */
-  retries: process.env.CI ? 2 : 0,
+  /* Une attente instable doit échouer dès la première exécution, en local
+     comme en CI (#134). Une relance masquerait la régression. */
+  retries: 0,
   reporter: [['list']],
-  use: { baseURL: BASE_URL, trace: 'on-first-retry' },
+  use: { baseURL: BASE_URL, trace: 'retain-on-failure' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     {

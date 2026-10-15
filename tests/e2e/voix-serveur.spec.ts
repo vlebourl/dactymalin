@@ -164,7 +164,7 @@ async function lancerLaCopie(page: Page, mot: string, sons: boolean): Promise<vo
 async function deuxFautes(page: Page): Promise<void> {
   for (let k = 0; k < 2; k++) {
     await frapper(page, 'fr-FR', 'x');
-    await page.waitForTimeout(250);
+    await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
   }
 }
 
@@ -224,6 +224,7 @@ test('sons coupés, en copie : aucune voix, ni serveur ni navigateur', async ({ 
   await serveurVocal(page, 200);
   await lancerLaCopie(page, 'chat', false);
   await deuxFautes(page);
+  // Fenêtre d’observation d’absence : aucune lecture différée après les fautes, sons coupés.
   await page.waitForTimeout(400);
   expect(await lire(page, '__joues')).toEqual([]);
   expect(await lire(page, '__dits')).toEqual([]);

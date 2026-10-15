@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { curseur, motCourant, ouvrir } from './helpers/app';
+import { DUREE_FAUSSE } from '../../src/core/lecon';
 import { frapperCouple } from './helpers/keyboard';
 
 test.describe('frappe fausse (P3)', () => {
@@ -14,15 +15,19 @@ test.describe('frappe fausse (P3)', () => {
       await frapperCouple(page, 'KeyL', 'l');
       await frapperCouple(page, 'KeyK', 'k');
     }
-    await page.waitForTimeout(200);
+    await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
 
     expect(await motCourant(page)).toBe(mot);
     expect(await curseur(page)).toBe(avant);
   });
 
   test('la touche fausse s\'enfonce et retombe, la cible reste la plus vive', async ({ page }) => {
+    await page.clock.install();
     await ouvrir(page, 'fr-FR');
     await page.getByRole('button', { name: 'On commence !' }).click();
+    // L’état dure 180 ms : figer l’horloge permet d’examiner son rendu
+    // même si le pilote est ralenti, puis de laisser sa durée s’écouler.
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     await frapperCouple(page, 'KeyL', 'l');
 
     const fausse = page.locator('[data-etat="fausse"]');
@@ -31,6 +36,7 @@ test.describe('frappe fausse (P3)', () => {
     const transform = await fausse.evaluate((n) => getComputedStyle(n).transform);
     expect(transform).not.toBe('none');
     // retombée en 150-200 ms
+    await page.clock.runFor(DUREE_FAUSSE + 16);
     await expect(fausse).toHaveCount(0, { timeout: 1200 });
 
     // une seule touche cible à la fois (F5)

@@ -190,6 +190,8 @@ test('hors ligne, créer une liste est refusé et dit pourquoi', async ({ page, 
   await creeListe(page, 'Déjà là', ['papa']);
   await page.reload();
   await coquilleGardee(page);
+  // La coquille et la bibliothèque sont deux caches distincts.
+  await expect(page.getByRole('button', { name: /Déjà là/ })).toBeVisible();
 
   await context.setOffline(true);
   await page.reload();

@@ -26,6 +26,7 @@ test.describe('aucun hôte étranger', () => {
 
     await ouvrir(page, 'fr-FR');
     await page.getByRole('button', { name: 'On commence !' }).click();
+    // Fenêtre d’observation d’absence de trafic interdit pendant la leçon (pas une attente de chargement).
     await page.waitForTimeout(1500);
 
     expect(etrangers).toEqual([]);
@@ -48,6 +49,7 @@ test.describe('aucun hôte étranger', () => {
     const avantLaLecon = api.length;
 
     await page.getByRole('button', { name: 'On commence !' }).click();
+    // Fenêtre d’observation d’absence de trafic interdit pendant la leçon (pas une attente de chargement).
     await page.waitForTimeout(1500);
 
     /* Une seule chose a le droit de partir pendant que l'enfant tape :

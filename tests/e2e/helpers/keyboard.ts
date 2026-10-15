@@ -1,4 +1,4 @@
-import type { CDPSession, Page } from '@playwright/test';
+import { expect, type CDPSession, type Page } from '@playwright/test';
 import {
   MAJ_DROITE,
   MAJ_GAUCHE,
@@ -112,8 +112,10 @@ export function coteMajHomolateral(id: IdDisposition, c: string): CoteMaj {
 
 /** Tape un item entier, caractère par caractère. */
 export async function taper(page: Page, id: IdDisposition, texte: string): Promise<void> {
+  const mot = page.locator('[data-mot]').first();
+  let position = Number(await mot.getAttribute('data-curseur'));
   for (const c of texte) {
     await frapper(page, id, c);
-    await page.waitForTimeout(15);
+    await expect(mot).toHaveAttribute('data-curseur', String(++position));
   }
 }

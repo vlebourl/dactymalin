@@ -87,6 +87,7 @@ test('aucun trafic Google en dehors de l’écran de connexion', async ({ page }
   await ouvrir(page, 'fr-FR', 1);
   await page.getByRole('button', { name: 'On commence !' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+  // Fenêtre d’observation d’absence de trafic Google après l’entrée dans la leçon.
   await page.waitForTimeout(1200);
 
   expect(versGoogle).toEqual([]);
