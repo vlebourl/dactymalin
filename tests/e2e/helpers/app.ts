@@ -1,11 +1,10 @@
 import { expect, type Page } from '@playwright/test';
+import { courrielUnique } from '../../helpers/courriel';
 import type { IdDisposition } from '../../../src/core/layouts';
 
-export const MDP_TEST = 'motdepasse-solide';
+export { courrielUnique } from '../../helpers/courriel';
 
-/** Adresse jamais vue deux fois : chaque test a son compte à lui. */
-export const courrielUnique = () =>
-  `parent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@exemple.fr`;
+export const MDP_TEST = 'motdepasse-solide';
 
 /**
  * Inscrit un compte parent par l'API et pose le cookie de session dans le

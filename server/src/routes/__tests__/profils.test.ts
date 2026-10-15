@@ -1,3 +1,4 @@
+import { courrielUnique } from '../../../../tests/helpers/courriel';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { creerApp } from '../../app';
@@ -50,7 +51,7 @@ d('profils et progression', () => {
   });
 
   it('crée un profil, le relit, y pousse une progression', async () => {
-    const h = await inscrire(`a${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const cree = await app.request('/api/profils', {
       method: 'POST',
       headers: h,
@@ -78,7 +79,7 @@ d('profils et progression', () => {
   /* La borne est celle de `src/core/profils.ts` : l'écran et le serveur jugent
      avec le MÊME nombre, sinon l'écran promet ce que le serveur refuse. */
   it('refuse à la création un prénom vide, blanc ou trop long', async () => {
-    const h = await inscrire(`j${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const creer = (prenom: unknown) =>
       app.request('/api/profils', { method: 'POST', headers: h, body: JSON.stringify({ prenom }) });
 
@@ -99,7 +100,7 @@ d('profils et progression', () => {
      « aucun code de migration » de la spec : le produit est en bêta, et un
      rechargement suffit à donner le code d'aujourd'hui. */
   it("accepte une progression d'un appareil pas encore mis à jour", async () => {
-    const h = await inscrire(`n${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
@@ -125,7 +126,7 @@ d('profils et progression', () => {
   });
 
   it('refuse un état qui ne ressemble pas à une progression', async () => {
-    const h = await inscrire(`b${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
@@ -142,7 +143,7 @@ d('profils et progression', () => {
   });
 
   it('refuse une version plus ANCIENNE que celle en base (409)', async () => {
-    const h = await inscrire(`c${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
@@ -166,7 +167,7 @@ d('profils et progression', () => {
   });
 
   it('plafonne l’horloge cliente et remplace une date future déjà persistée', async () => {
-    const h = await inscrire(`horloge${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const cree = await app.request('/api/profils', {
       method: 'POST', headers: h, body: JSON.stringify({ prenom: 'Milo' }),
     });
@@ -203,8 +204,8 @@ d('profils et progression', () => {
 
   /* La règle la plus importante du serveur : un id deviné ne donne rien. */
   it("un compte ne voit ni ne touche le profil d'un autre", async () => {
-    const a = await inscrire(`d${Date.now()}@exemple.fr`);
-    const b = await inscrire(`e${Date.now()}@exemple.fr`);
+    const a = await inscrire(courrielUnique());
+    const b = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
@@ -235,7 +236,7 @@ d('profils et progression', () => {
      l'écran « Qui joue ? » propose deux boutons identiques. Les deux règles
      tiennent ensemble : le serveur ne fusionne toujours rien par prénom. */
   it('refuse un prénom déjà pris dans le foyer, casse et espaces compris', async () => {
-    const h = await inscrire(`f${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const creer = (prenom: string) =>
       app.request('/api/profils', {
         method: 'POST',
@@ -249,7 +250,7 @@ d('profils et progression', () => {
     expect(((await doublon.json()) as { code: string }).code).toBe('PRENOM_DEJA_PRIS');
 
     // le foyer d'à côté garde le droit d'avoir son propre Timo
-    const voisin = await inscrire(`f2${Date.now()}@exemple.fr`);
+    const voisin = await inscrire(courrielUnique());
     expect(
       (
         await app.request('/api/profils', {
@@ -262,7 +263,7 @@ d('profils et progression', () => {
   });
 
   it('refuse un renommage vers un prénom déjà pris, mais pas vers le sien', async () => {
-    const h = await inscrire(`k${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const creer = async (prenom: string) =>
       (
         (await (
@@ -290,7 +291,7 @@ d('profils et progression', () => {
   });
 
   it('supprime un profil, sa progression part avec lui', async () => {
-    const h = await inscrire(`l${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
@@ -325,7 +326,7 @@ d('profils et progression', () => {
   });
 
   it('le plafond de 12 profils est tenu, et il se nomme', async () => {
-    const h = await inscrire(`m${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     for (let i = 0; i < PROFILS_MAX; i++) {
       const r = await app.request('/api/profils', {
         method: 'POST',
@@ -344,7 +345,7 @@ d('profils et progression', () => {
   });
 
   it('renommer un profil conserve sa progression', async () => {
-    const h = await inscrire(`g${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
@@ -374,8 +375,8 @@ d('profils et progression', () => {
   });
 
   it('refuse un prénom vide, et le renommage du profil d\'un autre compte', async () => {
-    const a = await inscrire(`h${Date.now()}@exemple.fr`);
-    const b = await inscrire(`i${Date.now()}@exemple.fr`);
+    const a = await inscrire(courrielUnique());
+    const b = await inscrire(courrielUnique());
     const { id } = (await (
       await app.request('/api/profils', {
         method: 'POST',
