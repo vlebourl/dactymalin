@@ -24,7 +24,7 @@ export default defineConfig({
      trois fois. En local, zéro : un test instable doit s'y VOIR. */
   retries: process.env.CI ? 2 : 0,
   reporter: [['list']],
-  use: { baseURL: BASE_URL, trace: 'retain-on-failure' },
+  use: { baseURL: BASE_URL, trace: 'on-first-retry' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     {
