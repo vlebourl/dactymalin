@@ -185,7 +185,13 @@ function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDict
           <path d="m14 5-7 7 7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <ul ref={bande} id="listes-maison" className={v.cartesListes} aria-label="Les listes de la maison">
+      <ul
+        ref={bande}
+        id="listes-maison"
+        className={v.cartesListes}
+        aria-label="Les listes de la maison"
+        onFocus={(e) => (e.target as HTMLElement).closest('li')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })}
+      >
         {listes.map((liste) => (
           <li key={liste.id}>
             <button
