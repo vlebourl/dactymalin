@@ -161,6 +161,8 @@ function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDict
   }, [listes]);
 
   const defiler = (sens: number) => {
+    // aria-disabled conserve le focus clavier à la borne ; le clic reste sans effet.
+    if ((sens < 0 && !bords.avant) || (sens > 0 && !bords.apres)) return;
     const element = bande.current;
     if (!element) return;
     element.scrollBy({
@@ -176,7 +178,7 @@ function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDict
         className={v.flecheListes}
         aria-label="Listes précédentes"
         aria-controls="listes-maison"
-        disabled={!bords.avant}
+        aria-disabled={!bords.avant}
         onClick={() => defiler(-1)}
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
@@ -222,7 +224,7 @@ function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDict
         className={v.flecheListes}
         aria-label="Listes suivantes"
         aria-controls="listes-maison"
-        disabled={!bords.apres}
+        aria-disabled={!bords.apres}
         onClick={() => defiler(1)}
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">

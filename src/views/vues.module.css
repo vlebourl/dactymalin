@@ -1033,11 +1033,11 @@
   border-radius: 50%;
 }
 
-.flecheListes:hover:not(:disabled) {
+.flecheListes:hover:not([aria-disabled='true']) {
   background: var(--fond-creux);
 }
 
-.flecheListes:disabled {
+.flecheListes[aria-disabled='true'] {
   opacity: 0.3;
   cursor: default;
 }

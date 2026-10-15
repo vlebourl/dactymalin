@@ -1,5 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { creeListe, ouvrir } from './helpers/app';
+
+test.use({ hasTouch: true });
 
 for (const [largeur, hauteur] of [[768, 1024], [1024, 768]] as const) {
   test(`30 listes restent dans leur compartiment sur tablette ${largeur}×${hauteur}`, async ({ page }, testInfo) => {
@@ -35,9 +37,20 @@ for (const [largeur, hauteur] of [[768, 1024], [1024, 768]] as const) {
   });
 }
 
-test('navigation tactile, flèches, clavier et titres longs', async ({ browser }, testInfo) => {
-  const context = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 } });
-  const page = await context.newPage();
+/** Attend la fin native du déplacement, puis l'état React, avant une autre action. */
+async function defilerParFleche(listes: Locator, fleche: Locator) {
+  const avant = await listes.evaluate(e => e.scrollLeft);
+  await listes.evaluate(e => {
+    e.setAttribute('data-test-defilement', 'en-cours');
+    e.addEventListener('scrollend', () => e.setAttribute('data-test-defilement', 'fini'), { once: true });
+  });
+  await fleche.press('Enter');
+  await expect(listes).toHaveAttribute('data-test-defilement', 'fini');
+  await expect.poll(() => listes.evaluate(e => e.scrollLeft)).not.toBe(avant);
+}
+
+async function sixListes(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
   await ouvrir(page, 'fr-FR', 1);
   await expect(page.getByRole('list', { name: 'Les listes de la maison' })).toHaveCount(0);
   await creeListe(page, 'W'.repeat(40), ['papa', 'maman']);
@@ -45,40 +58,106 @@ test('navigation tactile, flèches, clavier et titres longs', async ({ browser }
   await page.reload();
   const listes = page.getByRole('list', { name: 'Les listes de la maison' });
   await expect(listes.getByRole('listitem')).toHaveCount(6);
+  return listes;
+}
+
+test('flèches, bornes, focus clavier et titres longs', async ({ page }, testInfo) => {
+  const listes = await sixListes(page);
   const titreLong = listes.getByRole('button').first();
   await expect.poll(() => titreLong.evaluate(e => e.scrollHeight - e.clientHeight)).toBeLessThanOrEqual(1);
   await expect(page.getByRole('button', { name: 'Revoir : où mettre mes doigts' })).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: testInfo.outputPath('accueil-mobile.png') });
   const suivant = page.getByRole('button', { name: 'Listes suivantes' });
   const precedent = page.getByRole('button', { name: 'Listes précédentes' });
-  await expect(precedent).toBeDisabled();
+  await expect(precedent).toHaveAttribute('aria-disabled', 'true');
+
+  // Mouvement normal à l'aller, mouvement réduit au retour ; aucune durée supposée.
+  await defilerParFleche(listes, suivant);
+  await expect(precedent).toHaveAttribute('aria-disabled', 'false');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await suivant.tap();
-  await expect(precedent).toBeEnabled();
-  await precedent.tap();
-  await expect(precedent).toBeDisabled();
-  const zone = await listes.boundingBox();
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('Input.synthesizeScrollGesture', {
-    x: Math.round(zone!.x + zone!.width - 20), y: Math.round(zone!.y + 70),
-    xDistance: -150, yDistance: 0, gestureSourceType: 'touch', preventFling: true,
-  });
-  await expect(precedent).toBeEnabled();
-  for (let i = 0; i < 6 && await precedent.isEnabled(); i++) await precedent.tap();
-  await expect(precedent).toBeDisabled();
-  await listes.getByRole('button').first().focus();
-  // Le parcours Tab révèle les cartes hors champ sans cliquer les flèches.
-  for (let i = 0; i < 10; i++) await page.keyboard.press('Tab');
+  await defilerParFleche(listes, precedent);
+  await expect(precedent).toHaveAttribute('aria-disabled', 'true');
+  await expect(precedent).toBeFocused();
+  await precedent.press('Enter');
+  await expect(precedent).toBeFocused();
+  await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeLessThanOrEqual(1);
+
+  await titreLong.focus();
   const derniere = listes.getByRole('button', { name: 'Liste 6 2 mots', exact: true });
+  // Tab suit les contrôles réellement disponibles, même si les dictées sont désactivées.
+  const maximum = await listes.getByRole('button').count();
+  for (let i = 0; i < maximum && !await derniere.evaluate(e => e === document.activeElement); i++) {
+    await page.keyboard.press('Tab');
+  }
   await expect(derniere).toBeFocused();
-  await expect(derniere).toBeInViewport();
-  // Le focus rend la carte visible ; la flèche atteint aussi la marge de fin.
-  await suivant.tap();
-  await expect(suivant).toBeDisabled();
+  await expect(derniere).toBeInViewport({ ratio: 1 });
+
+  // Atteindre la borne droite par les flèches : attendre chaque déplacement ET son état.
+  await listes.evaluate(e => e.scrollTo({ left: 0, behavior: 'instant' }));
+  await expect(precedent).toHaveAttribute('aria-disabled', 'true');
+  for (let i = 0; i < 6 && await suivant.getAttribute('aria-disabled') === 'false'; i++) {
+    await defilerParFleche(listes, suivant);
+    const auBout = await listes.evaluate(e => e.scrollWidth - e.clientWidth - e.scrollLeft <= 1);
+    await expect(suivant).toHaveAttribute('aria-disabled', String(auBout));
+  }
+  await expect(suivant).toHaveAttribute('aria-disabled', 'true');
+  await expect(suivant).toBeFocused();
+  await suivant.press('Space');
+  await expect(suivant).toBeFocused();
+  await expect.poll(() => listes.evaluate(e => e.scrollWidth - e.clientWidth - e.scrollLeft)).toBeLessThanOrEqual(1);
+
   await page.setViewportSize({ width: 1440, height: 900 });
-  await listes.getByRole('button').first().focus();
+  await titreLong.focus();
   await expect.poll(() => titreLong.evaluate(e => e.scrollHeight - e.clientHeight)).toBeLessThanOrEqual(1);
   await expect(page.getByRole('button', { name: 'Revoir : où mettre mes doigts' })).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: testInfo.outputPath('accueil-desktop.png') });
-  await context.close();
+});
+
+test('un glissement tactile simulé vers la gauche avance la rangée', async ({ page, context }, testInfo) => {
+  const listes = await sixListes(page);
+  const precedent = page.getByRole('button', { name: 'Listes précédentes' });
+  await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeLessThanOrEqual(1);
+  await expect(precedent).toHaveAttribute('aria-disabled', 'true');
+  const zone = (await listes.boundingBox())!;
+  const depart = { x: zone.x + zone.width - 16, y: zone.y + 60 };
+  const arriveeX = zone.x + 16;
+  expect(await listes.evaluate((e, p) => e.contains(document.elementFromPoint(p.x, p.y)), depart)).toBe(true);
+
+  // Conserver la livraison des événements et les positions, même si le geste échoue.
+  const journal: string[] = [];
+  page.on('console', message => {
+    if (message.text().startsWith('DEFIL_LISTES ')) journal.push(message.text());
+  });
+  await listes.evaluate(e => {
+    e.setAttribute('data-test-defilement', 'en-cours');
+    for (const type of ['touchstart', 'touchmove', 'touchend', 'scroll', 'scrollend']) {
+      e.addEventListener(type, event => {
+        if (type === 'scrollend') e.setAttribute('data-test-defilement', 'fini');
+        const touche = event instanceof TouchEvent ? event.touches[0] : null;
+        console.info('DEFIL_LISTES ' + JSON.stringify({ type, x: touche?.clientX, scrollLeft: e.scrollLeft }));
+      }, { passive: true });
+    }
+  });
+  const cdp = await context.newCDPSession(page);
+  try {
+    // Coordonnées explicites : le doigt part à droite et se déplace vers la gauche.
+    // L'amplitude dépasse une carte ; elle ne dépend pas de la convention xDistance.
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...depart, id: 1 }] });
+    for (let i = 1; i <= 12; i++) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: depart.x + (arriveeX - depart.x) * i / 12, y: depart.y, id: 1 }],
+      });
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(listes).toHaveAttribute('data-test-defilement', 'fini');
+    await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeGreaterThan(1);
+    await expect(precedent).toHaveAttribute('aria-disabled', 'false');
+  } finally {
+    await testInfo.attach('geste-tactile-positions', {
+      body: JSON.stringify({ depart, arriveeX, journal }, null, 2), contentType: 'application/json',
+    });
+    await cdp.detach();
+  }
 });
