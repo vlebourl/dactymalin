@@ -1002,21 +1002,66 @@
    bouton entier — un enfant vise large, et le nom seul serait une cible fine. */
 .cartesListes {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   gap: clamp(8px, 1.6vw, 16px);
-  width: min(680px, 94vw);
+  min-width: 0;
+  height: 12.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--liseré-fort) transparent;
   margin: 0;
-  padding: 0;
+  padding: 6px 6px 12px;
   list-style: none;
+}
+
+.bibliothequeAccueil {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  width: min(760px, 94vw);
+  flex: 0 0 auto;
+}
+
+.flecheListes {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--teal-vif);
+  border-radius: 50%;
+}
+
+.flecheListes:hover:not([aria-disabled='true']) {
+  background: var(--fond-creux);
+}
+
+.flecheListes[aria-disabled='true'] {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.bibliothequeAccueil[data-defile='non'] .flecheListes {
+  visibility: hidden;
+}
+
+/* Les marges automatiques centrent les petites bibliothèques, mais se
+   résorbent quand la rangée déborde : la première carte reste atteignable. */
+.cartesListes li:first-child {
+  margin-inline-start: auto;
+}
+
+.cartesListes li:last-child {
+  margin-inline-end: auto;
 }
 
 .carteListe {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 150px;
-  padding: clamp(10px, 1.8vw, 18px) clamp(14px, 2.4vw, 24px);
+  min-width: 0;
+  padding: 12px 14px;
   font: inherit;
   color: inherit;
   text-align: left;
@@ -1032,8 +1077,10 @@
 }
 
 .carteNom {
-  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  font-size: 1rem;
+  line-height: 1.25;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .carteMots {
@@ -1044,9 +1091,11 @@
 /* #118 — sous la carte, la même liste à l'oreille. Un second bouton, pas une
    option dans la carte : deux cibles larges valent mieux qu'un menu. */
 .cartesListes li {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 44px;
+  flex: 0 0 220px;
   gap: 6px;
+  scroll-snap-align: start;
 }
 
 .carteDictee {
@@ -1272,4 +1321,39 @@
   text-align: center;
   font-size: 12px;
   color: var(--encre-eteinte);
+}
+
+/* Les listes gardent leur hauteur ; le décor libère de la place sur tablette. */
+.accueilAvecListes {
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.accueilAvecListes .logo {
+  max-height: 10vh;
+}
+
+.accueilAvecListes .sousTitre {
+  max-width: none;
+}
+
+.accueilAvecListes .liens {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 24px;
+}
+
+/* Les très petits écrans gardent accès aux commandes, sans faire grandir la rangée. */
+.accueilAvecListes {
+  justify-content: safe center;
+  overflow-y: auto;
+}
+
+.accueilAvecListes > * {
+  flex-shrink: 0;
+}
+
+.accueilAvecListes > button {
+  padding-block: 12px;
 }
