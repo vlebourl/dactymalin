@@ -28,12 +28,15 @@ for (const [largeur, hauteur] of [[768, 1024], [1024, 768]] as const) {
     await expect(page.getByRole('button', { name: 'Revoir : où mettre mes doigts' })).toBeInViewport({ ratio: 1 });
 
     // Le dernier choix reste atteignable et lance bien SA liste.
-    const derniere = listes.getByRole('button', { name: 'Liste 30 2 mots', exact: true });
+    const derniere = listes.getByRole('listitem').last().getByRole('button', { name: /^Liste \d+ 2 mots$/ });
+    const motsAttendus = await derniere.getByText('Liste 1', { exact: true }).count()
+      ? /^(papa|maman)$/
+      : /^(lundi|mardi)$/;
     await derniere.scrollIntoViewIfNeeded();
     await expect(derniere).toBeInViewport();
     await derniere.click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
-    await expect(page.locator('[data-mot]')).toHaveAttribute('data-mot', /^(lundi|mardi)$/);
+    await expect(page.locator('[data-mot]')).toHaveAttribute('data-mot', motsAttendus);
   });
 }
 
@@ -63,7 +66,8 @@ async function sixListes(page: Page) {
 
 test('flèches, bornes, focus clavier et titres longs', async ({ page }, testInfo) => {
   const listes = await sixListes(page);
-  const titreLong = listes.getByRole('button').first();
+  const titreLong = listes.getByRole('button', { name: `${'W'.repeat(40)} 2 mots`, exact: true });
+  await expect(titreLong).toHaveCount(1);
   await expect.poll(() => titreLong.evaluate(e => e.scrollHeight - e.clientHeight)).toBeLessThanOrEqual(1);
   await expect(page.getByRole('button', { name: 'Revoir : où mettre mes doigts' })).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: testInfo.outputPath('accueil-mobile.png') });
@@ -82,8 +86,11 @@ test('flèches, bornes, focus clavier et titres longs', async ({ page }, testInf
   await expect(precedent).toBeFocused();
   await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeLessThanOrEqual(1);
 
-  await titreLong.focus();
-  const derniere = listes.getByRole('button', { name: 'Liste 6 2 mots', exact: true });
+  const premiere = listes.getByRole('listitem').first().getByRole('button', { name: / 2 mots$/ });
+  const derniere = listes.getByRole('listitem').last().getByRole('button', { name: / 2 mots$/ });
+  await premiere.focus();
+  await expect(premiere).toBeFocused();
+  await expect(derniere).not.toBeFocused();
   // Tab suit les contrôles réellement disponibles, même si les dictées sont désactivées.
   const maximum = await listes.getByRole('button').count();
   for (let i = 0; i < maximum && !await derniere.evaluate(e => e === document.activeElement); i++) {
