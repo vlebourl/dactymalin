@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { disposition } from '../core/layouts';
-import { estJouable } from '../core/listes';
+import { estJouable, type Liste } from '../core/listes';
 import { ensembleTouches, LECONS_PAR_ETAPE, parcoursFini, rangLecon } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
@@ -46,7 +47,7 @@ export function V1Accueil() {
         </button>
       </header>
 
-      <div className={v.centre}>
+      <div className={`${v.centre} ${jouables.length > 0 ? v.accueilAvecListes : ''}`}>
         {/* Le nom est une image : le logo porte une typographie et un jeu de
             couleurs que la police de l'app ne reproduit pas. Il reste dans un
             h1 avec son texte alternatif — la hiérarchie et les lecteurs
@@ -91,40 +92,7 @@ export function V1Accueil() {
         {/* #9 — la bibliothèque du foyer, une carte par liste. L'enfant ne
             saisit rien : il reconnaît la carte de sa dictée et appuie. */}
         {jouables.length > 0 && (
-          <ul className={v.cartesListes} aria-label="Les listes de la maison">
-            {jouables.map((liste) => (
-              <li key={liste.id}>
-                <button
-                  className={v.carteListe}
-                  onClick={() => {
-                    amorcerLaVoix();
-                    envoi({ type: 'commencer', liste });
-                  }}
-                >
-                  <span className={v.carteNom} id={`liste-${liste.id}`}>
-                    {liste.nom}
-                  </span>
-                  <span className={v.carteMots}>
-                    {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
-                  </span>
-                </button>
-                {/* #118 — la même liste, À L'OREILLE. Le nom de la liste décrit
-                    le bouton sans entrer dans son nom : la carte reste seule à
-                    le porter. */}
-                <button
-                  className={v.carteDictee}
-                  disabled={!voixDictee}
-                  aria-describedby={`liste-${liste.id}`}
-                  onClick={() => {
-                    amorcerLaVoix();
-                    envoi({ type: 'commencer', liste: { ...liste, enDictee: true } });
-                  }}
-                >
-                  En dictée
-                </button>
-              </li>
-            ))}
-          </ul>
+          <BibliothequeAccueil listes={jouables} voixDictee={voixDictee} />
         )}
         {/* Une dictée muette est impossible à réussir : pas de repli. */}
         {jouables.length > 0 && voixDictee === false && (
@@ -164,6 +132,103 @@ export function V1Accueil() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Une seule rangée : le nombre de listes ne change jamais la hauteur de l'accueil. */
+function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDictee: boolean | null }) {
+  const envoi = useEnvoi();
+  const bande = useRef<HTMLUListElement>(null);
+  const [bords, setBords] = useState({ avant: false, apres: false });
+
+  useEffect(() => {
+    const element = bande.current;
+    if (!element) return;
+    const mesurer = () =>
+      setBords({
+        avant: element.scrollLeft > 1,
+        apres: element.scrollLeft + element.clientWidth < element.scrollWidth - 1,
+      });
+    mesurer();
+    const taille = new ResizeObserver(mesurer);
+    taille.observe(element);
+    element.addEventListener('scroll', mesurer, { passive: true });
+    return () => {
+      taille.disconnect();
+      element.removeEventListener('scroll', mesurer);
+    };
+  }, [listes]);
+
+  const defiler = (sens: number) => {
+    const element = bande.current;
+    if (!element) return;
+    element.scrollBy({
+      left: sens * element.clientWidth * 0.85,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    });
+  };
+
+  return (
+    <div className={v.bibliothequeAccueil} data-defile={bords.avant || bords.apres ? 'oui' : 'non'}>
+      <button
+        type="button"
+        className={v.flecheListes}
+        aria-label="Listes précédentes"
+        aria-controls="listes-maison"
+        disabled={!bords.avant}
+        onClick={() => defiler(-1)}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="m14 5-7 7 7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <ul ref={bande} id="listes-maison" className={v.cartesListes} aria-label="Les listes de la maison">
+        {listes.map((liste) => (
+          <li key={liste.id}>
+            <button
+              className={v.carteListe}
+              onClick={() => {
+                amorcerLaVoix();
+                envoi({ type: 'commencer', liste });
+              }}
+            >
+              <span className={v.carteNom} id={`liste-${liste.id}`}>
+                {liste.nom}
+              </span>
+              <span className={v.carteMots}>
+                {liste.mots.length} {liste.mots.length > 1 ? 'mots' : 'mot'}
+              </span>
+            </button>
+            {/* #118 — la même liste, À L'OREILLE. Le nom de la liste décrit
+                le bouton sans entrer dans son nom : la carte reste seule à
+                le porter. */}
+            <button
+              className={v.carteDictee}
+              disabled={!voixDictee}
+              aria-describedby={`liste-${liste.id}`}
+              onClick={() => {
+                amorcerLaVoix();
+                envoi({ type: 'commencer', liste: { ...liste, enDictee: true } });
+              }}
+            >
+              En dictée
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        className={v.flecheListes}
+        aria-label="Listes suivantes"
+        aria-controls="listes-maison"
+        disabled={!bords.apres}
+        onClick={() => defiler(1)}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="m10 5 7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
     </div>
   );
 }
