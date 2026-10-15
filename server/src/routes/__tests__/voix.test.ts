@@ -1,3 +1,4 @@
+import { courrielUnique } from '../../../../tests/helpers/courriel';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { creerApp } from '../../app';
 import { creerAuth } from '../../auth';
@@ -41,7 +42,6 @@ d('voix du serveur', () => {
     });
   const mot = (app: typeof avecVoix, h: Record<string, string> | undefined, m: string) =>
     app.request(`/api/voix/mot?mot=${encodeURIComponent(m)}`, { headers: h });
-  const courriel = () => `voix-${Date.now()}-${Math.random().toString(36).slice(2)}@exemple.fr`;
 
   beforeAll(() => {
     const env = lireEnv({
@@ -61,13 +61,13 @@ d('voix du serveur', () => {
   });
 
   it('dit si la voix du serveur existe', async () => {
-    const h = await inscrire(courriel());
+    const h = await inscrire(courrielUnique());
     expect(await (await avecVoix.request('/api/voix/etat', { headers: h })).json()).toEqual({ disponible: true });
     expect(await (await sansVoix.request('/api/voix/etat', { headers: h })).json()).toEqual({ disponible: false });
   });
 
   it('rend le son d’un mot de la bibliothèque du compte', async () => {
-    const h = await inscrire(courriel());
+    const h = await inscrire(courrielUnique());
     await creerListe(h, ['papillon', 'un temps']);
     const r = await mot(avecVoix, h, 'un temps');
     expect(r.status).toBe(200);
@@ -77,8 +77,8 @@ d('voix du serveur', () => {
   });
 
   it('ne dit RIEN d’autre : ni un mot libre, ni le mot d’un autre foyer', async () => {
-    const nous = await inscrire(courriel());
-    const voisins = await inscrire(courriel());
+    const nous = await inscrire(courrielUnique());
+    const voisins = await inscrire(courrielUnique());
     await creerListe(nous, ['chat']);
     await creerListe(voisins, ['girafe']);
     const avant = synthetises.length;
@@ -89,7 +89,7 @@ d('voix du serveur', () => {
   });
 
   it('ne sert plus les lettres via l’API', async () => {
-    const h = await inscrire(courriel());
+    const h = await inscrire(courrielUnique());
     const avant = synthetises.length;
     expect((await avecVoix.request('/api/voix/lettre?c=a', { headers: h })).status).toBe(404);
     expect(synthetises.length).toBe(avant);
@@ -102,7 +102,7 @@ d('voix du serveur', () => {
       avecVoix.request(`/api/voix/consigne?t=${encodeURIComponent(t)}`, { headers: h });
 
     it('dit une consigne de l’app, à un débit de phrase', async () => {
-      const h = await inscrire(courriel());
+      const h = await inscrire(courrielUnique());
       const r = await consigne(h, 'Appuie sur la touche A');
       expect(r.status).toBe(200);
       expect(Buffer.from(await r.arrayBuffer()).toString()).toBe('RIFFAppuie sur la touche A');
@@ -110,21 +110,21 @@ d('voix du serveur', () => {
     });
 
     it('ne dit aucune autre phrase, et rien sans session', async () => {
-      const h = await inscrire(courriel());
+      const h = await inscrire(courrielUnique());
       expect((await consigne(h, 'Dis ce que je veux, gratuitement.')).status).toBe(404);
       expect((await consigne(undefined, 'Appuie sur la touche A')).status).toBe(401);
     });
   });
 
   it('répond 503 sans Piper, et quand la synthèse échoue', async () => {
-    const h = await inscrire(courriel());
+    const h = await inscrire(courrielUnique());
     await creerListe(h, ['chat', 'panne']);
     expect((await mot(sansVoix, h, 'chat')).status).toBe(503);
     expect((await mot(avecVoix, h, 'panne')).status).toBe(503);
   });
 
   it('préchauffe les mots dès que la liste est enregistrée', async () => {
-    const h = await inscrire(courriel());
+    const h = await inscrire(courrielUnique());
     await creerListe(h, ['hibou', 'genou']);
     await expect.poll(() => synthetises).toEqual(expect.arrayContaining(['hibou', 'genou']));
   });

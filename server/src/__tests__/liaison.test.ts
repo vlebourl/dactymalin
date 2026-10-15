@@ -1,3 +1,4 @@
+import { courrielUnique } from '../../../tests/helpers/courriel';
 import { describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { creerAuth } from '../auth';
@@ -77,7 +78,7 @@ d('liaison de comptes : ce qui est permis, et ce qui ne l’est jamais', () => {
     const base = creerBase(URL_TEST!);
     const auth = creerAuth(base, env);
 
-    const email = `liaison${Date.now()}@exemple.fr`;
+    const email = courrielUnique();
     await auth.api.signUpEmail({
       body: { email, password: 'motdepasse-solide', name: 'Parent' },
     });

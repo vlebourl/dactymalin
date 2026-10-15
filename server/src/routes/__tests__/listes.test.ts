@@ -1,3 +1,4 @@
+import { courrielUnique } from '../../../../tests/helpers/courriel';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { creerApp } from '../../app';
 import { creerAuth } from '../../auth';
@@ -68,7 +69,7 @@ d('bibliothèque de listes', () => {
   });
 
   it('crée une liste nommée et la relit', async () => {
-    const h = await inscrire(`l${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const reponse = await creer(h, '  Dictée de la semaine ', ['chat', ' chien ', 'chat']);
     expect(reponse.status).toBe(201);
     const creee = (await reponse.json()) as { id: string; nom: string; mots: string[] };
@@ -82,7 +83,7 @@ d('bibliothèque de listes', () => {
   });
 
   it('refuse un nom vide, blanc ou trop long, et une liste sans mot', async () => {
-    const h = await inscrire(`m${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     expect((await creer(h, '', ['chat'])).status).toBe(400);
     expect((await creer(h, '   ', ['chat'])).status).toBe(400);
     expect((await creer(h, 'n'.repeat(NOM_LISTE_MAX + 1), ['chat'])).status).toBe(400);
@@ -95,8 +96,8 @@ d('bibliothèque de listes', () => {
   /* La règle qui protège une famille de l'autre : un id deviné ne donne rien,
      et la bibliothèque du voisin n'apparaît jamais dans la sienne. */
   it("un compte ne voit pas la bibliothèque d'un autre", async () => {
-    const a = await inscrire(`n${Date.now()}@exemple.fr`);
-    const b = await inscrire(`o${Date.now()}@exemple.fr`);
+    const a = await inscrire(courrielUnique());
+    const b = await inscrire(courrielUnique());
     expect((await creer(a, 'Chez A', ['chat'])).status).toBe(201);
 
     expect((await lire(b)).listes).toHaveLength(0);
@@ -104,7 +105,7 @@ d('bibliothèque de listes', () => {
   });
 
   it('refuse la trente-et-unième liste, et le dit', async () => {
-    const h = await inscrire(`p${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     for (let i = 0; i < LISTES_MAX; i++) {
       expect((await creer(h, `Liste ${i}`, ['chat'])).status).toBe(201);
     }
@@ -117,7 +118,7 @@ d('bibliothèque de listes', () => {
   /* #10 — la dictée change chaque semaine : on modifie la liste, on ne la
      recrée pas. */
   it('modifie les mots et le nom d’une liste, et les relit', async () => {
-    const h = await inscrire(`r${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (await creer(h, 'Dictée', ['chat'])).json()) as { id: string };
 
     const modifiee = await modifier(h, id, 'Dictée du 2 septembre', ['chien', 'cheval']);
@@ -134,7 +135,7 @@ d('bibliothèque de listes', () => {
   });
 
   it('refuse une modification invalide, et laisse la liste intacte', async () => {
-    const h = await inscrire(`s${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (await creer(h, 'Dictée', ['chat'])).json()) as { id: string };
 
     expect((await modifier(h, id, '', ['chien'])).status).toBe(400);
@@ -145,7 +146,7 @@ d('bibliothèque de listes', () => {
   });
 
   it('supprime une liste, et elle ne revient pas', async () => {
-    const h = await inscrire(`t${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (await creer(h, 'Morte', ['chat'])).json()) as { id: string };
 
     const suppression = await supprimer(h, id);
@@ -159,7 +160,7 @@ d('bibliothèque de listes', () => {
   /* Supprimer libère une place sous le plafond : sinon le compte resterait
      bloqué à 30 pour toujours. */
   it('supprimer rend une place sous le plafond', async () => {
-    const h = await inscrire(`u${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const ids: string[] = [];
     for (let i = 0; i < LISTES_MAX; i++) {
       ids.push(((await (await creer(h, `Liste ${i}`, ['chat'])).json()) as { id: string }).id);
@@ -174,8 +175,8 @@ d('bibliothèque de listes', () => {
      autre. Un identifiant deviné ne donne rien — et le 404 ne dit même pas
      que la liste existe. */
   it("un compte ne modifie ni ne supprime la liste d'un autre", async () => {
-    const a = await inscrire(`v${Date.now()}@exemple.fr`);
-    const b = await inscrire(`w${Date.now()}@exemple.fr`);
+    const a = await inscrire(courrielUnique());
+    const b = await inscrire(courrielUnique());
     const { id } = (await (await creer(a, 'Chez A', ['chat'])).json()) as { id: string };
 
     expect((await modifier(b, id, 'Volée', ['pirate'])).status).toBe(404);
@@ -186,7 +187,7 @@ d('bibliothèque de listes', () => {
   });
 
   it('refuse de modifier ou supprimer sans session', async () => {
-    const h = await inscrire(`x${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     const { id } = (await (await creer(h, 'Dictée', ['chat'])).json()) as { id: string };
     const sansCookie = { 'Content-Type': 'application/json' };
 
@@ -206,7 +207,7 @@ d('bibliothèque de listes', () => {
 
   /* Le plafond se compte par compte, pas globalement : le voisin garde ses 30. */
   it('le plafond du voisin est intact', async () => {
-    const h = await inscrire(`q${Date.now()}@exemple.fr`);
+    const h = await inscrire(courrielUnique());
     expect((await creer(h, 'Sa première', ['chat'])).status).toBe(201);
   });
 });

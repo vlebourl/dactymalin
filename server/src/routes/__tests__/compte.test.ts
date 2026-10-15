@@ -1,3 +1,4 @@
+import { courrielUnique } from '../../../../tests/helpers/courriel';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { creerApp } from '../../app';
@@ -85,7 +86,7 @@ d('suppression du compte', () => {
    * légitime d'une adresse Gmail qu'il ne possède pas.
    */
   it('une adresse déjà prise n’ouvre pas un second compte', async () => {
-    const email = `w${Date.now()}@exemple.fr`;
+    const email = courrielUnique();
     await inscrire(email);
 
     const second = await app.request('/api/auth/sign-up/email', {
@@ -102,7 +103,7 @@ d('suppression du compte', () => {
   });
 
   it('supprime le compte, et tout ce qu’il contenait part avec lui', async () => {
-    const email = `s${Date.now()}@exemple.fr`;
+    const email = courrielUnique();
     const h = await inscrire(email);
     const idProfil = await foyerGarni(h);
     const idUser = (await idDuCompte(email))!;
@@ -129,7 +130,7 @@ d('suppression du compte', () => {
   });
 
   it('après suppression, les mêmes identifiants ne rouvrent rien', async () => {
-    const email = `t${Date.now()}@exemple.fr`;
+    const email = courrielUnique();
     const h = await inscrire(email);
     await app.request('/api/compte', { method: 'DELETE', headers: h });
 
@@ -150,8 +151,8 @@ d('suppression du compte', () => {
   /* Un compte ne supprime QUE le sien : la route ne prend pas d'identifiant,
      elle lit celui de la session. Le voisin doit être intact. */
   it('ne touche jamais au compte d’un autre', async () => {
-    const emailA = `u${Date.now()}@exemple.fr`;
-    const emailB = `v${Date.now()}@exemple.fr`;
+    const emailA = courrielUnique();
+    const emailB = courrielUnique();
     const a = await inscrire(emailA);
     const b = await inscrire(emailB);
     await foyerGarni(b);
