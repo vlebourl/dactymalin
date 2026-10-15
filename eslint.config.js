@@ -11,7 +11,7 @@ import tseslint from 'typescript-eslint';
    refusent des motifs voulus, comme la référence tenue à jour pendant le
    rendu pour la boucle rAF de la leçon. */
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'gan-harness/', 'maquettes/', 'recherche/', '.claude/'] },
+  { ignores: ['dist/', 'node_modules/', 'test-results/', 'playwright-report/', 'gan-harness/', 'maquettes/', 'recherche/', '.claude/'] },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

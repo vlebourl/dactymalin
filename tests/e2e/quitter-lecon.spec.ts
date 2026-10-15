@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { motCourant, ouvrir } from './helpers/app';
+import { jouerItem, motCourant, ouvrir } from './helpers/app';
 import { frapper, taper } from './helpers/keyboard';
 
 /**
@@ -21,8 +21,7 @@ async function motEnCours(page: import('@playwright/test').Page): Promise<string
     const mot = await motCourant(page);
     if (mot && mot.length >= 2) return mot;
     if (!mot) throw new Error('aucun exercice à l’écran');
-    await taper(page, DISPO, mot);
-    await page.waitForTimeout(900); // la célébration, puis l'item suivant
+    await jouerItem(page, DISPO);
   }
   throw new Error('aucun exercice de deux caractères ou plus');
 }

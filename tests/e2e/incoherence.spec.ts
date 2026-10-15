@@ -17,7 +17,6 @@ test.describe('surveillance de disposition en jeu (F7)', () => {
     // (KeyY → « z ») n'existe qu'en QWERTZ ; en AZERTY, KeyY produit « y ».
     for (let i = 0; i < 5; i++) {
       await frapperCouple(page, 'KeyY', 'z');
-      await page.waitForTimeout(30);
     }
 
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V2');
@@ -31,14 +30,11 @@ test.describe('surveillance de disposition en jeu (F7)', () => {
 
     for (let i = 0; i < 4; i++) {
       await frapperCouple(page, 'KeyY', 'z');
-      await page.waitForTimeout(30);
     }
     // (KeyQ → « a ») est le discriminant AZERTY : le doute retombe
     await frapperCouple(page, 'KeyQ', 'a');
-    await page.waitForTimeout(30);
     for (let i = 0; i < 4; i++) {
       await frapperCouple(page, 'KeyY', 'z');
-      await page.waitForTimeout(30);
     }
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
   });

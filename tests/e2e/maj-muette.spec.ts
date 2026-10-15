@@ -37,7 +37,6 @@ test('en Dactylo étape 1, une frappe avec Maj ne produit rien et ne compte aucu
   expect(touche, `« ${attendue} » doit être une touche directe en AZERTY`).toBeTruthy();
   for (let i = 0; i < 3; i++) {
     await frapperCouple(page, touche!.code, attendue.toUpperCase(), { maj: MAJ_DROITE });
-    await page.waitForTimeout(30);
   }
 
   // Rien n'a été écrit, rien n'a avancé.

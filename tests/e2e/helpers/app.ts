@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import type { IdDisposition } from '../../../src/core/layouts';
 
 export const MDP_TEST = 'motdepasse-solide';
@@ -194,8 +194,10 @@ export async function jouerItem(page: Page, id: IdDisposition): Promise<string |
   await taper(page, id, mot);
   await page.waitForFunction(
     (precedent) =>
-      document.body.dataset.vue !== 'V4' ||
-      document.querySelector('[data-mot]')?.getAttribute('data-mot') !== precedent,
+      document.body.dataset.vue === 'V5' ||
+      (document.body.dataset.vue === 'V4' &&
+        document.querySelector('[data-mot]') !== null &&
+        document.querySelector('[data-mot]')?.getAttribute('data-mot') !== precedent),
     mot,
     { timeout: 6000 },
   );
@@ -244,22 +246,22 @@ export async function coquilleGardee(page: Page): Promise<void> {
   await page.reload();
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
 
-  /* Puis on attend que le cache cesse de grossir. La mise en cache se fait au
-     fil des requêtes ; couper le réseau à la seconde où la page a fini de
-     charger l'interrompt en plein vol, et il manque alors un morceau de la
-     coquille. Un vrai départ en voyage laisse ce temps-là de lui-même. */
-  const entrees = () =>
-    page.evaluate(async () => {
-      let n = 0;
-      for (const nom of await caches.keys()) n += (await (await caches.open(nom)).keys()).length;
-      return n;
+  await page.waitForSelector('body[data-vue="V1"]');
+  // Chaque ressource de la coquille chargée doit être présente, pas seulement
+  // un nombre d'entrées stable entre deux sondages. L'API n'est jamais cachée.
+  await expect.poll(() => page.evaluate(async () => {
+    const urls = [
+      location.href,
+      ...performance.getEntriesByType('resource').map((r) => r.name),
+      document.querySelector<HTMLLinkElement>('link[rel="manifest"]')?.href,
+    ].filter((url): url is string => {
+      if (!url) return false;
+      const u = new URL(url);
+      return u.origin === location.origin && !u.pathname.startsWith('/api/');
     });
-  let precedent = -1;
-  for (let i = 0; i < 40; i++) {
-    const n = await entrees();
-    if (n === precedent && n > 5) return;
-    precedent = n;
-    await page.waitForTimeout(150);
-  }
-  throw new Error('la coquille n’a jamais fini d’être gardée');
+    const ouverts = await Promise.all((await caches.keys()).map((nom) => caches.open(nom)));
+    return (await Promise.all(urls.map(async (url) =>
+      (await Promise.all(ouverts.map((cache) => cache.match(url, { ignoreSearch: true, ignoreVary: true })))).some(Boolean),
+    ))).every(Boolean);
+  }), { timeout: 30_000 }).toBe(true);
 }

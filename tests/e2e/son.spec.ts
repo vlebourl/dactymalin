@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { curseur, motCourant, ouvrir } from './helpers/app';
-import { coteMajAttendu, coteMajHomolateral, frapper, frapperCouple } from './helpers/keyboard';
+import { curseur, jouerItem, motCourant, ouvrir } from './helpers/app';
+import { coteMajAttendu, coteMajHomolateral, frapperCouple } from './helpers/keyboard';
 import { toucheDe } from '../../src/core/layouts';
 
 /** Compte les sons réellement synthétisés, sans jouer quoi que ce soit. */
@@ -36,11 +36,7 @@ async function allerAUnChiffre(page: Page): Promise<string> {
   for (let i = 0; i < 12; i++) {
     const mot = await motCourant(page);
     if (!mot || /^[0-9]/.test(mot)) break;
-    for (const c of mot) {
-      await frapper(page, 'fr-FR', c);
-      await page.waitForTimeout(20);
-    }
-    await page.waitForTimeout(820);
+    await jouerItem(page, 'fr-FR');
   }
   const mot = await motCourant(page);
   expect(mot, 'aucun item numérique servi au palier 7').toMatch(/^[0-9]/);
@@ -55,7 +51,8 @@ async function allerAUnChiffre(page: Page): Promise<string> {
 test.describe('son de réussite', () => {
   test('reste muet quand la frappe est refusée pour mauvaise Maj', async ({ page }) => {
     await espionnerLeSon(page);
-    await ouvrir(page, 'fr-FR', 8, true);
+    // Chercher un chiffre puis comparer deux frappes : ne pas terminer la leçon après 4 s.
+    await ouvrir(page, 'fr-FR', 8, true, 'Joueur 1', 'decouverte', 0, 120_000);
     await page.getByRole('button', { name: 'On commence !' }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
@@ -67,14 +64,13 @@ test.describe('son de réussite', () => {
 
     // bonne touche, MAUVAISE Maj (celle de la même main) : quasi-réussite
     await frapperCouple(page, code, chiffre, { maj: coteMajHomolateral('fr-FR', chiffre) });
-    await page.waitForTimeout(150);
+    // Le gestionnaire clavier a rendu son verdict avant le retour de frapperCouple.
     expect(await curseur(page), 'la frappe fausse a fait avancer le curseur').toBe(avant);
     expect(await sons(page), 'un son de réussite a été joué sur une frappe refusée').toBe(0);
 
     // la même touche avec la Maj CONTRALATÉRALE : réussite, et son
     await frapperCouple(page, code, chiffre, { maj: coteMajAttendu('fr-FR', chiffre) });
-    await page.waitForTimeout(150);
-    if (mot.length > 1) expect(await curseur(page)).toBe(avant + 1);
-    expect(await sons(page)).toBeGreaterThan(0);
+    if (mot.length > 1) await expect.poll(() => curseur(page)).toBe(avant + 1);
+    await expect.poll(() => sons(page)).toBeGreaterThan(0);
   });
 });

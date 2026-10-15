@@ -24,11 +24,13 @@ test.describe('fenêtre laissée de côté', () => {
 
     // la fenêtre perd le focus SANS être masquée (autre fenêtre au premier plan)
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    // Absence d’aide au-delà du seuil : attendre un état positif ne testerait pas cette régression.
     await page.waitForTimeout(DELAI_INACTIVITE + 1200);
     expect(await pulse(page).count(), "l'aide a monté pendant l'absence").toBe(0);
 
     // au retour, l'horloge repart de zéro : l'aide arrive après le délai, pas avant
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    // Absence d’aide durant les 500 premières ms du retour, avant le seuil d’inactivité.
     await page.waitForTimeout(500);
     expect(await pulse(page).count(), "l'aide était déjà là au retour").toBe(0);
     await expect(pulse(page).first()).toBeVisible({ timeout: DELAI_INACTIVITE + 2000 });

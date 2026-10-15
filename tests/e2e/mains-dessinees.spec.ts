@@ -42,11 +42,16 @@ test('la main qui joue montre son doigt, l’autre reste au repos', async ({ pag
     /* Pendant la célébration de fin de mot, le curseur est déjà au-delà du
        dernier caractère : il n'y a rien à frapper, on laisse passer l'image. */
     if (lettre === undefined) {
-      await page.waitForTimeout(60);
+      await page.waitForFunction(() => {
+        const mot = document.querySelector<HTMLElement>('[data-mot]');
+        return document.body.dataset.vue !== 'V4' ||
+          (mot && Number(mot.dataset.curseur) < (mot.dataset.mot?.length ?? 0));
+      });
       continue;
     }
+    const avant = await curseur(page);
     await frapper(page, 'fr-FR', lettre);
-    await page.waitForTimeout(60);
+    await expect(page.locator('[data-mot]')).toHaveAttribute('data-curseur', String(avant + 1));
     if ((await page.locator('body').getAttribute('data-vue')) !== 'V4') break;
   }
   expect([...vus].sort()).toEqual(['droite', 'gauche']);

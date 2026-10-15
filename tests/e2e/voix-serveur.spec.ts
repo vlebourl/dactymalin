@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { coquilleGardee, creeListe, ouvrir } from './helpers/app';
-import { frapper } from './helpers/keyboard';
+import { frapper, frapperFausse } from './helpers/keyboard';
 
 const lettresAudio = JSON.parse(readFileSync(new URL('../../src/data/voix-lettres.json', import.meta.url), 'utf8')) as Record<string, string>;
 
@@ -76,7 +76,7 @@ test('le mot est dit par la voix du serveur, pas par celle du navigateur', async
 
   await expect.poll(() => lire(page, '__joues')).toEqual(['chat']);
   // la première faute et le haut-parleur passent par la même voix
-  await frapper(page, 'fr-FR', 'x');
+  await frapperFausse(page, 'fr-FR', 'x');
   await expect.poll(() => lire(page, '__joues')).toEqual(['chat', 'chat']);
   await page.getByRole('button', { name: 'Réécouter le mot' }).click();
   await expect.poll(() => lire(page, '__joues')).toEqual(['chat', 'chat', 'chat']);
@@ -163,8 +163,7 @@ async function lancerLaCopie(page: Page, mot: string, sons: boolean): Promise<vo
 
 async function deuxFautes(page: Page): Promise<void> {
   for (let k = 0; k < 2; k++) {
-    await frapper(page, 'fr-FR', 'x');
-    await page.waitForTimeout(250);
+    await frapperFausse(page, 'fr-FR', 'x');
   }
 }
 
@@ -224,6 +223,7 @@ test('sons coupés, en copie : aucune voix, ni serveur ni navigateur', async ({ 
   await serveurVocal(page, 200);
   await lancerLaCopie(page, 'chat', false);
   await deuxFautes(page);
+  // Fenêtre d’observation d’absence : aucune lecture différée après les fautes, sons coupés.
   await page.waitForTimeout(400);
   expect(await lire(page, '__joues')).toEqual([]);
   expect(await lire(page, '__dits')).toEqual([]);
