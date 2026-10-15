@@ -1,4 +1,3 @@
-/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -24,10 +23,4 @@ export default defineConfig({
   },
   // Publication locale : tailscale serve (HTTPS tailnet) proxifie vers preview.
   preview: { port: 4173, strictPort: true, allowedHosts: HOTES_PREVIEW },
-  test: {
-    // `src/core` reste en env node, sans DOM. Les tests de hook et de vue
-    // (`.test.tsx`) portent leur propre docblock `@vitest-environment jsdom`.
-    environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'scripts/**/*.test.ts'],
-  },
 });
