@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { curseur, motCourant, ouvrir } from './helpers/app';
 import { DUREE_FAUSSE } from '../../src/core/lecon';
-import { frapperCouple } from './helpers/keyboard';
+import { frapperCouple, frapperFausse } from './helpers/keyboard';
 
 test.describe('frappe fausse (P3)', () => {
   test('rien ne s\'écrit, le curseur ne bouge pas, aucun rouge', async ({ page }) => {
@@ -13,9 +13,8 @@ test.describe('frappe fausse (P3)', () => {
     // 12 frappes fausses de suite : le mot reste orthographiquement vrai.
     for (let i = 0; i < 12; i++) {
       await frapperCouple(page, 'KeyL', 'l');
-      await frapperCouple(page, 'KeyK', 'k');
+      await frapperFausse(page, 'fr-FR', 'k');
     }
-    await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
 
     expect(await motCourant(page)).toBe(mot);
     expect(await curseur(page)).toBe(avant);

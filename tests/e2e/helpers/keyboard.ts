@@ -113,9 +113,40 @@ export function coteMajHomolateral(id: IdDisposition, c: string): CoteMaj {
 /** Tape un item entier, caractère par caractère. */
 export async function taper(page: Page, id: IdDisposition, texte: string): Promise<void> {
   const mot = page.locator('[data-mot]').first();
+  const precedent = await mot.getAttribute('data-mot');
   let position = Number(await mot.getAttribute('data-curseur'));
   for (const c of texte) {
     await frapper(page, id, c);
-    await expect(mot).toHaveAttribute('data-curseur', String(++position));
+    position++;
+    if (position === precedent?.length) {
+      // La célébration peut déjà être terminée quand le pilote reprend.
+      await page.waitForFunction(({ texte, fin }) => {
+        const courant = document.querySelector<HTMLElement>('[data-mot]');
+        return document.body.dataset.vue === 'V5' ||
+          (document.body.dataset.vue === 'V4' && courant && (courant.dataset.mot !== texte || Number(courant.dataset.curseur) === fin));
+      }, { texte: precedent, fin: position });
+    } else {
+      await expect(mot).toHaveAttribute('data-curseur', String(position));
+    }
+  }
+}
+
+/** Attend le cycle de rendu d'une faute, même si le pilote manque son état bref. */
+export async function frapperFausse(page: Page, id: IdDisposition, c: string): Promise<void> {
+  const suivi = await page.evaluateHandle(() => {
+    const etat = { vue: false, terminee: false, observateur: null as MutationObserver | null };
+    etat.observateur = new MutationObserver(() => {
+      if (document.querySelector('[data-etat="fausse"]')) etat.vue = true;
+      else if (etat.vue) etat.terminee = true;
+    });
+    etat.observateur.observe(document.body, { subtree: true, attributes: true, childList: true });
+    return etat;
+  });
+  try {
+    await frapper(page, id, c);
+    await page.waitForFunction((etat) => etat.terminee, suivi);
+  } finally {
+    await suivi.evaluate((etat) => etat.observateur?.disconnect());
+    await suivi.dispose();
   }
 }

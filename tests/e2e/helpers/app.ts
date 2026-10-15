@@ -194,8 +194,10 @@ export async function jouerItem(page: Page, id: IdDisposition): Promise<string |
   await taper(page, id, mot);
   await page.waitForFunction(
     (precedent) =>
-      document.body.dataset.vue !== 'V4' ||
-      document.querySelector('[data-mot]')?.getAttribute('data-mot') !== precedent,
+      document.body.dataset.vue === 'V5' ||
+      (document.body.dataset.vue === 'V4' &&
+        document.querySelector('[data-mot]') !== null &&
+        document.querySelector('[data-mot]')?.getAttribute('data-mot') !== precedent),
     mot,
     { timeout: 6000 },
   );
@@ -259,7 +261,7 @@ export async function coquilleGardee(page: Page): Promise<void> {
     });
     const ouverts = await Promise.all((await caches.keys()).map((nom) => caches.open(nom)));
     return (await Promise.all(urls.map(async (url) =>
-      (await Promise.all(ouverts.map((cache) => cache.match(url)))).some(Boolean),
+      (await Promise.all(ouverts.map((cache) => cache.match(url, { ignoreSearch: true, ignoreVary: true })))).some(Boolean),
     ))).every(Boolean);
   }), { timeout: 30_000 }).toBe(true);
 }

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { creeListe, curseur, jouerItem, motCourant, ouvrir } from './helpers/app';
-import { frapper } from './helpers/keyboard';
+import { frapper, frapperFausse } from './helpers/keyboard';
 
 /**
  * #118 — la dictée : une liste de la maison jouée À L'OREILLE. Le mot est dit,
@@ -116,23 +116,20 @@ test('la première faute redit le mot, la troisième donne la lettre', async ({ 
   await lancerLaDictee(page);
   await expect.poll(() => dits(page)).toHaveLength(1);
 
-  await frapper(page, 'fr-FR', 'x');
+  await frapperFausse(page, 'fr-FR', 'x');
   await expect.poll(() => dits(page)).toHaveLength(2);
   expect((await dits(page))[1].texte).toBe('chat');
   expect(await curseur(page)).toBe(0);
   await expect(page.locator('[data-mot]')).toHaveText('____');
 
   // la deuxième ne redit rien et ne montre toujours rien
-  await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
-  await frapper(page, 'fr-FR', 'x');
-  await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
-  expect(await dits(page)).toHaveLength(2);
+  await frapperFausse(page, 'fr-FR', 'x');
+  await expect.poll(() => dits(page)).toHaveLength(2);
   await expect(allumees(page)).toHaveCount(0);
 
   // la troisième : la touche s'allume — jamais d'échec, l'enfant finit le mot
-  await frapper(page, 'fr-FR', 'x');
+  await frapperFausse(page, 'fr-FR', 'x');
   await expect(allumees(page)).toHaveCount(1);
-  await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
   await frapper(page, 'fr-FR', 'c');
   await expect(page.locator('[data-mot]')).toHaveText('c___');
   await expect(allumees(page)).toHaveCount(0);
@@ -156,8 +153,7 @@ test('sons coupés : la voix de la dictée parle quand même, lettre donnée com
   await lancerLaDictee(page, false);
   await expect.poll(() => dits(page)).toHaveLength(1);
   for (let k = 0; k < 3; k++) {
-    await frapper(page, 'fr-FR', 'x');
-    await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
+    await frapperFausse(page, 'fr-FR', 'x');
   }
   // le mot par le navigateur, le nom de la lettre par son fichier Piper
   await expect.poll(() => page.evaluate(() => (window as unknown as { __joues: string[] }).__joues)).toEqual(['c']);
@@ -193,8 +189,7 @@ test('trois mots difficiles ne renvoient pas au choix du clavier', async ({ page
     const mot = (await motCourant(page))!;
     const fausse = mot.startsWith('x') ? 'w' : 'x';
     for (let f = 0; f < 3; f++) {
-      await frapper(page, 'fr-FR', fausse);
-      await expect(page.locator('[data-etat="fausse"]')).toHaveCount(0);
+      await frapperFausse(page, 'fr-FR', fausse);
     }
     await expect(allumees(page)).toHaveCount(1);
     await jouerItem(page, 'fr-FR');
