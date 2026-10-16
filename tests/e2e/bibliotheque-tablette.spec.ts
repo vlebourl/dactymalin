@@ -12,6 +12,18 @@ for (const [largeur, hauteur] of [[768, 1024], [1024, 768]] as const) {
     const listes = page.getByRole('list', { name: 'Les listes de la maison' });
     await expect(listes.getByRole('listitem')).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Listes suivantes' })).toHaveCount(0);
+    // Une liste courte ne réserve pas une grande zone vide sous son compteur.
+    const carte = listes.getByRole('button', { name: 'Liste 1 2 mots', exact: true });
+    const hauteurCarte = (await carte.boundingBox())!.height;
+    expect(hauteurCarte).toBeGreaterThanOrEqual(44);
+    // Environ 72 px au rendu courant ; 80 px laisse une marge typographique,
+    // tout en refusant les 132 px de la tuile étirée avant correction.
+    expect(hauteurCarte).toBeLessThan(80);
+    await testInfo.attach('hauteur-tuile-courte', {
+      body: JSON.stringify({ largeur, hauteur, hauteurCarte }), contentType: 'application/json',
+    });
+    await expect(carte.getByText('Liste 1', { exact: true })).toHaveCSS('text-align', 'center');
+    await expect(carte.getByText('2 mots', { exact: true })).toHaveCSS('text-align', 'center');
     const initiale = await listes.boundingBox();
     expect(initiale).not.toBeNull();
 
