@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { creeListe, ouvrir } from './helpers/app';
+import { espionnerLaVoix } from './helpers/voix';
 
 test.use({ hasTouch: true });
 
@@ -179,4 +180,60 @@ test('un glissement tactile simulé vers la gauche avance la rangée', async ({ 
     });
     await cdp.detach();
   }
+});
+
+for (const dictee of [false, true]) {
+  test(`souris : glisser depuis ${dictee ? 'En dictée' : 'une liste'}, relâcher dehors puis cliquer`, async ({ page }) => {
+    await espionnerLaVoix(page, 'presente');
+    const listes = await sixListes(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const premiere = listes.getByRole('listitem').first();
+    const nomListe = await premiere.getByRole('button', { name: / 2 mots$/ }).innerText();
+    const motsAttendus = nomListe.includes('W'.repeat(40)) ? /^(papa|maman)$/ : /^(lundi|mardi)$/;
+    const bouton = premiere.getByRole('button', { name: dictee ? 'En dictée' : / 2 mots$/ });
+    await expect(bouton).toBeEnabled();
+    await bouton.scrollIntoViewIfNeeded();
+    await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeLessThanOrEqual(1);
+    const carte = (await bouton.boundingBox())!;
+    const zone = (await listes.boundingBox())!;
+    const x = carte.x + carte.width / 2;
+    const y = carte.y + carte.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(zone.x - 20, y, { steps: 12 });
+    await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeGreaterThan(1);
+    await page.mouse.up();
+    await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeGreaterThan(1);
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+    await expect(listes).not.toHaveAttribute('data-glisse', 'oui');
+    // Une nouvelle interaction normale reste possible après le relâchement dehors.
+    await bouton.scrollIntoViewIfNeeded();
+    await bouton.click();
+    await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
+    await expect(page.locator('[data-mot]')).toHaveAttribute('data-mot', motsAttendus);
+    if (dictee) await expect(page.getByRole('button', { name: 'Réécouter le mot' })).toBeVisible();
+  });
+}
+
+test('souris : le relâchement dans la rangée ne lance pas la carte glissée', async ({ page }) => {
+  const listes = await sixListes(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const carte = listes.getByRole('listitem').nth(1).getByRole('button', { name: / 2 mots$/ });
+  await expect(carte).toBeInViewport({ ratio: 1 });
+  await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeLessThanOrEqual(1);
+  const rect = (await carte.boundingBox())!;
+  const x = rect.x + rect.width / 2;
+  const y = rect.y + rect.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 180, y, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V1');
+  await expect.poll(() => listes.evaluate(e => e.scrollLeft)).toBeGreaterThan(1);
+  await expect(listes).not.toHaveAttribute('data-glisse', 'oui');
+  // Le clavier fonctionne aussi immédiatement après un geste souris.
+  await carte.focus();
+  await carte.press('Enter');
+  await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 });

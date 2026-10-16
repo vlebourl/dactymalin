@@ -141,6 +141,13 @@ function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDict
   const envoi = useEnvoi();
   const bande = useRef<HTMLUListElement>(null);
   const [bords, setBords] = useState({ avant: false, apres: false });
+  const glissement = useRef<{ id: number; x: number; gauche: number } | null>(null);
+  const ignorerClic = useRef(false);
+
+  const terminerGlissement = () => {
+    glissement.current = null;
+    bande.current?.removeAttribute('data-glisse');
+  };
 
   useEffect(() => {
     const element = bande.current;
@@ -190,6 +197,34 @@ function BibliothequeAccueil({ listes, voixDictee }: { listes: Liste[]; voixDict
         id="listes-maison"
         className={v.cartesListes}
         aria-label="Les listes de la maison"
+        onPointerDown={(e) => {
+          ignorerClic.current = false;
+          if (e.pointerType !== 'mouse' || e.button !== 0 || !(bords.avant || bords.apres)) return;
+          glissement.current = { id: e.pointerId, x: e.clientX, gauche: e.currentTarget.scrollLeft };
+          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const geste = glissement.current;
+          if (!geste || geste.id !== e.pointerId) return;
+          if (e.buttons !== 1) {
+            terminerGlissement();
+            return;
+          }
+          const distance = e.clientX - geste.x;
+          if (!ignorerClic.current && Math.abs(distance) < 6) return;
+          ignorerClic.current = true;
+          e.currentTarget.setAttribute('data-glisse', 'oui');
+          e.currentTarget.scrollLeft = geste.gauche - distance;
+        }}
+        onPointerUp={terminerGlissement}
+        onPointerCancel={terminerGlissement}
+        onLostPointerCapture={terminerGlissement}
+        onClickCapture={(e) => {
+          if (!ignorerClic.current || e.detail === 0) return;
+          ignorerClic.current = false;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onFocus={(e) => (e.target as HTMLElement).closest('li')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })}
       >
         {listes.map((liste) => (
