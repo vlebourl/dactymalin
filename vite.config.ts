@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 /* Ports surchargeables : plusieurs worktrees du meme depot coexistent sur
@@ -14,6 +14,11 @@ const HOTES_PREVIEW = (process.env.PREVIEW_ALLOWED_HOSTS ?? '')
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    // Les tests de hook et de vue choisissent jsdom par docblock.
+    environment: 'node',
+    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'scripts/**/*.test.ts'],
+  },
   server: {
     port: PORT_APP,
     strictPort: true,
