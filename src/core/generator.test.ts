@@ -1,3 +1,5 @@
+// Vitest 5 applique aussi le délai aux calculs synchrones. Les tests
+// multi-graines/parcours concernés gardent leur couverture avec un budget dédié.
 import { describe, expect, it } from 'vitest';
 import {
   composerBloc,
@@ -18,7 +20,7 @@ import { type Maitrise, OCCURRENCES_REQUISES } from './progression';
 const graines = [1, 2, 3, 7, 11, 42, 99, 1234];
 
 describe('générateur de bloc', () => {
-  it('compose 8 à 12 items, jamais un caractère hors ensemble (P5)', () => {
+  it('compose 8 à 12 items, jamais un caractère hors ensemble (P5)', { timeout: 60_000 }, () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (let palier = 1; palier <= 6; palier++) {
         const ensemble = ensembleTouches('decouverte', id, palier);
@@ -75,7 +77,7 @@ describe('générateur de bloc', () => {
   /* Régression itération 003, point 1 : `f` ne vivait que dans « fut » et
      n'apparaissait que dans 1 bloc sur 6. Le critère de maîtrise était
      inatteignable et le palier ne s'ouvrait plus que par le plafond. */
-  it('chaque touche du palier est couverte au moins deux fois par bloc', () => {
+  it('chaque touche du palier est couverte au moins deux fois par bloc', { timeout: 60_000 }, () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (let palier = 1; palier <= 7; palier++) {
         for (const graine of graines) {
@@ -99,7 +101,7 @@ describe('générateur de bloc', () => {
     }
   });
 
-  it('3 blocs suffisent à atteindre les 3 occurrences exigées, sur toutes les graines', () => {
+  it('3 blocs suffisent à atteindre les 3 occurrences exigées, sur toutes les graines', { timeout: 60_000 }, () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (let palier = 1; palier <= 6; palier++) {
         for (const graine of graines) {
@@ -170,7 +172,7 @@ describe('pondération par la maîtrise (#39)', () => {
 
   const grainesLongues = Array.from({ length: 40 }, (_, k) => k * 37 + 1);
 
-  it('une touche mal acquise revient plus souvent que les touches acquises', () => {
+  it('une touche mal acquise revient plus souvent que les touches acquises', { timeout: 90_000 }, () => {
     let cumulFaible = 0;
     let cumulAcquis = 0;
     for (const etape of [2, 3, 4]) {
@@ -218,7 +220,7 @@ describe('pondération par la maîtrise (#39)', () => {
 /* #39 — Garde-fou §7.2 : « pas deux fois le même exercice dans une leçon, au
    moins trois leçons d'écart entre deux occurrences ». */
 describe('non-répétition (#39)', () => {
-  it('aucun exercice deux fois dans une même leçon, à toutes les étapes', () => {
+  it('aucun exercice deux fois dans une même leçon, à toutes les étapes', { timeout: 60_000 }, () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (let etape = 1; etape <= 10; etape++) {
         for (const graine of graines) {
@@ -252,7 +254,7 @@ describe('non-répétition (#39)', () => {
     return repetes;
   };
 
-  it('un exercice qui revient trop tôt porte forcément une touche neuve', () => {
+  it('un exercice qui revient trop tôt porte forcément une touche neuve', { timeout: 70_000 }, () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (let etape = 1; etape <= 10; etape++) {
         const neuves = nouvellesTouches('decouverte', id, etape);
@@ -268,7 +270,7 @@ describe('non-répétition (#39)', () => {
     }
   });
 
-  it('là où le corpus est large, aucun exercice ne revient avant trois leçons', () => {
+  it('là où le corpus est large, aucun exercice ne revient avant trois leçons', { timeout: 60_000 }, () => {
     for (const id of ['fr-FR', 'fr-CH'] as const) {
       for (let etape = 1; etape <= 4; etape++) {
         for (const graine of graines) {

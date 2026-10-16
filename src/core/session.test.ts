@@ -1,3 +1,5 @@
+// Vitest 5 applique aussi le délai aux calculs synchrones. Les tests
+// multi-graines/parcours concernés gardent leur couverture avec un budget dédié.
 import { describe, expect, it } from "vitest";
 import {
   creerSession,
@@ -295,7 +297,7 @@ describe("la maîtrise compose le contenu (#71)", () => {
   const occurrences = (items: { texte: string }[], lettre: string) =>
     items.reduce((n, i) => n + [...i.texte].filter((c) => c === lettre).length, 0);
 
-  it("fait sortir davantage une touche mal acquise", () => {
+  it("fait sortir davantage une touche mal acquise", { timeout: 60_000 }, () => {
     const touches = [...ensembleTouches("decouverte", "fr-FR", 3)];
     const faible = "m";
     /* Plusieurs graines : une seule pourrait pencher par hasard, et on
@@ -588,7 +590,7 @@ describe("la règle d’écart ne raccourcit pas la leçon (#72)", () => {
     expect(avec.length).toBeGreaterThan(100);
   });
 
-  it("le plafond ne mord pas là où le vivier est large", () => {
+  it("le plafond ne mord pas là où le vivier est large", { timeout: 60_000 }, () => {
     // Aux étapes suivantes le vivier se compte en milliers : rien n'est raboté.
     const sans = toutServir(4);
     const recents = sans.slice(0, 200);
