@@ -1004,7 +1004,7 @@
   display: flex;
   gap: clamp(8px, 1.6vw, 16px);
   min-width: 0;
-  height: 12.5rem;
+  /* La rangée suit le titre le plus long, sans réserve vide sous les mots. */
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
@@ -1059,12 +1059,13 @@
 .carteListe {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 4px;
   min-width: 0;
   padding: 12px 14px;
   font: inherit;
   color: inherit;
-  text-align: left;
+  text-align: center;
   background: var(--fond-carte);
   border: 2px solid var(--liseré);
   border-radius: var(--r-bloc);
