@@ -1,0 +1,86 @@
+name: Diagnostic Docker instrumenté f11453d
+
+# La branche de revue ne correspond PAS à ce filtre. Pousser le SHA relu
+# sur cette branche d'exécution seulement après la contre-revue.
+on:
+  push:
+    branches: [diagnostic/build-f11453d-approved]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exporter la source exacte et vérifier l'instrumentation
+        shell: bash
+        run: |
+          mkdir contexte preuves
+          base=f11453d217f03cad9c935a0108d77ef1265cffd7
+          git archive "$base" | tar -x -C contexte
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('contexte/scripts/generer-voix-lettres.ts')
+          original = source.read_bytes()
+          ancien = b"stdio: ['pipe', 'ignore', 'ignore']"
+          nouveau = b"stdio: ['pipe', 'ignore', 'inherit']"
+          assert original.count(ancien) == 1
+          instrumente = original.replace(ancien, nouveau)
+          assert Path('scripts/generer-voix-lettres.ts').read_bytes() == instrumente
+          source.write_bytes(instrumente)
+          PY
+          git diff "$base" -- scripts/generer-voix-lettres.ts > preuves/instrumentation.diff
+          printf '%s\n' "$base" > preuves/source-commit.txt
+          git rev-parse HEAD > preuves/workflow-commit.txt
+          sha256sum contexte/Dockerfile contexte/package-lock.json > preuves/empreintes.txt
+
+      - name: Relever l'environnement public du runner
+        shell: bash
+        run: |
+          docker version > preuves/docker-version.txt
+          docker buildx version > preuves/buildx-version.txt
+          uname -m > preuves/architecture.txt
+          test "$(uname -m)" = x86_64
+          free -m > preuves/memoire.txt
+          df -h . > preuves/disque.txt
+          nproc > preuves/cpu.txt
+
+      - name: Construire une seule fois, sans publier ni déployer
+        shell: bash
+        run: |
+          set +e
+          timeout --signal=TERM --kill-after=30s 25m docker build \
+            --platform linux/amd64 --progress=plain \
+            --tag diagnostic-f11453d:local contexte > preuves/build.log 2>&1
+          resultat=$?
+          printf '%s\n' "$resultat" > preuves/exit-code.txt
+          cat preuves/build.log
+          exit "$resultat"
+
+      - name: Extraire le digest réellement résolu par le build
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PYDIGEST'
+          import re
+          from pathlib import Path
+          journal = Path('preuves/build.log')
+          texte = journal.read_text(errors='replace') if journal.exists() else ''
+          digests = sorted(set(re.findall(r'node:22-slim@(sha256:[0-9a-f]{64})', texte)))
+          Path('preuves/node-base-digest.txt').write_text('\n'.join(digests or ['Non observé : voir build.log']) + '\n')
+          PYDIGEST
+
+      - name: Conserver les journaux et le code de sortie
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostic-instrumente-f11453d
+          path: preuves/
+          retention-days: 7

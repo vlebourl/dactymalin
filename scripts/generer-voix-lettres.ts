@@ -37,7 +37,7 @@ try {
     const chemin = join(brouillon, fichier);
     const code = await new Promise<number | null>((resolve, reject) => {
       const piper = spawn(bin, ['--model', modele, '--length_scale', String(LENTEUR_DICTEE), '--output_file', chemin],
-        { stdio: ['pipe', 'ignore', 'ignore'] });
+        { stdio: ['pipe', 'ignore', 'inherit'] });
       piper.on('error', reject);
       piper.on('close', resolve);
       piper.stdin.end(`${phrase}\n`);
