@@ -1046,6 +1046,26 @@
   visibility: hidden;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .bibliothequeAccueil[data-defile='oui'] .cartesListes,
+  .bibliothequeAccueil[data-defile='oui'] .carteListe,
+  .bibliothequeAccueil[data-defile='oui'] .carteDictee:not(:disabled) {
+    cursor: grab;
+    user-select: none;
+  }
+}
+
+.cartesListes[data-glisse='oui'] {
+  scroll-snap-type: none;
+}
+
+.cartesListes[data-glisse='oui'],
+.cartesListes[data-glisse='oui'] .carteListe,
+.cartesListes[data-glisse='oui'] .carteDictee:not(:disabled) {
+  cursor: grabbing;
+  user-select: none;
+}
+
 /* Les marges automatiques centrent les petites bibliothèques, mais se
    résorbent quand la rangée déborde : la première carte reste atteignable. */
 .cartesListes li:first-child {
