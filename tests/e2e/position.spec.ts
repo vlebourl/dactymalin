@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { jouerBlocParfait, ouvrir } from './helpers/app';
+import { LECONS_PAR_ETAPE } from '../../src/core/parcours';
 
 /**
  * #88 — l'enfant lit où il en est, sur les trois écrans qui le taisaient.
  *
  * L'accueil s'arrêtait au nom du parcours, la fin de leçon ne disait la
- * position qu'au passage d'étape (une fois sur sept), et la carte listait dix
+ * position qu'au passage d'étape (une fois par étape), et la carte listait dix
  * étapes sans nommer de quel parcours elles relèvent — ambigu dès que le
  * parent bascule de Découverte à Dactylo.
  */
@@ -15,7 +16,7 @@ test.describe('la position se lit', () => {
 
     // V1 : parcours ET position.
     await expect(page.getByText(/Parcours\s*:\s*Découverte/)).toBeVisible();
-    await expect(page.getByText(/Étape 3, leçon 2 sur 7/)).toBeVisible();
+    await expect(page.getByText(`Étape 3, leçon 2 sur ${LECONS_PAR_ETAPE}`)).toBeVisible();
 
     // V6 : l'en-tête nomme le parcours en cours.
     await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
@@ -27,7 +28,7 @@ test.describe('la position se lit', () => {
     await page.getByRole('button', { name: 'On commence !' }).click();
     await jouerBlocParfait(page, 'fr-FR');
     await expect(page.getByText(/Étape 3 débloquée/)).toHaveCount(0);
-    await expect(page.getByText(/Leçon 3 sur 7 de l'étape 3/)).toBeVisible();
+    await expect(page.getByText(`Leçon 3 sur ${LECONS_PAR_ETAPE} de l'étape 3`)).toBeVisible();
   });
 
   test('rien ne déborde à 375 px sur les trois écrans', async ({ page }) => {
