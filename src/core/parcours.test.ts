@@ -60,10 +60,10 @@ describe('la forme du parcours', () => {
     expect(etapeSuivante(ETAPE_MAX)).toBeUndefined();
   });
 
-  it("l'étape est finie après sept leçons, pas avant", () => {
-    expect(LECONS_PAR_ETAPE).toBe(7);
-    expect(etapeFinie(6)).toBe(false);
-    expect(etapeFinie(7)).toBe(true);
+  it("l'étape est finie après quatre leçons, pas avant", () => {
+    expect(LECONS_PAR_ETAPE).toBe(4);
+    expect(etapeFinie(3)).toBe(false);
+    expect(etapeFinie(4)).toBe(true);
     expect(etapeFinie(9)).toBe(true);
   });
 });

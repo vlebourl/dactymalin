@@ -470,7 +470,7 @@ def main(dossier, racine):
                             f"{p}/{disp} étape {e['n']} ({e['genre']}) ouvre "
                             f"« {c} » mais aucun item ne la porte — l'étape "
                             f"promet une touche qu'elle ne fait pas taper.")
-            parcours[p][disp] = {"lecons_par_etape": 7, "etapes": et}
+            parcours[p][disp] = {"lecons_par_etape": 4, "etapes": et}
 
     json.dump(parcours, open(data / "parcours.json", "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)

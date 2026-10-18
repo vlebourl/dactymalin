@@ -74,7 +74,7 @@ type TableParcours = Record<
 const TABLE = donnees as unknown as TableParcours;
 
 export const ETAPE_MAX = 10;
-export const LECONS_PAR_ETAPE = 7;
+export const LECONS_PAR_ETAPE = 4;
 
 /** L'espace est ouvert dès la première étape des deux parcours : il ne coûte
     rien — il n'est jamais une lettre de mot — et il ouvre les groupes nominaux. */
@@ -153,7 +153,7 @@ export function etapeFinie(leconsFaites: number): boolean {
 }
 
 /**
- * Le parcours est fini : dixième étape, septième leçon.
+ * Le parcours est fini : dixième étape, dernière leçon.
  *
  * DÉRIVÉ, jamais stocké. Les deux compteurs portent déjà l'information ; un
  * booléen persisté en plus aurait exigé sa validation, sa migration et sa règle
@@ -175,11 +175,11 @@ export function etapeSuivante(n: number): number | undefined {
 }
 
 /**
- * Le rang de la leçon EN COURS dans son étape, de 1 à 7.
+ * Le rang de la leçon EN COURS dans son étape, de 1 à `LECONS_PAR_ETAPE`.
  *
  * `leconsSurEtape` compte les leçons FAITES ; l'enfant, lui, lit celle qu'il
  * s'apprête à faire. Le plafond tient la fin de parcours, où le compteur reste
- * à sept sans qu'aucune huitième leçon n'existe.
+ * au plafond sans qu'aucune leçon de plus n'existe.
  */
 export function rangLecon(leconsFaites: number): number {
   return Math.min(leconsFaites + 1, LECONS_PAR_ETAPE);

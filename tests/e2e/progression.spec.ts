@@ -91,11 +91,11 @@ test.describe('rejouer une étape', () => {
     await ouvrir(page, 'fr-FR', 2, false, 'Lila', 'decouverte', 3);
     await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
 
-    await page.getByRole('button', { name: 'Étape 4, leçon 6', exact: true }).click();
+    await page.getByRole('button', { name: 'Étape 4, leçon 3', exact: true }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
 
     await expect(page.getByText(`Étape 4 sur ${ETAPE_MAX}`)).toBeVisible();
-    await expect(page.getByLabel('Étape 4 · leçon 6 · tu la rejoues')).toBeVisible();
+    await expect(page.getByLabel('Étape 4 · leçon 3 · tu la rejoues')).toBeVisible();
     await expect(page.getByText(/Leçon \d+ sur \d+/)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Quitter la leçon' }).click();
@@ -107,15 +107,15 @@ test.describe('rejouer une étape', () => {
   /* #116 — marquer une leçon faite pose la progression juste après elle, sans
      la jouer. La rangée le montre tout de suite, et l'accueil le confirme. */
   test("marquer une leçon faite avance la progression à la suivante", async ({ page }) => {
-    await ouvrir(page, 'fr-FR', 2, false, 'Lila', 'decouverte', 3);
+    await ouvrir(page, 'fr-FR', 2, false, 'Lila', 'decouverte', 1);
     await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
 
-    await page.getByRole('button', { name: 'Étape 2, leçon 5 faite', exact: true }).click();
+    await page.getByRole('button', { name: 'Étape 2, leçon 2 faite', exact: true }).click();
     await expect(page.locator('body')).toHaveAttribute('data-vue', 'V6');
     await page.getByRole('button', { name: 'Revenir' }).click();
-    await expect(page.getByText(`Étape 2, leçon 6 sur ${LECONS_PAR_ETAPE}`)).toBeVisible();
+    await expect(page.getByText(`Étape 2, leçon 3 sur ${LECONS_PAR_ETAPE}`)).toBeVisible();
 
-    /* La septième ouvre l'étape suivante. */
+    /* La dernière ouvre l'étape suivante. */
     await page.getByRole('button', { name: 'Ma carte du clavier' }).click();
     await page.getByRole('button', { name: `Étape 2, leçon ${LECONS_PAR_ETAPE} faite`, exact: true }).click();
     await page.getByRole('button', { name: 'Revenir' }).click();
