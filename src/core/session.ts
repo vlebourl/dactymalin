@@ -30,7 +30,7 @@ export const TAILLE_VAGUE = TAILLE_BLOC_MAX;
 export const RESTE_AVANT_RECHARGE = 3;
 
 /**
- * Combien d'EXERCICES une leçon sert, par rang de leçon (1 à 7).
+ * Combien d'EXERCICES une leçon sert, par rang de leçon (1 à `LECONS_PAR_ETAPE`).
  *
  * La vague cesse d'être un détail interne : c'est l'exercice, l'échelon que
  * l'enfant voit entre le mot et la leçon (#107). Il lui faut donc un compte
@@ -46,8 +46,11 @@ export const RESTE_AVANT_RECHARGE = 3;
  * lent y passera plus longtemps. `DUREE_LECON_MS` reste comme PLAFOND muet.
  */
 export const EXERCICES_PAR_LECON: Record<IdParcours, number[]> = {
-  decouverte: [4, 4, 5, 5, 5, 6, 6],
-  dactylo: [8, 9, 9, 10, 10, 11, 12],
+  // Ramené à trois partout, avec quatre leçons par étape : l'enfant restait
+  // trop longtemps sur les mêmes touches avant d'en débloquer de nouvelles.
+  // Les volumes du cahier (§4.3) ci-dessus ne sont donc plus tenus.
+  decouverte: [3, 3, 3, 3],
+  dactylo: [3, 3, 3, 3],
 };
 
 /**

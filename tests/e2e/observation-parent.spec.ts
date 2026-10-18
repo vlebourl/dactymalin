@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { cleProfil, jouerBlocParfait, ouvrir } from './helpers/app';
+import { LECONS_PAR_ETAPE } from '../../src/core/parcours';
 
 /**
  * #63 — le parent lit enfin ce que l'app observe.
@@ -164,9 +165,9 @@ test('l’étape affichée est celle que l’enfant vient d’atteindre', async 
   /* `progressions` n'est réécrit qu'au changement de parcours : une étape
      franchie à l'instant s'y lit encore à l'ancienne, à côté d'un compte de
      leçons qui, lui, est frais. Les deux moitiés de la ligne se
-     contredisaient. Ce parcours joue la septième leçon d'une étape, franchit,
+     contredisaient. Ce parcours joue la dernière leçon d'une étape, franchit,
      et va lire le panneau SANS recharger. */
-  await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', 6);
+  await ouvrir(page, 'fr-FR', 1, false, 'Joueur 1', 'decouverte', LECONS_PAR_ETAPE - 1);
   await page.getByRole('button', { name: 'On commence !' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-vue', 'V4');
   await jouerBlocParfait(page, 'fr-FR');

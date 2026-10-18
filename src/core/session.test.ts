@@ -14,7 +14,7 @@ import {
 } from "./session";
 import { TAILLE_BLOC_MIN } from "./generator";
 import { creerEtat, reducer as reducerLecon } from "./lecon";
-import { ensembleTouches, nouvellesTouches } from "./parcours";
+import { ensembleTouches, LECONS_PAR_ETAPE, nouvellesTouches } from "./parcours";
 import { DEFAUTS, valider } from "./storage";
 import { aSauvegarder, etatDeDepart, reducer } from "../state";
 
@@ -390,8 +390,8 @@ describe("ce que l’état donne au compositeur de séance", () => {
      Sans ce passage de témoin, choisir « leçon 7 » servait le compte de la
      leçon courante. */
   it("la leçon choisie commande le nombre d’exercices, sinon c’est la courante", () => {
-    expect(optionsDeSession({ ...etat, etapeRejouee: 2, leconRejouee: 7 }, "fr-FR", 0).exercices).toBe(
-      EXERCICES_PAR_LECON.dactylo[6],
+    expect(optionsDeSession({ ...etat, etapeRejouee: 2, leconRejouee: 4 }, "fr-FR", 0).exercices).toBe(
+      EXERCICES_PAR_LECON.dactylo[3],
     );
     expect(optionsDeSession({ ...etat, etapeRejouee: 2, leconRejouee: null }, "fr-FR", 0).exercices).toBe(
       EXERCICES_PAR_LECON.dactylo[etat.leconsSurEtape],
@@ -637,12 +637,13 @@ describe("la leçon s'arrête à son compte d'exercices (#107)", () => {
 
   it("le quota suit le parcours et le rang de la leçon", () => {
     expect(exercicesParLecon("decouverte", 1)).toBe(EXERCICES_PAR_LECON.decouverte[0]);
-    expect(exercicesParLecon("dactylo", 7)).toBe(EXERCICES_PAR_LECON.dactylo[6]);
-    // Dactylo sert plus d'exercices que Découverte : 100-150 mots contre 50-60 (§4.3)
-    expect(exercicesParLecon("dactylo", 1)).toBeGreaterThan(exercicesParLecon("decouverte", 1));
+    expect(exercicesParLecon("dactylo", 4)).toBe(EXERCICES_PAR_LECON.dactylo[3]);
+    // une table par rang de leçon de l'étape, ni plus ni moins
+    expect(EXERCICES_PAR_LECON.decouverte).toHaveLength(LECONS_PAR_ETAPE);
+    expect(EXERCICES_PAR_LECON.dactylo).toHaveLength(LECONS_PAR_ETAPE);
     // un rang hors bornes ne fabrique pas un quota indéfini
     expect(exercicesParLecon("decouverte", 0)).toBe(EXERCICES_PAR_LECON.decouverte[0]);
-    expect(exercicesParLecon("decouverte", 99)).toBe(EXERCICES_PAR_LECON.decouverte[6]);
+    expect(exercicesParLecon("decouverte", 99)).toBe(EXERCICES_PAR_LECON.decouverte[3]);
   });
 
   it("le quota part de l'état, sinon l'entête annoncerait un total faux", () => {

@@ -1,7 +1,7 @@
 {
  "decouverte": {
   "fr-FR": {
-   "lecons_par_etape": 7,
+   "lecons_par_etape": 4,
    "etapes": [
     {
      "n": 1,
@@ -310,7 +310,7 @@
    ]
   },
   "fr-CH": {
-   "lecons_par_etape": 7,
+   "lecons_par_etape": 4,
    "etapes": [
     {
      "n": 1,
@@ -617,7 +617,7 @@
  },
  "dactylo": {
   "fr-FR": {
-   "lecons_par_etape": 7,
+   "lecons_par_etape": 4,
    "etapes": [
     {
      "n": 1,
@@ -1012,7 +1012,7 @@
    ]
   },
   "fr-CH": {
-   "lecons_par_etape": 7,
+   "lecons_par_etape": 4,
    "etapes": [
     {
      "n": 1,

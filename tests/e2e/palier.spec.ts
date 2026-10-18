@@ -12,7 +12,7 @@ import { jouerBlocParfait, ouvrir, sauvegarde } from './helpers/app';
  * un joueur parfait, comme ce test, y arrivait.
  *
  * La v2 arrête de prétendre mesurer une maîtrise pour décider du passage (#38).
- * L'étape se termine après sept leçons, annoncées d'avance. Le test devient donc
+ * L'étape se termine après quatre leçons, annoncées d'avance. Le test devient donc
  * l'inverse de ce qu'il était : le passage ne doit dépendre QUE du compte de
  * leçons, et surtout pas de la qualité des frappes.
  */
