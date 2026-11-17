@@ -26,14 +26,16 @@ jobs:
   deploy:
     name: Déployer sur Coolify
     runs-on: homelab-runner
+    env:
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
     # Vérifications rouges = rien ne part. C'est tout l'intérêt de la barrière.
     if: github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Déclencher le déploiement
         run: |
-          REPONSE=$(curl -s -f -X GET \
+          REPONSE=$(printf 'Authorization: Bearer %s\n' "$COOLIFY_TOKEN" | curl -q -s -f -X GET \
             "http://localhost:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
+            -H @-)
           echo "$REPONSE"
           UUID=$(echo "$REPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['deployments'][0]['deployment_uuid'])")
           echo "deploy_uuid=$UUID" >> $GITHUB_ENV
@@ -45,9 +47,9 @@ jobs:
           # télécharge ~110 Mo et ne profite d'aucune couche en cache.
           for i in $(seq 1 40); do
             sleep 15
-            ETAT=$(curl -s \
+            ETAT=$(printf 'Authorization: Bearer %s\n' "$COOLIFY_TOKEN" | curl -q -s \
               "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
-              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              -H @- \
               | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status'))")
             echo "[$((i * 15))s] $ETAT"
             [ "$ETAT" = "finished" ] && exit 0
