@@ -1,0 +1,26 @@
+name: Vérifier le jeton Coolify
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  probe:
+    runs-on: homelab-runner
+    steps:
+      - name: Identité et portée, sans déploiement
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os, urllib.request, urllib.error
+          value=os.environ['COOLIFY_TOKEN']
+          ident=value.split('|',1)[0]
+          assert ident.isdigit()
+          print('Identifiant du jeton:',ident)
+          for path in ['/applications/x9tbvf1mbspphk7ml1c68dlv','/applications/cr92jivsr4aypchftn3y2t74']:
+              req=urllib.request.Request('http://localhost:8000/api/v1'+path,headers={'Authorization':'Bearer '+value,'User-Agent':'Dactymalin-token-probe/1.0'})
+              try:
+                  with urllib.request.urlopen(req,timeout=20) as r: status=r.status
+              except urllib.error.HTTPError as e: status=e.code
+              print(path,status)
+              assert status in (200,403,404)
+          PY
