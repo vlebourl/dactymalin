@@ -22,5 +22,5 @@ jobs:
                   with urllib.request.urlopen(req,timeout=20) as r: status=r.status
               except urllib.error.HTTPError as e: status=e.code
               print(path,status)
-              assert status in (200,403,404)
+              assert status == (200 if 'x9tbvf1mbspphk7ml1c68dlv' in path else 404)
           PY
