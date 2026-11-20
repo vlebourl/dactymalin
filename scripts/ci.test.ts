@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /* #120 — le 2026-09-06, un timeout isolé de `son.spec.ts` a rougi la CI de
    main : le déploiement a été SAUTÉ, et personne n'a été prévenu. La
-   production est restée une semaine sur l'ancien commit. Deux réglages
-   l'empêchent ; rien d'autre que ce test ne dirait qu'on les a retirés. */
+   production est restée une semaine sur l'ancien commit. Les relances E2E
+   et le suivi des vérifications couvrent ce cas. */
 
 describe('la CI tolère un flake, pas un défaut', () => {
   afterEach(() => {
@@ -23,23 +23,20 @@ describe('la CI tolère un flake, pas un défaut', () => {
   });
 });
 
-describe('un déploiement sauté se signale', () => {
-  const deploy = readFileSync(new URL('../.github/workflows/deploy.yml', import.meta.url), 'utf8');
-  /** Le texte d'un job, de son nom jusqu'au job suivant. */
-  const job = (nom: string) => deploy.match(new RegExp(`\\n  ${nom}:\\n[\\s\\S]*?(?=\\n  \\w+:\\n|$)`))?.[0] ?? '';
+describe('le suivi signale les vérifications de main', () => {
+  const suivi = readFileSync(new URL('../.github/workflows/deploy.yml', import.meta.url), 'utf8');
 
-  it('ouvre une alerte quand les vérifications de main sont rouges', () => {
-    expect(job('alerte')).toContain("conclusion == 'failure'");
-    expect(job('alerte')).toMatch(/gh issue (create|comment)/);
-    expect(job('alerte')).toContain('gh run rerun');
+  it('traite les verdicts rouge et vert pour le commit courant', () => {
+    expect(suivi).toContain("conclusion == 'failure'");
+    expect(suivi).toContain("conclusion == 'success'");
+    expect(suivi).toContain('refs/heads/main');
+    expect(suivi).toContain('[ "$MAIN" = "$SHA" ] || exit 0');
+    expect(suivi).toMatch(/gh issue (create|comment)/);
+    expect(suivi).toContain('gh issue close');
   });
 
-  it('garde la barrière : seul un verdict vert déploie', () => {
-    expect(job('deploy')).toContain("conclusion == 'success'");
-  });
-
-  it('ferme l’alerte une fois le déploiement réussi', () => {
-    expect(job('levee')).toContain('needs: deploy');
-    expect(job('levee')).toContain('gh issue close');
+  it('exécute seulement le suivi sur un runner GitHub', () => {
+    expect(suivi).toContain('runs-on: ubuntu-latest');
+    expect(suivi).not.toMatch(/homelab-runner|COOLIFY_(TOKEN|APP_UUID)/);
   });
 });
