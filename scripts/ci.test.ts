@@ -29,7 +29,7 @@ describe('le suivi signale les vérifications de main', () => {
   it('traite les verdicts rouge et vert pour le commit courant', () => {
     expect(suivi).toContain("conclusion == 'failure'");
     expect(suivi).toContain("conclusion == 'success'");
-    expect(suivi).toContain('refs/heads/main');
+    expect(suivi).toContain('git/ref/heads/main');
     expect(suivi).toContain('[ "$MAIN" = "$SHA" ] || exit 0');
     expect(suivi).toMatch(/gh issue (create|comment)/);
     expect(suivi).toContain('gh issue close');
