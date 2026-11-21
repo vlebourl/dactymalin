@@ -8,7 +8,6 @@ import {
   type PhraseGrammaire,
   type Serie,
 } from '../core/grammaire';
-import { encouragementSuivant } from '../core/encouragements';
 import { useApp } from '../state';
 import { sonItem } from '../ui/son';
 import u from '../ui/ui.module.css';
@@ -31,7 +30,6 @@ export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
   const app = useApp();
   const [serie, setSerie] = useState<Serie>(SERIE_VIDE);
   const [indisponible, setIndisponible] = useState(false);
-  const [encouragement, setEncouragement] = useState('');
   const vues = useRef(new Set<string>());
   /* Phrase d'après, demandée dès qu'une phrase s'affiche. */
   const suivante = useRef<Promise<PhraseGrammaire | null> | null>(null);
@@ -74,7 +72,6 @@ export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
     setSerie(apres);
     if (choix === serie.courante!.categorie) {
       sonItem(app.reglages.sons);
-      setEncouragement((e) => encouragementSuivant(e));
       minuteur.current = window.setTimeout(() => avancer(apres), DELAI_SUIVANTE_MS);
     }
   };
@@ -150,7 +147,7 @@ export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
         <p className={v.retourGrammaire} role="status">
           {serie.reponse
             ? juste
-              ? `Bravo ! ${encouragement}`
+              ? 'Bravo !'
               : `C'était : ${libelle(courante.categorie)}`
             : ''}
         </p>

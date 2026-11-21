@@ -32,7 +32,8 @@ test('bonne réponse : retour positif, puis phrase suivante seule', async ({ pag
   await expect(page.getByText(FILE[0].phrase)).toBeVisible();
   for (const c of CATS) await expect(bouton(page, c)).toBeVisible();
   await bouton(page, FILE[0].categorie).click();
-  await expect(page.getByText(/Bravo/)).toBeVisible();
+  // Mode grammaire : « Bravo ! » seul, sans phrase d'encouragement du clavier.
+  await expect(page.getByRole('status')).toHaveText('Bravo !');
   await expect(page.getByText(FILE[1].phrase)).toBeVisible();
 });
 
