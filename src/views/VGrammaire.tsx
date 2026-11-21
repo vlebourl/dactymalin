@@ -26,7 +26,13 @@ const DELAI_SUIVANTE_MS = 1200;
 
 const SERIE_VIDE: Serie = { faites: 0, justes: 0, courante: null, reponse: null };
 
-export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
+export function VGrammaire({
+  changerDeMode,
+  autreExercice,
+}: {
+  changerDeMode: () => void;
+  autreExercice: () => void;
+}) {
   const app = useApp();
   const [serie, setSerie] = useState<Serie>(SERIE_VIDE);
   const [indisponible, setIndisponible] = useState(false);
@@ -104,6 +110,9 @@ export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
           </p>
           <button className={[u.bouton, u.primaire, u.geant].join(' ')} onClick={encore}>
             Encore
+          </button>
+          <button className={u.bouton} onClick={autreExercice}>
+            Autre exercice
           </button>
           <button className={u.bouton} onClick={changerDeMode}>
             Changer de mode
