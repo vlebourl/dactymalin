@@ -10,7 +10,9 @@ import { exigeSession, type AvecCompte } from '../lib/session';
 import { limiterDebit } from '../lib/debit';
 
 const corpsValide = z.object({
-  cle: z.string().trim().min(20).max(300).startsWith('sk-ant-'),
+  /* L'alphabet est borné : un espace ou un caractère de contrôle n'atteint
+     jamais le SDK (ni ses en-têtes HTTP). */
+  cle: z.string().trim().min(20).max(300).regex(/^sk-ant-[A-Za-z0-9_-]+$/),
 });
 
 /**

@@ -802,7 +802,7 @@ function ModeGrammaire() {
           <input
             className={v.champNom}
             type="password"
-            autoComplete="off"
+            autoComplete="new-password"
             value={saisie}
             placeholder="sk-ant-…"
             aria-label="Clé Anthropic"
@@ -821,7 +821,7 @@ function ModeGrammaire() {
               )
             }
           >
-            Enregistrer
+            Valider la clé
           </button>
         </p>
       )}

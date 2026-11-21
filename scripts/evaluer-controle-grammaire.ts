@@ -84,6 +84,7 @@ if (process.argv.includes('--sec')) {
   process.exit(0);
 }
 
+/* Variable locale de CE script d'évaluation hors ligne, pas une configuration de l'application (la clé y est par compte). */
 const cle = process.env.ANTHROPIC_API_KEY;
 if (!cle) {
   console.error('ANTHROPIC_API_KEY manquante.');

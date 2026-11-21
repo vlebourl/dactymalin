@@ -70,7 +70,7 @@ d('clé Anthropic par compte', () => {
   it('un mauvais format répond CLE_INVALIDE sans appeler le vérificateur', async () => {
     const { h } = await inscrire();
     verifier.mockClear();
-    for (const cle of ['sk-ant-court', 'pas-une-cle-anthropic-du-tout-xxxx', `sk-ant-${'a'.repeat(300)}`, 42, null]) {
+    for (const cle of ['sk-ant-court', 'sk-ant-exemple factice-0000000000ab12', 'sk-ant-exemple\nfactice-0000000000ab12', 'pas-une-cle-anthropic-du-tout-xxxx', `sk-ant-${'a'.repeat(300)}`, 42, null]) {
       const r = await poser(h, cle);
       expect(r.status).toBe(400);
       expect(await r.json()).toMatchObject({ code: 'CLE_INVALIDE' });

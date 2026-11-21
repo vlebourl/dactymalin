@@ -36,7 +36,7 @@ test('une clé acceptée : « Clé enregistrée », et l’accueil offre « Chan
   const champ = page.getByLabel('Clé Anthropic');
   await expect(champ).toHaveAttribute('type', 'password');
   await champ.fill(CLE);
-  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByRole('button', { name: 'Valider la clé' }).click();
   await expect(page.getByText('Clé enregistrée (…ab12)')).toBeVisible();
   await expect(page.getByText(CLE)).toHaveCount(0);
 
@@ -49,7 +49,7 @@ test('une clé acceptée : « Clé enregistrée », et l’accueil offre « Chan
 test('une clé refusée par Anthropic : le message le dit, rien n’est enregistré', async ({ page }) => {
   await versEspaceParent(page, { status: 400, corps: { code: 'CLE_REFUSEE' } });
   await page.getByLabel('Clé Anthropic').fill(CLE);
-  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByRole('button', { name: 'Valider la clé' }).click();
   await expect(page.getByText('Cette clé est refusée par Anthropic.')).toBeVisible();
   await expect(page.getByLabel('Clé Anthropic')).toBeVisible();
 });
@@ -57,7 +57,7 @@ test('une clé refusée par Anthropic : le message le dit, rien n’est enregist
 test('« Retirer la clé » revient à l’état non enregistré', async ({ page }) => {
   await versEspaceParent(page, { status: 200, corps: { enregistree: true, fin: 'ab12' } });
   await page.getByLabel('Clé Anthropic').fill(CLE);
-  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByRole('button', { name: 'Valider la clé' }).click();
   await page.getByRole('button', { name: 'Retirer la clé' }).click();
   await expect(page.getByLabel('Clé Anthropic')).toBeVisible();
   await expect(page.getByLabel('Clé Anthropic')).toHaveValue('');
