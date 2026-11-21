@@ -37,7 +37,7 @@
 
 ---
 
-### Tâche 1 : banques, tirage et validateur (serveur, logique pure)
+### Task 1: banques, tirage et validateur (serveur, logique pure)
 
 **Fichiers :**
 - Créer : `server/src/lib/grammaire-banques.ts`, avec les constantes `SUJETS`, `VERBES`, `THEMES` et `MOTS_INTERDITS` (`readonly string[]`), recopiées des `.txt` du spike.
@@ -68,7 +68,7 @@ export function phraseValide(phrase: string): boolean;
 - [ ] **Étape 4 :** relancer le test. Attendu : PASS.
 - [ ] **Étape 5 :** commit `Grammaire : banques, tirage et validateur de phrases`.
 
-### Tâche 2 : génération et appel de contrôle, avec un client injecté
+### Task 2: génération et appel de contrôle, avec un client injecté
 
 **Fichiers :**
 - Modifier : `package.json` (`npm install @anthropic-ai/sdk@^1.12.0`).
@@ -106,7 +106,7 @@ export function demanderAvecAnthropic(cle: string): Demander;
 - [ ] **Étape 5 :** tests au vert, puis `npm run typecheck`.
 - [ ] **Étape 6 :** commit `Grammaire : génération et contrôle de la phrase`.
 
-### Tâche 3 : évaluer le contrôle avant de le brancher (étape bloquante)
+### Task 3: évaluer le contrôle avant de le brancher (étape bloquante)
 
 **Fichiers :**
 - Créer : `scripts/evaluer-controle-grammaire.ts`.
@@ -121,7 +121,7 @@ export function demanderAvecAnthropic(cle: string): Demander;
   - **Si le critère n'est pas tenu, on s'arrête là** et on en parle avec Vincent avant la tâche 4.
 - [ ] **Étape 3 :** commit `Grammaire : évaluation de l'appel de contrôle` (le script et la spec mise à jour).
 
-### Tâche 4 : environnement, route et branchement serveur
+### Task 4: environnement, route et branchement serveur
 
 **Fichiers :**
 - Modifier : `server/src/env.ts`. Ajouter `ANTHROPIC_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(1).optional())`.
@@ -152,7 +152,7 @@ export function demanderAvecAnthropic(cle: string): Demander;
 - [ ] **Étape 3 :** implémenter, puis `npm run test:db -- server/src/routes/__tests__/grammaire.test.ts` (avec le Postgres de test lancé) et `npx vitest run server`.
 - [ ] **Étape 4 :** commit `Grammaire : route serveur /api/grammaire`.
 
-### Tâche 5 : choix du mode au lancement
+### Task 5: choix du mode au lancement
 
 **Fichiers :**
 - Créer : `src/core/grammaire.ts`, avec `export async function grammaireDisponible(): Promise<boolean>`. Elle fait un `fetch('/api/grammaire/etat')` et renvoie `false` sur toute erreur ou tout statut non-OK. Elle ne garde rien en cache.
@@ -184,7 +184,7 @@ export function demanderAvecAnthropic(cle: string): Demander;
 - [ ] **Étape 4 :** les deux tests au vert. Puis la suite e2e complète, `npx playwright test`, pour prouver qu'aucun parcours existant n'a bougé.
 - [ ] **Étape 5 :** commit `Grammaire : choix du mode au lancement`.
 
-### Tâche 6 : la vue grammaire
+### Task 6: la vue grammaire
 
 **Fichiers :**
 - Modifier : `src/core/grammaire.ts`. Ajouter la logique de série, pure.
