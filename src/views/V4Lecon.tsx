@@ -32,7 +32,6 @@ import { useKeyInput } from '../hooks/useKeyInput';
 import { avancementEtape, avancementLecon } from '../core/progression';
 import { nomProfilActif } from '../core/profils';
 import { useApp, useEnvoi, type BilanBloc } from '../state';
-import { MainSchematique } from '../ui/MainSchematique';
 import v from './vues.module.css';
 
 /**
@@ -373,16 +372,6 @@ export function V4Lecon() {
     if (e.aide.erreurs >= 1 && (app.reglages.sons || e.dictee)) prechargerLaLettre(attendu);
   }, [e.aide.erreurs, e.dictee, attendu, app.reglages.sons]);
 
-  /* Le bandeau annonce l'ensemble CUMULÉ, pas les seules nouveautés du palier :
-     c'est lui la référence de ce qui peut être proposé (P5). Les capitales
-     accentuées sont exclues à la source (`libellesEnsemble`). */
-  /* Le bandeau annonçait encore le jeu de touches de la table v1 pendant que
-     le générateur servait celui de la v2 : l'enfant lisait `e f j n s t u` et
-     tapait des mots faits d'autres lettres. */
-  const touchesLecon = [...ensembleTouches(app.parcours, id, etapeJouee)]
-    .filter((c) => c !== ' ')
-    .map((c) => c.toUpperCase());
-
   /* 92 vw d'espace utile, un caractère occupant environ 0,62 em à cette
      graisse : la taille tenable est donc ~148/n en vw. Le plancher de six
      caractères empêche un mot très court de devenir énorme. */
@@ -492,9 +481,8 @@ export function V4Lecon() {
               </>
             )}
           </p>
-          <p className={v.bandeauTouches}>
-            Les touches de cette leçon : <strong>{touchesLecon.join(' ')}</strong>
-          </p>
+          {/* D1-a — « Les touches de cette leçon : E A S I… » est retiré : le
+              clavier juste en dessous montre déjà ces touches, en couleur. */}
           <div className={v.ligneBloc}>
 
             {/* Un compteur par échelon, et chacun fait avancer le suivant
@@ -761,115 +749,37 @@ export function V4Lecon() {
   );
 }
 
-const LARGEUR_MAIN = 104;
-/** Rapport hauteur/largeur du dessin de main (viewBox 100×130). */
-const HAUTEUR_MAIN = LARGEUR_MAIN * 1.3;
-
-/** Abscisse du bout de l'index dans le dessin, en fraction de la largeur. */
-const INDEX_X = 0.76;
-/** Inclinaison maximale de la main : au-delà, elle ne se lit plus comme une main. */
-const ANGLE_MAX = 38;
-
-type Geometrie = {
-  /** bulle du nom de lettre : au-dessus du clavier ENTIER, jamais sur une touche */
-  bulle: { x: number };
-  /** coin haut-gauche du dessin de main + inclinaison vers la touche visée */
-  main: { x: number; y: number; angle: number };
-};
-
 /**
- * Barreau 3 : overlay TRANSITOIRE. La bulle du nom de la lettre porte une
- * pointe qui désigne la touche — aucune flèche ne traverse plus le clavier
- * (elle coupait le repère tactile du J), et la main est repoussée du côté
- * EXTÉRIEUR de son bloc pour ne jamais recouvrir la barre d'espace.
+ * Barreau 3 : overlay TRANSITOIRE. La bulle du nom de la lettre, posée
+ * au-dessus du clavier entier, porte une pointe qui désigne la touche.
+ *
+ * B2 — elle était accompagnée d'une main dessinée, repoussée sous le clavier
+ * pour ne couvrir ni la barre d'espace ni les rangées. Venue d'en bas, son
+ * index ne pouvait toucher que la rangée du bas : pour P il se posait sur §,
+ * pour A sur <. Pour un enfant, le bout du doigt dit « cette touche-là » : la
+ * main désignait la mauvaise. Le doigt, lui, est déjà montré par la main
+ * latérale qui joue ; la bulle suffit à désigner la touche.
  */
 function AideBarreau3({ main, lettre }: { main: Main; lettre: string }) {
-  const [geo, setGeo] = useState<Geometrie | null>(null);
+  const [x, setX] = useState<number | null>(null);
   const refBoite = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const parent = refBoite.current?.parentElement;
     const boite = parent?.getBoundingClientRect();
-    /* Le bloc d'une main est désormais découpé en un SEGMENT par rangée : sa
-       boîte est l'union des segments, pas celle du premier. */
-    const segments = [...(parent?.querySelectorAll<HTMLElement>(`[data-bloc="${main}"]`) ?? [])];
-    const bloc = segments.length
-      ? segments.slice(1).reduce(
-          (u, el) => {
-            const r = el.getBoundingClientRect();
-            return {
-              left: Math.min(u.left, r.left),
-              right: Math.max(u.right, r.right),
-              top: Math.min(u.top, r.top),
-              bottom: Math.max(u.bottom, r.bottom),
-            };
-          },
-          (({ left, right, top, bottom }) => ({ left, right, top, bottom }))(
-            segments[0].getBoundingClientRect(),
-          ),
-        )
-      : undefined;
     const touche = parent
       ?.querySelector<HTMLElement>(`[data-bloc="${main}"] [data-etat="cible"]`)
       ?.getBoundingClientRect();
-    if (!boite || !bloc || !touche) return setGeo(null);
-    const cibleX = touche.left + touche.width / 2 - boite.left;
-    const cibleY = touche.top + touche.height / 2 - boite.top;
-    /* La main est repoussée du côté EXTÉRIEUR et bornée par la barre d'espace
-       elle-même : elle ne peut jamais la recouvrir (itération 002, point 11). */
-    const espace = parent?.querySelector<HTMLElement>('[data-code="Space"]')?.getBoundingClientRect();
-    const gaucheBloc = bloc.left - boite.left;
-    const droiteBloc = bloc.right - boite.left;
-    // On aligne le BOUT DE L'INDEX sur la colonne de la touche, pas le centre
-    // de la paume : c'est l'index qui désigne.
-    const souhaite = cibleX - (main === 'gauche' ? INDEX_X : 1 - INDEX_X) * LARGEUR_MAIN;
-    const x =
-      main === 'gauche'
-        ? Math.max(
-            gaucheBloc - 14,
-            Math.min(
-              souhaite,
-              (espace ? espace.left - boite.left : droiteBloc) - LARGEUR_MAIN - 10,
-            ),
-          )
-        : Math.min(
-            droiteBloc - LARGEUR_MAIN + 14,
-            Math.max(souhaite, (espace ? espace.right - boite.left : gaucheBloc) + 10),
-          );
-    /* Le clamp ci-dessus peut écarter la main de la colonne visée : on la fait
-       alors PIVOTER sur son poignet pour que l'index continue de désigner la
-       touche (itération 003 : « la main ne vise plus rien »). */
-    const y = bloc.bottom - boite.top - 16;
-    const pivot = { x: x + LARGEUR_MAIN / 2, y: y + HAUTEUR_MAIN * 0.9 };
-    const repos = Math.atan2(
-      (main === 'gauche' ? 1 : -1) * (INDEX_X - 0.5) * LARGEUR_MAIN,
-      HAUTEUR_MAIN * 0.84,
-    );
-    const vise = Math.atan2(cibleX - pivot.x, pivot.y - cibleY);
-    const angle = Math.max(-ANGLE_MAX, Math.min(ANGLE_MAX, ((vise - repos) * 180) / Math.PI));
-    setGeo({ bulle: { x: cibleX }, main: { x, y, angle } });
+    setX(boite && touche ? touche.left + touche.width / 2 - boite.left : null);
   }, [lettre, main]);
 
-  if (!geo) return <div className={v.aideOverlay} ref={refBoite} aria-hidden="true" />;
   return (
     <div className={v.aideOverlay} ref={refBoite} aria-hidden="true">
-      {/* La bulle est posée AU-DESSUS du clavier entier : elle ne peut plus
-          recouvrir une touche de la leçon (itération 003 : elle masquait U). */}
-      <span className={v.aideNom} style={{ left: geo.bulle.x, top: -46 }}>
-        {/^[a-z]$/i.test(lettre) ? lettre.toUpperCase() : lettre === ' ' ? 'espace' : lettre}
-      </span>
-      <div
-        className={v.aideMain}
-        style={{
-          left: geo.main.x,
-          top: geo.main.y,
-          height: HAUTEUR_MAIN,
-          transform: `rotate(${geo.main.angle.toFixed(1)}deg)`,
-          transformOrigin: '50% 90%',
-        }}
-      >
-        <MainSchematique cote={main} largeur={LARGEUR_MAIN} />
-      </div>
+      {x !== null && (
+        <span className={v.aideNom} style={{ left: x, top: -46 }}>
+          {/^[a-z]$/i.test(lettre) ? lettre.toUpperCase() : lettre === ' ' ? 'espace' : lettre}
+        </span>
+      )}
     </div>
   );
 }
