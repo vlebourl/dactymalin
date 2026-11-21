@@ -1,0 +1,37 @@
+hier
+avant-hier
+demain
+après-demain
+aujourd'hui
+maintenant
+actuellement
+en ce moment
+bientôt
+plus tard
+tout à l'heure
+tantôt
+autrefois
+jadis
+déjà
+désormais
+dorénavant
+il était une fois
+un jour
+la veille
+le lendemain
+ce matin
+ce midi
+ce soir
+cette nuit
+cet après-midi
+prochain
+prochaine
+prochains
+prochaines
+dernier
+dernière
+derniers
+dernières
+passé
+passée
+futur
