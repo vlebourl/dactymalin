@@ -27,6 +27,17 @@ describe('la question posée', () => {
     }
   });
 
+  it('reste un calcul de tête pour l’adulte : jamais plus de 19 × 5', () => {
+    /* Les bornes d'avant tiraient jusqu'à 39 × 9 (37 × 8 = 296) : le parent
+       devait sortir sa calculatrice pour ouvrir son propre espace. */
+    for (let i = 0; i < 500; i++) {
+      const q = questionAdulte();
+      expect(q.a).toBeLessThanOrEqual(19);
+      expect(q.b).toBeLessThanOrEqual(5);
+      expect(q.reponse).toBeLessThan(100);
+    }
+  });
+
   it('n’utilise jamais 0, 1 ni 2 comme second facteur', () => {
     // Ce sont les trois multiplications qu'un enfant fait sans y penser.
     for (let i = 0; i < 200; i++) expect(questionAdulte().b).toBeGreaterThan(2);

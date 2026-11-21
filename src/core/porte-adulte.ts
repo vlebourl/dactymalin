@@ -10,21 +10,23 @@
  * ralentisseur. Il vise l'enfant de 8-11 ans qui appuie sur les boutons pour
  * voir, pas un adolescent déterminé — celui-là ouvrirait la console du
  * navigateur, et aucune question posée dans la page n'y changerait rien. Le
- * seuil est donc réglé sur « un calcul qu'on ne fait pas de tête à neuf ans, et
- * qu'un adulte fait volontiers de tête ou avec sa calculatrice ».
+ * seuil est donc réglé sur « un calcul qu'un adulte fait de tête en deux
+ * secondes, et qui sort de la table de multiplication qu'apprend un CE2 ».
  *
- * Un produit à deux chiffres × un chiffre le tient : 27 × 7 est hors de portée
- * mentale d'un CE2, et ne coûte rien à un parent.
+ * Un nombre de 11 à 19 fois 3, 4 ou 5 le tient : 17 × 4 se fait de tête, sans
+ * papier. Les bornes d'avant (jusqu'à 39 × 9, soit 37 × 8) ne se faisaient pas
+ * de tête : le parent sortait sa calculatrice pour ouvrir son propre espace.
  */
 
 export type QuestionAdulte = { a: number; b: number; reponse: number };
 
 /** Bornes du premier facteur : au-delà de la table de multiplication apprise. */
-export const A_MIN = 12;
-export const A_MAX = 39;
-/** Bornes du second : jamais 0, 1 ou 2, qui rendraient le calcul trivial. */
+export const A_MIN = 11;
+export const A_MAX = 19;
+/** Bornes du second : jamais 0, 1 ou 2, trop faciles ; jamais plus de 5, pour
+    que le produit (moins de 100) reste un calcul de tête pour l'adulte. */
 export const B_MIN = 3;
-export const B_MAX = 9;
+export const B_MAX = 5;
 
 const entre = (min: number, max: number, alea: () => number) =>
   min + Math.floor(alea() * (max - min + 1));
@@ -41,7 +43,7 @@ export function questionAdulte(
 ): QuestionAdulte {
   /* Reposer exactement la même question après un échec invite à réessayer au
      hasard sur la même cible, et donne à l'enfant l'impression que la porte
-     bégaie. Il n'y a que 196 couples possibles : un tirage nu retombait sur le
+     bégaie. Il n'y a que 27 couples possibles : un tirage nu retombait sur le
      même produit assez souvent pour rendre le test instable, ce qui était le
      symptôme du vrai défaut.
 

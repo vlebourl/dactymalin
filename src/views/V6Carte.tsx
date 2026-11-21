@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { toucheDirecte, toucheMaj } from '../core/layouts';
+import { questionAdulte, reponseJuste, type QuestionAdulte } from '../core/porte-adulte';
 import { Cadenas } from '../ui/Key';
 import {
   ensembleTouches,
@@ -18,6 +20,43 @@ export function V6Carte() {
   const envoi = useEnvoi();
   const id = app.disposition;
   const fini = parcoursFini(app.etape, app.leconsSurEtape);
+
+  /* D2-a — marquer une leçon faite sans la jouer (#116) avance le parcours :
+     c'est un geste de parent. Le premier « ✓ » pose la question réservée aux
+     adultes ; une bonne réponse vaut pour toute la visite de la carte. */
+  const [porteOuverte, setPorteOuverte] = useState(
+    () => !!(globalThis as { __porteAdulteOuverte?: boolean }).__porteAdulteOuverte,
+  );
+  const [enAttente, setEnAttente] = useState<{ etape: number; lecon: number } | null>(null);
+  const [question, setQuestion] = useState<QuestionAdulte | null>(null);
+  const [saisie, setSaisie] = useState('');
+  const [rate, setRate] = useState(false);
+
+  const marquerFaite = (etape: number, lecon: number) => {
+    if (porteOuverte) return envoi({ type: 'leconFaite', etape, lecon });
+    setEnAttente({ etape, lecon });
+    setQuestion(questionAdulte());
+    setSaisie('');
+    setRate(false);
+  };
+
+  const fermerPorte = () => {
+    setEnAttente(null);
+    setQuestion(null);
+  };
+
+  const repondre = () => {
+    if (question && enAttente && reponseJuste(question, saisie)) {
+      setPorteOuverte(true);
+      envoi({ type: 'leconFaite', ...enAttente });
+      return fermerPorte();
+    }
+    /* Une AUTRE question, comme dans les réglages : la même reposée invite à
+       réessayer au hasard. */
+    setQuestion(questionAdulte(Math.random, question?.reponse));
+    setSaisie('');
+    setRate(true);
+  };
 
   const acquises = new Set<string>();
   /* Parcours fini : la dixième étape est acquise elle aussi, elle n'est plus
@@ -46,7 +85,10 @@ export function V6Carte() {
         <span />
       </header>
 
-      <div className={v.centre}>
+      {/* Dix étapes ne tiennent pas dans 800 px : sans défilement, le titre
+          sortait par le haut et « Continuer la leçon » par le bas, hors
+          d'atteinte de la souris comme du doigt. */}
+      <div className={`${v.centre} ${v.centreDefilant}`}>
         <h1 className={v.titre} style={{ fontSize: 'clamp(28px, 3.4vw, 42px)' }}>
           Ma carte du clavier
         </h1>
@@ -146,7 +188,7 @@ export function V6Carte() {
                             type="button"
                             className={v.boutonFaite}
                             aria-label={`Étape ${p.n}, leçon ${l} faite`}
-                            onClick={() => envoi({ type: 'leconFaite', etape: p.n, lecon: l })}
+                            onClick={() => marquerFaite(p.n, l)}
                           >
                             ✓
                           </button>
@@ -166,6 +208,61 @@ export function V6Carte() {
         >
           Continuer la leçon
         </button>
+
+        {question && enAttente && (
+          <div
+            className={v.voileQuitter}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titre-porte-carte"
+            data-porte-carte
+            onKeyDown={(ev) => {
+              if (ev.key === 'Escape') {
+                ev.stopPropagation();
+                fermerPorte();
+              }
+            }}
+          >
+            <div className={v.carteQuitter}>
+              <p className={v.titreQuitter} id="titre-porte-carte">
+                Une question pour les grands
+              </p>
+              <p className={v.texteQuitter}>
+                Marquer l'étape {enAttente.etape}, leçon {enAttente.lecon} comme faite, sans la
+                jouer. Combien font{' '}
+                <b>
+                  {question.a} × {question.b}
+                </b>{' '}
+                ?
+              </p>
+              <p className={v.ligneClavier}>
+                <input
+                  className={v.champNom}
+                  value={saisie}
+                  autoFocus
+                  inputMode="numeric"
+                  aria-label={`Combien font ${question.a} fois ${question.b} ?`}
+                  onChange={(ev) => {
+                    setSaisie(ev.target.value);
+                    setRate(false);
+                  }}
+                  onKeyDown={(ev) => ev.key === 'Enter' && repondre()}
+                />
+                <button className={v.petitBouton} onClick={repondre}>
+                  Entrer
+                </button>{' '}
+                <button className={u.lien} onClick={fermerPorte}>
+                  Laisser tomber
+                </button>
+              </p>
+              {rate && (
+                <p className={v.erreurCompte} role="alert">
+                  Ce n'est pas ça. En voici une autre.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
