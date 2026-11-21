@@ -3,7 +3,7 @@
    une condition pour jouer. Rien n'est gardé en cache. */
 export async function grammaireDisponible(): Promise<boolean> {
   try {
-    const r = await fetch('/api/grammaire/etat');
+    const r = await fetch('/api/grammaire/etat', { signal: AbortSignal.timeout(5_000) });
     if (!r.ok) return false;
     return ((await r.json()) as { disponible?: boolean }).disponible === true;
   } catch {
@@ -18,7 +18,7 @@ export const PHRASES_PAR_SERIE = 10;
 
 async function demander(): Promise<PhraseGrammaire | null> {
   try {
-    const r = await fetch('/api/grammaire/phrase');
+    const r = await fetch('/api/grammaire/phrase', { signal: AbortSignal.timeout(20_000) });
     if (!r.ok) return null;
     const p = (await r.json()) as Partial<PhraseGrammaire>;
     if (typeof p.phrase !== 'string' || !['passe', 'present', 'futur'].includes(p.categorie ?? '')) {

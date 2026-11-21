@@ -81,7 +81,6 @@ export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
   };
 
   const encore = () => {
-    vues.current = new Set();
     setSerie(SERIE_VIDE);
     afficherSuivante(SERIE_VIDE);
   };

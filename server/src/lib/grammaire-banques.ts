@@ -255,5 +255,9 @@ export const MOTS_INTERDITS: readonly string[] = [
   "dernières",
   "passé",
   "passée",
-  "futur"
+  "futur",
+  "présent",
+  "présente",
+  "présents",
+  "présentes"
 ];

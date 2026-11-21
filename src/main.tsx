@@ -43,7 +43,9 @@ function Joueur({ compte, grammaire }: { compte: Compte; grammaire: boolean }) {
           <ChoixMode onChoix={setMode} />
         ) : mode === 'grammaire' ? (
           <FournisseurApp idProfil={idProfil} key={idProfil}>
-            <VGrammaire changerDeMode={() => setMode(null)} />
+            <Garde>
+              <VGrammaire changerDeMode={() => setMode(null)} />
+            </Garde>
           </FournisseurApp>
         ) : (
           <ContexteMode.Provider

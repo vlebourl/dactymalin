@@ -49,6 +49,7 @@ describe('phraseValide', () => {
     'Léa a déjà mangé.',
     'La semaine prochaine, on partira.',
     "Le renard prenait son petit déjeuner près de la fusée qui brillait dans la nuit noire.",
+    'Tom apporte un présent à sa sœur.',
     'Un chat\nqui dort.',
     '',
     '   ',

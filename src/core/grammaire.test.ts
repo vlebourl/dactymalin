@@ -14,7 +14,7 @@ describe('grammaireDisponible', () => {
     const fetchSimule = vi.fn(async () => new Response(JSON.stringify({ disponible: true })));
     vi.stubGlobal('fetch', fetchSimule);
     expect(await grammaireDisponible()).toBe(true);
-    expect(fetchSimule).toHaveBeenCalledWith('/api/grammaire/etat');
+    expect(fetchSimule).toHaveBeenCalledWith('/api/grammaire/etat', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('faux sur un statut non-OK (401)', async () => {
@@ -27,6 +27,29 @@ describe('grammaireDisponible', () => {
       throw new TypeError('réseau');
     });
     expect(await grammaireDisponible()).toBe(false);
+  });
+
+  it('faux quand la requête est interrompue (délai dépassé)', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new DOMException('délai', 'TimeoutError');
+    });
+    expect(await grammaireDisponible()).toBe(false);
+  });
+});
+
+describe('phraseSuivante : délai', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('donne null quand la requête est interrompue', async () => {
+    const fetchSimule = vi.fn(async () => {
+      throw new DOMException('délai', 'TimeoutError');
+    });
+    vi.stubGlobal('fetch', fetchSimule);
+    expect(await phraseSuivante(new Set())).toBeNull();
+    expect(fetchSimule).toHaveBeenCalledWith(
+      '/api/grammaire/phrase',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 });
 
