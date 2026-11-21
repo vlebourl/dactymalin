@@ -12,7 +12,19 @@ export const CATEGORIE_DU_TEMPS: Record<Temps, Categorie> = {
   futur_simple: 'futur',
 };
 
-const MOTS_MAX = 15;
+/* Sujet + verbe + COD, rien d'autre : « Mon grand-père a construit un grand
+   château. » tient en 8 mots. Au-delà, un groupe de trop s'est glissé. */
+const MOTS_MAX = 8;
+
+/* Ce qui ouvre un groupe ou une proposition de plus (COI, complément de lieu,
+   relative, coordination, négation…). « de » n'y est pas : « du lait »,
+   « de l'eau » sont des COD. */
+const HORS_STRUCTURE = [
+  'à', 'au', 'aux', 'dans', 'sur', 'sous', 'avec', 'pour', 'chez', 'vers', 'par', 'sans',
+  'pendant', 'devant', 'derrière', 'entre', 'contre', 'près', 'en', 'y',
+  'qui', 'que', 'qu', 'quand', 'si', 'comme', 'lorsque', 'parce', 'puis',
+  'et', 'ou', 'mais', 'car', 'donc', 'ne', 'pas',
+];
 
 const choisir = <T>(liste: readonly T[], alea: () => number): T =>
   liste[Math.floor(alea() * liste.length)]!;
@@ -35,13 +47,16 @@ export function tirer(alea: () => number = Math.random): Tirage {
 }
 
 const ECHAPPER = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const INTERDITS = MOTS_INTERDITS.map(
+const INTERDITS = [...MOTS_INTERDITS, ...HORS_STRUCTURE].map(
   (m) => new RegExp(`(?<!\\p{L})${ECHAPPER(m)}(?!\\p{L})`, 'iu'),
 );
 
-/** Une seule ligne, 15 mots au plus, aucun mot interdit (mots entiers, sans casse). */
+/**
+ * Une seule ligne, 8 mots au plus, sans virgule, sans mot qui donne le temps
+ * ni mot qui ouvre un groupe de plus (mots entiers, sans casse).
+ */
 export function phraseValide(phrase: string): boolean {
-  if (!phrase.trim() || phrase.includes('\n')) return false;
+  if (!phrase.trim() || phrase.includes('\n') || phrase.includes(',')) return false;
   const mots = phrase.split(/[\s']+/).filter(Boolean);
   if (mots.length > MOTS_MAX) return false;
   return !INTERDITS.some((re) => re.test(phrase));
@@ -57,7 +72,7 @@ export type PhraseGrammaire = { phrase: string; categorie: Categorie };
 export type Generateur = () => Promise<PhraseGrammaire | null>;
 
 export const PROMPT_GENERATION =
-  "Tu écris des phrases d'exercice de grammaire pour un enfant de 8 ans. On te donne un sujet, un verbe à l'infinitif, un thème et un temps. Écris UNE phrase simple en français qui commence par ce sujet, avec ce verbe comme seul verbe conjugué, au temps demandé, en rapport avec le thème. Vocabulaire du quotidien, 12 mots au plus. N'emploie aucun mot qui indique le moment (hier, demain, aujourd'hui, maintenant, bientôt, autrefois, ce matin, la semaine prochaine…) : seul le verbe doit montrer le temps. Si la combinaison est étrange, écris une phrase amusante mais correcte. Mets uniquement la phrase finale dans le champ phrase.";
+  "Tu écris des phrases d'exercice de grammaire pour un enfant de 7 ans (CE1). On te donne un sujet, un verbe à l'infinitif, un thème et un temps. Écris UNE phrase très simple en français, construite EXACTEMENT ainsi : le sujet donné, puis le verbe donné conjugué au temps demandé, puis un complément d'objet direct (COD). Le COD est un groupe nominal court : un déterminant et un nom, avec au plus un adjectif, choisi en rapport avec le thème. La phrase doit avoir du sens : si le thème ne va pas avec le verbe, ignore le thème et choisis un COD logique pour ce verbe. Rien d'autre : pas de complément d'objet indirect (à…, au…), pas de complément de lieu, de temps ou de manière, pas d'adverbe, pas de proposition relative ou subordonnée, pas de « et », pas de négation, pas de virgule. 8 mots au plus, vocabulaire du quotidien. Exemples de la forme attendue : « Le chat mange une souris. », « Ma sœur a peint un grand soleil. », « Les enfants rangeront leurs jouets. ». Mets uniquement la phrase finale dans le champ phrase.";
 
 export const PROMPT_CONTROLE =
   "Tu aides un enfant de CE1. Relève TOUS les verbes conjugués de la phrase, y compris ceux des propositions subordonnées (après qui, que, quand, si, pendant que…). Pour un temps composé, donne l'auxiliaire et le participe ensemble (ex. « a mangé »). Ne relève ni les infinitifs, ni les participes présents, ni les gérondifs. Pour chaque verbe, donne sa catégorie : passe (passé composé, imparfait), present ou futur.";

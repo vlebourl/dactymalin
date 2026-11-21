@@ -69,18 +69,12 @@ export const SUJETS: readonly string[] = [
   "les voisins"
 ];
 
-/** Verbes à l’infinitif (sans savoir, vouloir, pouvoir, dire, être, avoir). */
+/** Verbes à l'infinitif qui prennent un COD : la phrase est toujours sujet + verbe + COD.
+    Exclus : savoir, vouloir, pouvoir, dire, être, avoir, et les intransitifs (dormir, courir…). */
 export const VERBES: readonly string[] = [
   "manger",
   "boire",
-  "jouer",
   "chanter",
-  "danser",
-  "sauter",
-  "courir",
-  "marcher",
-  "nager",
-  "dormir",
   "lire",
   "écrire",
   "dessiner",
@@ -102,13 +96,7 @@ export const VERBES: readonly string[] = [
   "regarder",
   "écouter",
   "appeler",
-  "parler",
   "raconter",
-  "rire",
-  "crier",
-  "grimper",
-  "tomber",
-  "voler",
   "rouler",
   "pousser",
   "tirer",
@@ -127,20 +115,11 @@ export const VERBES: readonly string[] = [
   "finir",
   "gagner",
   "perdre",
-  "partir",
-  "arriver",
-  "venir",
-  "aller",
-  "sortir",
-  "rentrer",
-  "monter",
-  "descendre",
   "traverser",
   "visiter",
   "attendre",
   "voir",
   "faire",
-  "mettre",
   "fabriquer",
   "colorier",
   "compter",
@@ -150,7 +129,19 @@ export const VERBES: readonly string[] = [
   "balayer",
   "découper",
   "souffler",
-  "gonfler"
+  "gonfler",
+  "aimer",
+  "garder",
+  "casser",
+  "coller",
+  "remplir",
+  "vider",
+  "brosser",
+  "plier",
+  "sentir",
+  "toucher",
+  "secouer",
+  "tricoter"
 ];
 
 /** Thèmes de phrase. */
