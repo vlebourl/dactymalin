@@ -1,123 +1,50 @@
-# Déploiement automatique sur Coolify.
-#
-# Pourquoi un runner auto-hébergé plutôt qu'un webhook : Coolify est derrière
-# Cloudflare, qui répond « Just a moment… » (403) aux POST de GitHub. Le runner
-# vit DANS le réseau et appelle Coolify en localhost — aucune connexion
-# entrante, donc rien à traverser. Même montage que le dépôt ecoride.
-name: Déploiement
+# Le déploiement et sa notification sont gérés par le service de déploiement.
+# Ce workflow suit seulement le résultat des vérifications de main.
+name: Suivi des vérifications
 
-# Le déploiement part APRÈS le verdict des vérifications, jamais en même temps.
-# Sur `push`, il courait à côté d'elles : une fusion rouge atteignait la
-# production, et le seul filet était un hook `pre-push` local que rien
-# n'obligeait personne à activer.
 on:
   workflow_run:
     workflows: [Vérifications]
     types: [completed]
     branches: [main]
 
-# Un déploiement à la fois : deux pushs rapprochés reconstruisaient deux fois
-# la même image, et l'ordre d'arrivée décidait de la version en ligne.
 concurrency:
-  group: deploy-main
+  group: suivi-verifications-main
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
-  deploy:
-    name: Déployer sur Coolify
-    runs-on: homelab-runner
-    # Vérifications rouges = rien ne part. C'est tout l'intérêt de la barrière.
-    if: github.event.workflow_run.conclusion == 'success'
-    steps:
-      - name: Déclencher le déploiement
-        run: |
-          REPONSE=$(curl -s -f -X GET \
-            "http://localhost:8000/api/v1/deploy?uuid=${{ secrets.COOLIFY_APP_UUID }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
-          echo "$REPONSE"
-          UUID=$(echo "$REPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['deployments'][0]['deployment_uuid'])")
-          echo "deploy_uuid=$UUID" >> $GITHUB_ENV
-
-      - name: Attendre le verdict
-        run: |
-          echo "Déploiement ${{ env.deploy_uuid }} en cours…"
-          # 10 min : l'image embarque Piper (#124) — la première construction
-          # télécharge ~110 Mo et ne profite d'aucune couche en cache.
-          for i in $(seq 1 40); do
-            sleep 15
-            ETAT=$(curl -s \
-              "http://localhost:8000/api/v1/deployments/${{ env.deploy_uuid }}" \
-              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-              | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status'))")
-            echo "[$((i * 15))s] $ETAT"
-            [ "$ETAT" = "finished" ] && exit 0
-            [ "$ETAT" = "failed" ] && echo "Déploiement en échec." && exit 1
-          done
-          echo "Toujours $ETAT après 600 s — abandon de l'attente."
-          exit 1
-
-      # Le déploiement peut « finir » sur un conteneur qui ne répond pas :
-      # c'est la santé de l'application qui fait foi, pas celle du build.
-      # Le runner vit sur l'hôte Coolify (il l'appelle déjà en localhost:8000) :
-      # le port hôte 3003 y répond en localhost, comme dans scripts/deployer.sh.
-      # Pas d'adresse LAN dans un dépôt et des journaux publics (#140).
-      - name: Vérifier que l'application répond
-        env:
-          URL_SANTE: http://localhost:3003/api/health
-        run: |
-          for i in $(seq 1 10); do
-            sleep 6
-            if curl -sf "$URL_SANTE" | grep -q '"ok":true'; then
-              curl -s "$URL_SANTE"; echo; exit 0
-            fi
-          done
-          echo "L'application ne répond pas sur /api/health après le déploiement."
-          exit 1
-
-  # Vérifications rouges = rien ne part, et jusqu'à #120 rien ne le DISAIT : le
-  # run finissait en « skipped », la production restait sur l'ancien commit.
-  # Une issue prévient par mail, sans aucun service à ajouter. Runner GitHub :
-  # il ne touche pas à Coolify, et `gh` y est déjà installé.
-  alerte:
-    name: Prévenir que main n'est pas déployée
+  suivi:
+    name: Mettre à jour l’alerte de vérifications
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'failure'
-    permissions:
-      issues: write
+    if: github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'success'
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      VERDICT: ${{ github.event.workflow_run.conclusion }}
+      URL_EXECUTION: ${{ github.event.workflow_run.html_url }}
       TITRE: "main n'est pas déployée : vérifications rouges"
     steps:
-      - name: Ouvrir l'alerte, ou commenter celle qui est ouverte
+      - name: Signaler le verdict du commit courant
         run: |
-          SHA="${{ github.event.workflow_run.head_sha }}"
-          CORPS=$(printf '%s\n' \
-            "Les vérifications de \`main\` sont rouges sur \`${SHA:0:7}\` : le déploiement a été **sauté**, la production reste sur le commit précédent." \
-            "" \
-            "- Run : ${{ github.event.workflow_run.html_url }}" \
-            "- Si c'est un test instable : \`gh run rerun ${{ github.event.workflow_run.id }} --failed\` — le déploiement repart seul une fois vert." \
-            "- Ce qui tourne en production : \`curl https://dacty.tiarkaerell.com/api/health\`")
-          OUVERTE=$(gh issue list --state open --search "in:title \"$TITRE\"" --json number -q '.[0].number')
-          if [ -n "$OUVERTE" ]; then
-            gh issue comment "$OUVERTE" --body "$CORPS"
+          set -euo pipefail
+          MAIN=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)
+          [ "$MAIN" = "$SHA" ] || exit 0
+          OUVERTE=$(gh issue list --state open --search "in:title \"$TITRE\"" --json number,title \
+            --jq 'map(select(.title == env.TITRE)) | .[0].number // empty')
+          if [ "$VERDICT" = success ]; then
+            if [ -n "$OUVERTE" ]; then
+              gh issue close "$OUVERTE" --comment "Vérifications réussies sur \`${SHA:0:7}\`."
+            fi
           else
-            gh issue create --title "$TITRE" --label bug --body "$CORPS"
+            CORPS=$(printf 'Les vérifications de main ont échoué sur \`%s\`.\n\n- Exécution : %s\n' "${SHA:0:7}" "$URL_EXECUTION")
+            if [ -n "$OUVERTE" ]; then
+              gh issue comment "$OUVERTE" --body "$CORPS"
+            else
+              gh issue create --title "$TITRE" --label bug --body "$CORPS"
+            fi
           fi
-
-  # Une alerte restée ouverte après un déploiement réussi mentirait.
-  levee:
-    name: Lever l'alerte
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-    steps:
-      - name: Fermer l'alerte ouverte, s'il y en a une
-        run: |
-          for N in $(gh issue list --state open --search "in:title \"main n'est pas déployée\"" --json number -q '.[].number'); do
-            gh issue close "$N" --comment "Déployé : \`${{ github.event.workflow_run.head_sha }}\`."
-          done
