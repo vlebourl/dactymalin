@@ -11,6 +11,7 @@ import { Garde } from './ui/Garde';
 import { ContexteMode } from './ui/mode';
 import { ChoixMode } from './views/ChoixMode';
 import { Connexion } from './views/Connexion';
+import { VGrammaire } from './views/VGrammaire';
 import { V0Profils } from './views/V0Profils';
 import u from './ui/ui.module.css';
 import './styles/tokens.css';
@@ -41,8 +42,9 @@ function Joueur({ compte, grammaire }: { compte: Compte; grammaire: boolean }) {
         ) : mode === null ? (
           <ChoixMode onChoix={setMode} />
         ) : mode === 'grammaire' ? (
-          // ponytail: l'écran de grammaire arrive à la tâche 6
-          <p>Bientôt</p>
+          <FournisseurApp idProfil={idProfil} key={idProfil}>
+            <VGrammaire changerDeMode={() => setMode(null)} />
+          </FournisseurApp>
         ) : (
           <ContexteMode.Provider
             value={{ changerDeMode: grammaire ? () => setMode(null) : null }}
