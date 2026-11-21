@@ -68,7 +68,7 @@ const SCHEMA_GENERATION = {
   required: ['phrase'],
   additionalProperties: false,
 };
-const SCHEMA_CONTROLE = {
+export const SCHEMA_CONTROLE = {
   type: 'object',
   properties: {
     categorie: {
