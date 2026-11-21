@@ -1,0 +1,10 @@
+accords : 174/179
+erreurs d'API (réponses nulles) : 0
+désaccords : 5
+futur → [criera:futur, se réveille:present] : Inès criera très fort si le volcan se réveille soudainement.
+futur → [criera:futur, tombe:present] : Malo criera très fort si la confiture tombe sur son bol de chocolat.
+passe → [a dormi:passe] : Elle a bien dormi dans le bateau.
+futur → [dessinera:futur, crache:present] : Mon grand-père dessinera un volcan qui crache des étoiles orange.
+passe → [gonflez:present] : Vous gonfliez le ballon rouge sur la plage.
+
+Phrase mixte « Mon grand-père dessinera un volcan qui crache des étoiles orange. » : futur attendu → refusé [dessinera:futur, crache:present]

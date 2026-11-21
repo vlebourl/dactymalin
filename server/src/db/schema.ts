@@ -103,3 +103,17 @@ export const liste = pgTable('liste', {
   mots: jsonb('mots').notNull().$type<string[]>(),
   creeLe: timestamp('cree_le', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index('liste_user_id_idx').on(table.userId)]);
+
+/**
+ * La clé Anthropic du compte, pour le mode grammaire. Une par compte, CHIFFRÉE
+ * (`lib/chiffrement.ts`) : la clé en clair n'est jamais écrite ici. `fin` (ses
+ * 4 derniers caractères) suffit à l'espace parent pour la reconnaître.
+ */
+export const cleAnthropic = pgTable('cle_anthropic', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  chiffre: text('chiffre').notNull(),
+  fin: text('fin').notNull(),
+  majLe: timestamp('maj_le', { withTimezone: true }).notNull().defaultNow(),
+});

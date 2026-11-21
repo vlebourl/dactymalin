@@ -414,6 +414,25 @@ export const supprimerLeCompte = async () => {
   oublierTout();
 };
 
+/* ------------------------------------------------------- clé Anthropic */
+
+/** Ce que le serveur dit de la clé du compte : jamais la clé, au plus sa fin. */
+export type EtatCle = { enregistree: false } | { enregistree: true; fin: string };
+
+export const cleAnthropicDistante = () => json<EtatCle>('/api/compte/cle-anthropic');
+
+/* Le serveur VÉRIFIE la clé auprès d'Anthropic avant de répondre : plus long
+   que les 8 s d'un appel ordinaire. */
+export const enregistrerCleAnthropic = (cle: string) =>
+  json<EtatCle>('/api/compte/cle-anthropic', {
+    method: 'PUT',
+    body: JSON.stringify({ cle }),
+    signal: AbortSignal.timeout(20_000),
+  });
+
+export const retirerCleAnthropic = () =>
+  json<EtatCle>('/api/compte/cle-anthropic', { method: 'DELETE' });
+
 /* ------------------------------------------------------------- bibliothèque */
 
 /**

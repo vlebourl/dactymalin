@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
   messageDEchecCompte,
   messageDEchecListe,
@@ -15,6 +15,10 @@ import {
   remplacerIndex,
 } from '../core/profils';
 import {
+  cleAnthropicDistante,
+  enregistrerCleAnthropic,
+  retirerCleAnthropic,
+  type EtatCle,
   compteCourant,
   creerListeDistante,
   googleDisponible,
@@ -48,6 +52,7 @@ import {
 import { NOM_PARCOURS, PARCOURS, type IdParcours } from '../core/parcours';
 import { progressionDe } from '../core/storage';
 import { useApp, useEnvoi } from '../state';
+import { ContexteMode } from '../ui/mode';
 import v from './vues.module.css';
 import u from '../ui/ui.module.css';
 
@@ -730,6 +735,105 @@ function Bibliotheque() {
   );
 }
 
+/**
+ * La clé Anthropic du foyer, pour le mode grammaire. Elle part au serveur, qui
+ * la vérifie puis la garde chiffrée ; elle ne revient jamais ici, seulement
+ * ses 4 derniers caractères. Poser ou retirer la clé relit l'état du mode
+ * grammaire : le bouton « Changer de mode » de l'accueil suit sans rechargement.
+ */
+function ModeGrammaire() {
+  const { rafraichirGrammaire } = useContext(ContexteMode);
+  const [etat, setEtat] = useState<EtatCle | null>(null);
+  const [saisie, setSaisie] = useState('');
+  const [occupe, setOccupe] = useState(false);
+  const [echec, setEchec] = useState<string | null>(null);
+
+  useEffect(() => {
+    void cleAnthropicDistante()
+      .then(setEtat)
+      .catch(() => setEchec('Impossible de lire l’état de la clé pour le moment.'));
+  }, []);
+
+  const agir = async (appel: () => Promise<EtatCle>, repli: string) => {
+    if (occupe) return;
+    setOccupe(true);
+    setEchec(null);
+    try {
+      setEtat(await appel());
+      setSaisie('');
+      await rafraichirGrammaire();
+    } catch (erreur) {
+      const code = (erreur as { code?: string } | null)?.code;
+      setEchec(
+        code === 'CLE_REFUSEE'
+          ? 'Cette clé est refusée par Anthropic.'
+          : code === 'CLE_INVALIDE'
+            ? 'Ce n’est pas une clé Anthropic (elle commence par sk-ant-).'
+            : repli,
+      );
+    } finally {
+      setOccupe(false);
+    }
+  };
+
+  return (
+    <>
+      <h2 className={v.titrePetit}>Mode grammaire</h2>
+      <p className={v.promessePalier}>
+        Les phrases du mode grammaire sont créées par Claude, avec votre clé Anthropic. Elle reste
+        sur le serveur, chiffrée, et n’est jamais réaffichée. Fixez une limite de dépense dans la
+        console Anthropic.
+      </p>
+      {etat === null ? (
+        !echec && <p className={v.promessePalier}>…</p>
+      ) : etat.enregistree ? (
+        <p className={v.ligneClavier}>
+          <span className={v.promessePalier}>Clé enregistrée (…{etat.fin})</span>
+          <button
+            className={v.petitBouton}
+            disabled={occupe}
+            onClick={() => void agir(retirerCleAnthropic, 'Impossible de retirer la clé pour le moment.')}
+          >
+            Retirer la clé
+          </button>
+        </p>
+      ) : (
+        <p className={v.ligneClavier}>
+          <input
+            className={v.champNom}
+            type="password"
+            autoComplete="new-password"
+            value={saisie}
+            placeholder="sk-ant-…"
+            aria-label="Clé Anthropic"
+            onChange={(e) => {
+              setSaisie(e.target.value);
+              setEchec(null);
+            }}
+          />
+          <button
+            className={v.petitBouton}
+            disabled={occupe || saisie.trim().length === 0}
+            onClick={() =>
+              void agir(
+                () => enregistrerCleAnthropic(saisie.trim()),
+                'Impossible de vérifier la clé pour le moment.',
+              )
+            }
+          >
+            Valider la clé
+          </button>
+        </p>
+      )}
+      {echec && (
+        <p className={v.erreurCompte} role="alert">
+          {echec}
+        </p>
+      )}
+    </>
+  );
+}
+
 export function V9Compte() {
   const envoi = useEnvoi();
   /* « Hors ligne » n'est pas déduit de `navigator.onLine` : ce drapeau ment
@@ -920,6 +1024,8 @@ export function V9Compte() {
             <MethodesDeConnexion google={googleDispo} />
 
             <Bibliotheque />
+
+            <ModeGrammaire />
 
             <button
               className={u.bouton}

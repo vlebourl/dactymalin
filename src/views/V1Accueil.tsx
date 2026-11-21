@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { disposition } from '../core/layouts';
 import { estJouable, type Liste } from '../core/listes';
 import { ensembleTouches, LECONS_PAR_ETAPE, parcoursFini, rangLecon } from '../core/parcours';
 import { NOM_PARCOURS } from '../core/parcours';
 import { Keyboard } from '../ui/Keyboard';
+import { ContexteMode } from '../ui/mode';
 import { amorcerLaVoix, useVoixDictee } from '../ui/voix';
 import { useApp, useEnvoi } from '../state';
 import v from './vues.module.css';
@@ -32,11 +33,18 @@ export function V1Accueil() {
      s'accorder. Mieux vaut pas de carte qu'une carte sans rien à taper. */
   const jouables = app.listes.filter((liste) => estJouable(liste, app.disposition));
   const voixDictee = useVoixDictee();
+  const { changerDeMode } = useContext(ContexteMode);
 
   return (
     <div className={v.ecran}>
       <header className={v.entete}>
-        <span />
+        {changerDeMode ? (
+          <button className={u.bouton} onClick={changerDeMode}>
+            Changer de mode
+          </button>
+        ) : (
+          <span />
+        )}
         <span />
         <button
           className={v.engrenage}

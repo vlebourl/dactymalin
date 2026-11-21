@@ -1,0 +1,46 @@
+passé	le robot | apporter | un anniversaire	[327,27]	Le robot a apporté un gâteau à la fête d'anniversaire.
+passé	toute la classe | arroser | la boulangerie	[329,29]	Toute la classe a arrosé les plantes du jardin de la boulangerie.
+passé	Tom | peindre | la récréation	[325,24]	Tom a peint un dessin de ballon pendant la récréation.
+passé	mon grand-père | grimper | le cinéma	[329,26]	Mon grand-père a grimpé les marches du cinéma en riant.
+passé	Lucas | regarder | un volcan	[326,24]	Lucas a regardé un volcan en éruption à la télévision.
+passé	je | réparer | le cirque	[323,25]	J'ai réparé le vélo du clown avec un gros marteau.
+passé	les lutins | crier | le désert	[324,17]	Les lutins ont crié dans le désert.
+passé	le cheval | arroser | l'espace	[326,24]	Le cheval a arrosé les plantes de la station spatiale.
+passé	la maîtresse | acheter | le dessin	[328,27]	La maîtresse a acheté des crayons de couleur pour le dessin.
+passé	la boulangère | dormir | le bateau	[327,18]	La boulangère a dormi dans un bateau.
+présent	toute la classe | savoir | un anniversaire	[334,99]	Toute la classe sait qu'Léa fête son anniversaire avec un grand gâteau au chocolat.
+
+Wait, "qu'Léa" is incorrect. Correct version:
+
+Toute la classe sait que Léa fête son anniversaire avec un grand gâteau au chocolat.
+présent	mon cousin | cueillir | le dessin	[333,24]	Mon cousin cueille des fleurs pour les dessiner.
+présent	mes parents | voir | le vélo	[330,24]	Mes parents voient mon vélo rouge dans le jardin.
+présent	le robot | crier | un volcan	[329,20]	Le robot crie devant le volcan qui gronde.
+présent	le cheval | manger | la cantine	[330,21]	Le cheval mange à la cantine avec les enfants.
+présent	la vache | arriver | la salle de bain	[332,26]	La vache arrive dans la salle de bain avec une brosse à dents.
+présent	le facteur | visiter | le zoo	[331,20]	Le facteur visite le zoo et salue les singes.
+présent	le chat | trouver | la lune	[329,22]	Le chat trouve une plume qui brille sous la lune.
+présent	les enfants | dormir | la gare	[330,26]	Les enfants dorment sur un banc de la gare en attendant le train.
+présent	Maël | cacher | la musique	[332,30]	Maël cache son violon sous le lit pour surprendre sa sœur.
+futur	le pilote | traverser | Halloween	[326,29]	Le pilote traversera la ville déguisé en fantôme pour Halloween.
+futur	le chien | chercher | l'espace	[325,26]	Le chien cherchera une étoile dans le ciel de la fusée.
+futur	Inès | crier | un volcan	[324,195]	Inès criera très fort si le volcan se réveille soudainement.
+
+Wait, "soudainement" is fine. But check: no time word? "soudainement" is not a time indicator really, it's manner. Fine. Also "si" with futur is grammatically wrong in French (si + présent). Better: "Inès criera fort quand le volcan entrera en éruption." "quand" is conjunction, fine. Word count: Inès, criera, fort, quand, le, volcan, entrera, en, éruption = 9 words. Good.
+
+Inès criera fort quand le volcan entrera en éruption.
+futur	toute la classe | raconter | le bateau	[327,28]	Toute la classe racontera une histoire de pirates sur un grand bateau.
+futur	le cheval | appeler | le petit-déjeuner	[331,26]	Le cheval appellera sa maman pour le petit-déjeuner.
+futur	le clown | attendre | un musée	[324,26]	Le clown attendra les visiteurs devant la grande porte du musée.
+futur	le jardinier | regarder | le vélo	[327,24]	Le jardinier regardera le vélo rouge devant la grange.
+futur	Malo | crier | le petit-déjeuner	[329,98]	Malo criera très fort si la confiture tombe sur son bol de chocolat.
+
+Hmm, "très" n'est pas un mot de moment, donc la phrase respecte les consignes. Je la corrige pour rester simple et claire :
+
+Malo criera si la tartine tombe du plat.
+futur	le robot | parler | le printemps	[324,110]	Le robot parlera des fleurs qui sortiront au printemps.
+
+Hmm, wait: "au printemps" is fine (not a time-marker word in the forbidden list? It indicates a season, which is a moment reference). Safer to avoid it.
+
+Le robot parlera aux fleurs qui pousseront dans le jardin.
+futur	ma sœur | mettre | la chambre	[327,29]	Ma sœur mettra ses livres sur l'étagère de sa chambre.
