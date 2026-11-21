@@ -52,7 +52,6 @@ export function VGrammaire({ changerDeMode }: { changerDeMode: () => void }) {
   };
 
   useEffect(() => {
-    document.body.dataset.vue = 'GRAMMAIRE';
     afficherSuivante(SERIE_VIDE);
     return () => window.clearTimeout(minuteur.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps

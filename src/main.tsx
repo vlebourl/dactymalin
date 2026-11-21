@@ -42,7 +42,7 @@ function Joueur({ compte, grammaire }: { compte: Compte; grammaire: boolean }) {
         ) : mode === null ? (
           <ChoixMode onChoix={setMode} />
         ) : mode === 'grammaire' ? (
-          <FournisseurApp idProfil={idProfil} key={idProfil}>
+          <FournisseurApp idProfil={idProfil} key={idProfil} repereVue="GRAMMAIRE">
             <Garde>
               <VGrammaire changerDeMode={() => setMode(null)} />
             </Garde>

@@ -477,10 +477,17 @@ const CtxDispatch = createContext<((a: Action) => void) | null>(null);
 export function FournisseurApp({
   children,
   idProfil,
+  repereVue,
 }: {
   children: ReactNode;
   /** Profil dont on charge et sauve la progression : son identifiant SERVEUR. */
   idProfil: string;
+  /**
+   * Repère `data-vue` imposé par une vue hors du commutateur d'`App` (la
+   * grammaire). Il passe par ICI : les effets d'un enfant tournent AVANT ceux
+   * du parent, donc un repère posé par l'enfant était aussitôt écrasé.
+   */
+  repereVue?: string;
 }) {
   const cle = cleDe(idProfil);
   const [etat, dispatchReact] = useReducer(reducer, cle, etatDeDepart);
@@ -532,8 +539,8 @@ export function FournisseurApp({
 
   // Repère stable pour les tests e2e (et pour du CSS par vue si besoin).
   useEffect(() => {
-    document.body.dataset.vue = etat.vue;
-  }, [etat.vue]);
+    document.body.dataset.vue = repereVue ?? etat.vue;
+  }, [repereVue, etat.vue]);
 
   useEffect(() => {
     const racine = document.documentElement;
