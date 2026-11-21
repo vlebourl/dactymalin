@@ -112,6 +112,14 @@ Les appels sont faits un par un avec `claude-haiku-5-5`, effort `low` :
    - « Vous gonfliez » : le modèle l'a lu comme du présent.
 
    Le critère de la tâche 3 du plan est tenu.
+8. **Phrases « sujet + verbe + COD » seulement**, demandées par Vincent après
+   les premiers essais en production (`eval-phrases-simples.txt`). On ne garde
+   que des verbes qui prennent un COD (70 verbes). Le prompt impose cette
+   structure, et le validateur refuse plus de 8 mots, toute virgule et tout mot
+   qui ouvre un groupe de plus : préposition (à, dans, avec…), relative,
+   « et », négation. « de » reste permis pour « du lait ».
+   Sur 30 phrases, les 30 sont acceptées au premier tirage, toutes au bon
+   temps. On compte 2 appels par phrase.
 
 Le coût est d'environ 330 tokens en entrée et 30 en sortie par phrase, soit à peu
 près 0,005 centime. Avec l'appel de contrôle, on arrive à environ 0,01 centime par phrase.
