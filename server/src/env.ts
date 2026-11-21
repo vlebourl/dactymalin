@@ -46,12 +46,6 @@ const schema = z.object({
    */
   PIPER_BIN: z.string().min(1).optional(),
   PIPER_MODELE: z.string().min(1).optional(),
-  /**
-   * Clé Anthropic du mode grammaire. Facultative : absente, le mode est
-   * simplement indisponible. Une chaîne vide (variable déclarée mais non
-   * remplie) compte comme absente.
-   */
-  ANTHROPIC_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(1).optional()),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -179,3 +179,33 @@ export function demanderAvecAnthropic(cle: string): Demander {
     }
   };
 }
+
+/** Verdict sur une clé saisie par un parent, avant de l'enregistrer. */
+export type VerifierCle = (cle: string) => Promise<'valide' | 'refusee' | 'injoignable'>;
+
+/**
+ * Un mini-appel payant (16 tokens au plus) : 401/403 veut dire que la clé est
+ * refusée, toute autre erreur qu'on n'a pas pu trancher. La clé n'est jamais
+ * journalisée, ni l'erreur entière (elle peut porter les en-têtes).
+ */
+export const verifierAvecAnthropic: VerifierCle = async (cle) => {
+  const client = new Anthropic({ apiKey: cle, maxRetries: 0, timeout: 10_000 });
+  try {
+    await client.messages.create({
+      model: 'claude-haiku-5-5',
+      max_tokens: 16,
+      output_config: { effort: 'low' },
+      messages: [{ role: 'user', content: 'Réponds OK.' }],
+    });
+    return 'valide';
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+      return 'refusee';
+    }
+    console.error(
+      'grammaire : vérification de clé impossible',
+      e instanceof Anthropic.APIError ? `APIError ${e.status}` : (e as Error)?.name,
+    );
+    return 'injoignable';
+  }
+};

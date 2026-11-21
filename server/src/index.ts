@@ -7,7 +7,6 @@ import { creerBase, sondeDe } from './db/client';
 import { lireEnv } from './env';
 import { creerSynthese } from './lib/voix';
 import type { Synthese } from './lib/voix';
-import { creerGenerateur, demanderAvecAnthropic } from './lib/grammaire';
 
 const env = lireEnv();
 /* Sans base (développement), l'app tourne quand même : le healthcheck le dit
@@ -27,8 +26,6 @@ const syntheseSuivie: Synthese | null = synthese && ((mot, lenteur) => {
   return travail;
 });
 if (piper && !synthese) console.error('Piper est là mais ne synthétise rien : la dictée parlera avec la voix du navigateur.');
-/* Sans clé Anthropic, le mode grammaire est indisponible, rien d'autre. */
-const grammaire = env.ANTHROPIC_API_KEY ? creerGenerateur(demanderAvecAnthropic(env.ANTHROPIC_API_KEY)) : null;
 const racineClient = fileURLToPath(new URL('../../dist', import.meta.url));
 
 /* `serveStatic` rend la main quand le fichier n'existe pas : le repli SPA de
@@ -38,7 +35,6 @@ const app = creerApp({
   racineClient,
   statique: serveStatic({ root: './dist' }),
   synthese: syntheseSuivie,
-  grammaire,
   ...(base ? { base, pingBase: sondeDe(base), auth: creerAuth(base, env) } : {}),
 });
 
@@ -50,8 +46,7 @@ const serveur = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
        avec la voix du navigateur — autant le lire ici que le deviner. */
     `DactyMalin ${IDENTIFIANT.version} ${IDENTIFIANT.commit ?? 'sans commit'} ` +
       `démarré ${IDENTIFIANT.demarre} — http://localhost:${info.port} (${env.NODE_ENV}, ` +
-      `voix ${synthese ? 'Piper' : 'du navigateur'}, ` +
-      `grammaire ${grammaire ? 'active' : 'absente'})`,
+      `voix ${synthese ? 'Piper' : 'du navigateur'})`,
   );
 });
 

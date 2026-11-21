@@ -51,10 +51,13 @@ réponse est de regarder le verbe.
 
 - Pile existante : React + TypeScript au client, Hono au serveur, déployé par
   Coolify.
-- La clé est une variable d'environnement **facultative**, `ANTHROPIC_API_KEY`,
-  validée dans `server/src/env.ts`. Sans elle, l'app démarre normalement et le
-  bouton Grammaire n'apparaît pas. C'est le même principe que Piper pour la voix
-  (#124).
+- La clé Anthropic est **par compte** (décision de Vincent, 2026-11-21 : aucune
+  clé dans Coolify, plus de variable `ANTHROPIC_API_KEY`). Le parent la saisit
+  dans l'espace parent ; le serveur la **vérifie** par un mini-appel avant de
+  l'enregistrer, la stocke **chiffrée** (AES-256-GCM, clé dérivée de
+  `BETTER_AUTH_SECRET`, table `cle_anthropic`) et n'en renvoie jamais que les
+  4 derniers caractères. Sans clé enregistrée, le bouton Grammaire n'apparaît
+  pas pour ce compte.
 - La route exige une session et une limite de débit par compte
   (`limiterDebit`), comme `server/src/routes/voix.ts`.
 - Programme de CE1 : le passé regroupe le **passé composé** et l'**imparfait**.
@@ -157,10 +160,16 @@ près 0,005 centime. Avec l'appel de contrôle, on arrive à environ 0,01 centim
 **Route** `server/src/routes/grammaire.ts`, montée sur `/api/grammaire` dans
 `app.ts`, dans le même bloc que la voix (base et auth présentes) :
 
-- `GET /etat` → `{ disponible: boolean }` (vrai si la clé est configurée) ;
+- `GET /etat` → `{ disponible: boolean }` (vrai si le compte a une clé enregistrée) ;
 - `GET /phrase` → `{ phrase: string, categorie: 'passe' | 'present' | 'futur' }`,
-  ou `503 { code: 'GRAMMAIRE_INDISPONIBLE' }` sans clé ou après trois échecs ;
+  ou `503 { code: 'GRAMMAIRE_INDISPONIBLE' }` sans clé (ou clé illisible) ou
+  après trois échecs. Les phrases sont payées par la clé du compte ;
 - `exigeSession(auth)` et `limiterDebit(30, 60_000)`.
+- `GET|PUT|DELETE /api/compte/cle-anthropic` : session exigée. `PUT { cle }`
+  valide le format (`sk-ant-`, 20 à 300 caractères → sinon `CLE_INVALIDE`),
+  vérifie la clé (401/403 → `CLE_REFUSEE`, autre échec → 502
+  `VERIFICATION_IMPOSSIBLE`), puis l'enregistre chiffrée ; `limiterDebit(10, 60_000)`.
+  La clé complète ne repart jamais vers le navigateur et n'est jamais journalisée.
 
 La réponse attendue part avec la phrase. Un enfant qui ouvrirait les outils de
 développement pourrait tricher, ce qui est acceptable. Le temps exact (passé

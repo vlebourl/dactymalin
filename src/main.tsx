@@ -19,13 +19,24 @@ import './styles/tokens.css';
 /* Le choix du joueur précède tout : l'état de l'app se charge depuis la clé
    du profil choisi — son identifiant SERVEUR. `key` remonte l'arbre entier au
    changement de joueur. */
-function Joueur({ compte, grammaire }: { compte: Compte; grammaire: boolean }) {
+function Joueur({
+  compte,
+  grammaire,
+  rafraichirGrammaire,
+}: {
+  compte: Compte;
+  grammaire: boolean;
+  rafraichirGrammaire: () => Promise<void>;
+}) {
   const [idProfil, setIdProfil] = useState<string | null>(() => profilInitial());
   /* Sans grammaire (ou au retour d'un rattachement), on joue l'orthographe
      d'emblée : aucun écran de plus, comportement d'avant. */
   const [mode, setMode] = useState<'orthographe' | 'grammaire' | null>(() =>
     grammaire && !retourDeRattachement() ? null : 'orthographe',
   );
+  /* La clé vient d'être retirée : plus de grammaire, on revient à
+     l'orthographe. L'inverse (clé posée) ne bascule pas l'enfant de lui-même. */
+  if (!grammaire && mode !== 'orthographe') setMode('orthographe');
   const choisirProfil = (id: string) => {
     setMode(grammaire ? null : 'orthographe');
     setIdProfil(id);
@@ -49,7 +60,7 @@ function Joueur({ compte, grammaire }: { compte: Compte; grammaire: boolean }) {
           </FournisseurApp>
         ) : (
           <ContexteMode.Provider
-            value={{ changerDeMode: grammaire ? () => setMode(null) : null }}
+            value={{ changerDeMode: grammaire ? () => setMode(null) : null, rafraichirGrammaire }}
           >
             <FournisseurApp idProfil={idProfil} key={idProfil}>
               <Garde>
@@ -99,7 +110,13 @@ function Racine() {
 
   if (compte === undefined) return <Attente />;
   if (!compte) return <Connexion onConnecte={(c) => void entrer(c)} />;
-  return <Joueur compte={compte} grammaire={grammaire} />;
+  return (
+    <Joueur
+      compte={compte}
+      grammaire={grammaire}
+      rafraichirGrammaire={async () => setGrammaire(await grammaireDisponible())}
+    />
+  );
 }
 
 function Attente() {

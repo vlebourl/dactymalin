@@ -10,7 +10,8 @@ import { routesListes } from './routes/listes';
 import { routesProfils } from './routes/profils';
 import { routesVoix } from './routes/voix';
 import { routesGrammaire } from './routes/grammaire';
-import type { Generateur } from './lib/grammaire';
+import { routesCleAnthropic } from './routes/cle-anthropic';
+import { verifierAvecAnthropic, type Generateur, type VerifierCle } from './lib/grammaire';
 import type { Synthese } from './lib/voix';
 import type { Env } from './env';
 import { identifiantVersion } from './version';
@@ -34,8 +35,10 @@ export type Deps = {
   base?: Base;
   /** Voix de la dictée (Piper) ; absente hors de l'image de production (#124). */
   synthese?: Synthese | null;
-  /** Phrases du mode grammaire ; absent sans clé Anthropic. */
-  grammaire?: Generateur | null;
+  /** Fabrique les phrases à partir de la clé Anthropic du compte ; la vraie par défaut, simulée en test. */
+  fabriqueGrammaire?: (cle: string) => Generateur;
+  /** Vérifie une clé saisie par un parent ; le vrai appel Anthropic par défaut, simulé en test. */
+  verifierCleAnthropic?: VerifierCle;
 };
 
 /**
@@ -106,7 +109,18 @@ export function creerApp(deps: Deps) {
     app.route('/api/profils', routesProfils(deps.base, deps.auth));
     app.route('/api/listes', routesListes(deps.base, deps.auth, deps.synthese ?? null));
     app.route('/api/voix', routesVoix(deps.base, deps.auth, deps.synthese ?? null));
-    app.route('/api/grammaire', routesGrammaire(deps.auth, deps.grammaire ?? null));
+    /* La clé Anthropic d'un compte est chiffrée avec le secret de session :
+       sans lui, ni la clé ni le mode grammaire n'existent. Montée AVANT
+       `/api/compte`, dont le middleware de session ne s'exécute alors pas une
+       seconde fois. */
+    const secret = deps.env.BETTER_AUTH_SECRET;
+    if (secret) {
+      app.route('/api/grammaire', routesGrammaire(deps.base, deps.auth, secret, deps.fabriqueGrammaire));
+      app.route(
+        '/api/compte/cle-anthropic',
+        routesCleAnthropic(deps.base, deps.auth, secret, deps.verifierCleAnthropic ?? verifierAvecAnthropic),
+      );
+    }
     app.route('/api/compte', routesCompte(deps.base, deps.auth));
   }
 
