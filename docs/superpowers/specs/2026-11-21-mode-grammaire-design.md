@@ -1,6 +1,6 @@
 # Mode grammaire : passé, présent ou futur ?
 
-Date : 2026-11-21. Statut : à valider par Vincent.
+Date : 2026-11-21. Statut : validée, implémentée.
 
 ## Pourquoi
 
@@ -139,21 +139,17 @@ près 0,005 centime. Avec l'appel de contrôle, on arrive à environ 0,01 centim
   - de plus de 15 mots ;
   - qui contient un mot de la liste noire, en comparant des mots entiers sans
     tenir compte des majuscules (expressions de plusieurs mots comprises). La
-    liste noire compte 37 entrées : hier, demain, déjà, bientôt, prochain(e)(s),
+    liste noire compte 41 entrées : hier, demain, déjà, bientôt, prochain(e)(s),
     dernier/dernière(s), ce soir, etc. « il y a » est volontairement absent,
     parce qu'il bloquait « Il y a un chat. » ;
   - vide, ou dont le JSON est invalide.
-- **Appel de contrôle** (décidé par Vincent) : un deuxième appel, indépendant,
-  classe la phrase validée **sans connaître le temps demandé**. Il utilise le
-  même modèle et le même effort `low`, avec le format JSON imposé
-  `{ categorie: 'passe' | 'present' | 'futur' | 'ambigu' }`. La consigne
-  demande `ambigu` dès que la phrase contient des verbes conjugués de
-  catégories différentes, comme dans « dessinera un volcan qui crache ». Si la
-  catégorie ne correspond pas à celle demandée, la phrase est rejetée et on
-  refait un tirage.
-  **Ce contrôle n'a pas encore été évalué.** Avant de le brancher, on le fait
-  tourner sur les 150 phrases du spike : il doit toutes les accepter, sauf
-  « dessinera un volcan qui crache », et le taux de faux rejets doit être noté.
+- **Appel de contrôle** (décidé par Vincent après évaluation, voir §Évaluation
+  6-7) : un deuxième appel, indépendant, relève les verbes conjugués de la phrase
+  **sans connaître le temps demandé**, même modèle, effort `low`, format JSON
+  imposé `{ verbes: [{ verbe, categorie }] }`. C'est le code qui décide
+  (`controleAccepte`) : au moins un verbe, tous de la catégorie demandée, et
+  chaque verbe présent dans la phrase. Sinon la phrase est rejetée et on refait
+  un tirage.
 - **Nouvel essai** : jusqu'à 3 tirages neufs, que l'échec vienne du validateur
   ou de l'appel de contrôle. Si les trois échouent, on renvoie
   une erreur, que le client traite comme « indisponible ».
@@ -210,7 +206,7 @@ l'exercice.
   - le validateur : cas acceptés et rejetés, dont « Il y a un chat. » accepté et
     « …demain matin » rejeté ;
   - la boucle de nouvel essai, avec un client Anthropic simulé ;
-  - l'appel de contrôle, avec un client simulé : une catégorie différente ou `ambigu` provoque un rejet ;
+  - `controleAccepte` et l'appel de contrôle, avec un client simulé : aucun verbe, un verbe d'une autre catégorie ou absent de la phrase provoque un rejet ;
   - la route : 401 sans session, 503 sans clé, forme de la réponse, 429 au-delà
     de la limite.
 - vitest, client : la transition d'état vers le choix du mode, puis vers
