@@ -1,20 +1,15 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { MOTS_INTERDITS, SUJETS, THEMES, VERBES } from "./grammaire-banques";
+import Anthropic from '@anthropic-ai/sdk';
+import { MOTS_INTERDITS, SUJETS, THEMES, VERBES } from './grammaire-banques';
 
-export type Categorie = "passe" | "present" | "futur";
-export type Temps = "passe_compose" | "imparfait" | "present" | "futur_simple";
-export type Tirage = {
-  sujet: string;
-  verbe: string;
-  theme: string;
-  temps: Temps;
-};
+export type Categorie = 'passe' | 'present' | 'futur';
+export type Temps = 'passe_compose' | 'imparfait' | 'present' | 'futur_simple';
+export type Tirage = { sujet: string; verbe: string; theme: string; temps: Temps };
 
 export const CATEGORIE_DU_TEMPS: Record<Temps, Categorie> = {
-  passe_compose: "passe",
-  imparfait: "passe",
-  present: "present",
-  futur_simple: "futur",
+  passe_compose: 'passe',
+  imparfait: 'passe',
+  present: 'present',
+  futur_simple: 'futur',
 };
 
 const MOTS_MAX = 15;
@@ -24,13 +19,13 @@ const choisir = <T>(liste: readonly T[], alea: () => number): T =>
 
 /** Tire la catégorie (1/3 chacune), puis pour le passé composé ou imparfait (1/2 chacun). */
 export function tirer(alea: () => number = Math.random): Tirage {
-  const categorie = choisir<Categorie>(["passe", "present", "futur"], alea);
+  const categorie = choisir<Categorie>(['passe', 'present', 'futur'], alea);
   const temps: Temps =
-    categorie === "passe"
-      ? choisir<Temps>(["passe_compose", "imparfait"], alea)
-      : categorie === "present"
-        ? "present"
-        : "futur_simple";
+    categorie === 'passe'
+      ? choisir<Temps>(['passe_compose', 'imparfait'], alea)
+      : categorie === 'present'
+        ? 'present'
+        : 'futur_simple';
   return {
     sujet: choisir(SUJETS, alea),
     verbe: choisir(VERBES, alea),
@@ -39,14 +34,14 @@ export function tirer(alea: () => number = Math.random): Tirage {
   };
 }
 
-const ECHAPPER = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const ECHAPPER = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const INTERDITS = MOTS_INTERDITS.map(
-  (m) => new RegExp(`(?<!\\p{L})${ECHAPPER(m)}(?!\\p{L})`, "iu"),
+  (m) => new RegExp(`(?<!\\p{L})${ECHAPPER(m)}(?!\\p{L})`, 'iu'),
 );
 
 /** Une seule ligne, 15 mots au plus, aucun mot interdit (mots entiers, sans casse). */
 export function phraseValide(phrase: string): boolean {
-  if (!phrase.trim() || phrase.includes("\n")) return false;
+  if (!phrase.trim() || phrase.includes('\n')) return false;
   const mots = phrase.split(/[\s']+/).filter(Boolean);
   if (mots.length > MOTS_MAX) return false;
   return !INTERDITS.some((re) => re.test(phrase));
@@ -68,28 +63,28 @@ export const PROMPT_CONTROLE =
   "Tu aides un enfant de CE1. Dis si cette phrase est au passé, au présent ou au futur, d'après ses verbes conjugués. Le passé composé et l'imparfait sont du passé. Si la phrase contient des verbes conjugués de catégories différentes, réponds ambigu.";
 
 const SCHEMA_GENERATION = {
-  type: "object",
-  properties: { phrase: { type: "string" } },
-  required: ["phrase"],
+  type: 'object',
+  properties: { phrase: { type: 'string' } },
+  required: ['phrase'],
   additionalProperties: false,
 };
 const SCHEMA_CONTROLE = {
-  type: "object",
+  type: 'object',
   properties: {
     categorie: {
-      type: "string",
-      enum: ["passe", "present", "futur", "ambigu"],
+      type: 'string',
+      enum: ['passe', 'present', 'futur', 'ambigu'],
     },
   },
-  required: ["categorie"],
+  required: ['categorie'],
   additionalProperties: false,
 };
 
 const LIBELLE_TEMPS: Record<Temps, string> = {
-  passe_compose: "passé composé",
-  imparfait: "imparfait",
+  passe_compose: 'passé composé',
+  imparfait: 'imparfait',
   present: "présent de l'indicatif",
-  futur_simple: "futur simple",
+  futur_simple: 'futur simple',
 };
 
 const ESSAIS_MAX = 3;
@@ -108,7 +103,7 @@ export function creerGenerateur(
         SCHEMA_GENERATION,
       )) as { phrase?: unknown } | null;
       const phrase = generee?.phrase;
-      if (typeof phrase !== "string" || !phraseValide(phrase)) continue;
+      if (typeof phrase !== 'string' || !phraseValide(phrase)) continue;
       const controle = (await demander(
         PROMPT_CONTROLE,
         phrase,
@@ -130,26 +125,26 @@ export function demanderAvecAnthropic(cle: string): Demander {
   return async (system, utilisateur, schema) => {
     try {
       const reponse = await client.messages.create({
-        model: "claude-haiku-5-5",
+        model: 'claude-haiku-5-5',
         max_tokens: 1024,
         output_config: {
-          effort: "low",
+          effort: 'low',
           format: {
-            type: "json_schema",
+            type: 'json_schema',
             schema: schema as Record<string, unknown>,
           },
         },
         system,
-        messages: [{ role: "user", content: utilisateur }],
+        messages: [{ role: 'user', content: utilisateur }],
       });
-      if (reponse.stop_reason !== "end_turn") return null;
+      if (reponse.stop_reason !== 'end_turn') return null;
       const texte = reponse.content
-        .map((b) => (b.type === "text" ? b.text : ""))
-        .join("");
+        .map((b) => (b.type === 'text' ? b.text : ''))
+        .join('');
       return JSON.parse(texte) as unknown;
     } catch (e) {
       console.error(
-        "grammaire : appel Anthropic échoué",
+        'grammaire : appel Anthropic échoué',
         e instanceof Anthropic.APIError
           ? `APIError ${e.status}`
           : (e as Error)?.name,
