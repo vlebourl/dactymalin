@@ -58,6 +58,8 @@ export default defineConfig({
         BETTER_AUTH_SECRET: 'developpement-uniquement-32-caracteres-minimum',
         BETTER_AUTH_URL: BASE_URL,
         FRONTEND_URL: BASE_URL,
+        /* Jamais d'appel réel à Anthropic en e2e : le mode grammaire y est indisponible. */
+        ANTHROPIC_API_KEY: '',
       },
     },
     {
