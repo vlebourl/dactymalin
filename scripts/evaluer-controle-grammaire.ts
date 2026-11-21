@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   PROMPT_CONTROLE,
+  controleAccepte,
   SCHEMA_CONTROLE,
   demanderAvecAnthropic,
 } from '../server/src/lib/grammaire';
@@ -92,25 +93,29 @@ const demander = demanderAvecAnthropic(cle);
 
 const MIXTE = 'Mon grand-père dessinera un volcan qui crache des étoiles orange.';
 let accords = 0;
-let ambigus = 0;
+let erreurs = 0;
 const desaccords: string[] = [];
 let verdictMixte = 'phrase absente des données';
 
 // Un par un : pas de rafale vers l'API.
 for (const { attendu, phrase } of cas) {
-  const rep = (await demander(PROMPT_CONTROLE, phrase, SCHEMA_CONTROLE)) as {
-    categorie?: string;
-  } | null;
-  const obtenu = rep?.categorie ?? 'erreur';
-  if (phrase === MIXTE) verdictMixte = `${attendu} attendu → ${obtenu}`;
-  if (obtenu === attendu) accords++;
-  else {
-    if (obtenu === 'ambigu') ambigus++;
-    desaccords.push(`${attendu} → ${obtenu} : ${phrase}`);
+  const rep = await demander(PROMPT_CONTROLE, phrase, SCHEMA_CONTROLE);
+  const accord = controleAccepte(phrase, rep, attendu);
+  const liste = Array.isArray((rep as { verbes?: unknown } | null)?.verbes)
+    ? (rep as { verbes: { verbe: string; categorie: string }[] }).verbes
+        .map((v) => `${v?.verbe}:${v?.categorie}`)
+        .join(', ')
+    : '';
+  if (phrase === MIXTE) {
+    verdictMixte = `${attendu} attendu → ${accord ? 'accepté' : 'refusé'} [${liste}]`;
   }
+  if (accord) accords++;
+  else if (rep === null) erreurs++;
+  else desaccords.push(`${attendu} → [${liste}] : ${phrase}`);
 }
 
 console.log(`accords : ${accords}/${cas.length}`);
-console.log(`désaccords : ${desaccords.length} (dont ambigu : ${ambigus})`);
+console.log(`erreurs d'API (réponses nulles) : ${erreurs}`);
+console.log(`désaccords : ${desaccords.length}`);
 desaccords.forEach((d) => console.log(d));
 console.log(`\nPhrase mixte « ${MIXTE} » : ${verdictMixte}`);

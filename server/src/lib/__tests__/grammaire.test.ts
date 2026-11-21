@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SUJETS, THEMES, VERBES } from '../grammaire-banques';
 import {
   CATEGORIE_DU_TEMPS,
+  controleAccepte,
   creerGenerateur,
   phraseValide,
   tirer,
@@ -67,19 +68,24 @@ describe('creerGenerateur', () => {
   const phrase = 'Maël mange une pomme.';
 
   it('phrase valide puis contrôle concordant : 2 appels exactement', async () => {
-    const { demander, appels } = simule([{ phrase }, { categorie: 'passe' }]);
+    const { demander, appels } = simule([{ phrase }, { verbes: [{ verbe: 'mange', categorie: 'passe' }] }]);
     // alea à 0 : catégorie passé
     const r = await creerGenerateur(demander, () => 0)();
     expect(r).toEqual({ phrase, categorie: 'passe' });
     expect(appels).toHaveLength(2);
   });
 
-  it.each(['ambigu', 'futur'])('contrôle %s : nouveau tirage', async (cat) => {
+  it('contrôle à catégories mêlées : nouveau tirage', async () => {
     const { demander, appels } = simule([
       { phrase },
-      { categorie: cat },
+      {
+        verbes: [
+          { verbe: 'mange', categorie: 'passe' },
+          { verbe: 'une', categorie: 'futur' },
+        ],
+      },
       { phrase },
-      { categorie: 'passe' },
+      { verbes: [{ verbe: 'mange', categorie: 'passe' }] },
     ]);
     const r = await creerGenerateur(demander, () => 0)();
     expect(r?.categorie).toBe('passe');
@@ -90,7 +96,7 @@ describe('creerGenerateur', () => {
     const { demander, appels } = simule([
       { phrase: 'Hier, Maël mange une pomme.' },
       { phrase },
-      { categorie: 'passe' },
+      { verbes: [{ verbe: 'mange', categorie: 'passe' }] },
     ]);
     const r = await creerGenerateur(demander, () => 0)();
     expect(r?.phrase).toBe(phrase);
@@ -103,7 +109,7 @@ describe('creerGenerateur', () => {
       const { demander, appels } = simule([
         mauvaise,
         { phrase },
-        { categorie: 'passe' },
+        { verbes: [{ verbe: 'mange', categorie: 'passe' }] },
       ]);
       const r = await creerGenerateur(demander, () => 0)();
       expect(r?.phrase).toBe(phrase);
@@ -112,16 +118,28 @@ describe('creerGenerateur', () => {
   );
 
   it('trois échecs : null, 6 appels au plus', async () => {
-    const toujoursAmbigu = [] as unknown[];
+    const toujoursMele = [] as unknown[];
     for (let i = 0; i < 3; i++)
-      toujoursAmbigu.push({ phrase }, { categorie: 'ambigu' });
-    const { demander, appels } = simule(toujoursAmbigu);
+      toujoursMele.push({ phrase }, { verbes: [] });
+    const { demander, appels } = simule(toujoursMele);
     expect(await creerGenerateur(demander, () => 0)()).toBeNull();
     expect(appels.length).toBeLessThanOrEqual(6);
   });
 
+  it('verbe inventé par le contrôle : nouveau tirage', async () => {
+    const { demander, appels } = simule([
+      { phrase },
+      { verbes: [{ verbe: 'dormira', categorie: 'passe' }] },
+      { phrase },
+      { verbes: [{ verbe: 'mange', categorie: 'passe' }] },
+    ]);
+    const r = await creerGenerateur(demander, () => 0)();
+    expect(r?.categorie).toBe('passe');
+    expect(appels).toHaveLength(4);
+  });
+
   it('la consigne de contrôle ne révèle ni le temps ni la catégorie attendue', async () => {
-    const { demander, appels } = simule([{ phrase }, { categorie: 'passe' }]);
+    const { demander, appels } = simule([{ phrase }, { verbes: [{ verbe: 'mange', categorie: 'passe' }] }]);
     await creerGenerateur(demander, () => 0)();
     const generation = appels[0]!.utilisateur;
     expect(generation).toContain('Temps : passé composé.');
@@ -130,5 +148,50 @@ describe('creerGenerateur', () => {
     expect(controle).not.toMatch(
       /passé composé|imparfait|futur|présent|passe/i,
     );
+  });
+});
+
+describe('controleAccepte', () => {
+  const dort = { verbes: [{ verbe: 'dort', categorie: 'present' }] };
+
+  it('accepte un verbe présent de la bonne catégorie', () => {
+    expect(controleAccepte('Le chat dort.', dort, 'present')).toBe(true);
+  });
+
+  it('refuse la mauvaise catégorie', () => {
+    expect(controleAccepte('Le chat dort.', dort, 'futur')).toBe(false);
+  });
+
+  it('refuse des catégories mêlées', () => {
+    const mixte = {
+      verbes: [
+        { verbe: 'dessinera', categorie: 'futur' },
+        { verbe: 'crache', categorie: 'present' },
+      ],
+    };
+    expect(
+      controleAccepte(
+        'Mon grand-père dessinera un volcan qui crache des étoiles orange.',
+        mixte,
+        'futur',
+      ),
+    ).toBe(false);
+  });
+
+  it('refuse une liste vide', () => {
+    expect(controleAccepte('Le chat dort.', { verbes: [] }, 'present')).toBe(
+      false,
+    );
+  });
+
+  it("refuse un verbe absent de la phrase", () => {
+    const faux = { verbes: [{ verbe: 'mange', categorie: 'present' }] };
+    expect(controleAccepte('Le chat dort.', faux, 'present')).toBe(false);
+  });
+
+  it('refuse une réponse mal formée ou nulle', () => {
+    for (const r of [null, undefined, 42, {}, { verbes: 'dort' }, { verbes: [null] }]) {
+      expect(controleAccepte('Le chat dort.', r, 'present')).toBe(false);
+    }
   });
 });

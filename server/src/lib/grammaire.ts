@@ -60,7 +60,7 @@ export const PROMPT_GENERATION =
   "Tu écris des phrases d'exercice de grammaire pour un enfant de 8 ans. On te donne un sujet, un verbe à l'infinitif, un thème et un temps. Écris UNE phrase simple en français qui commence par ce sujet, avec ce verbe comme seul verbe conjugué, au temps demandé, en rapport avec le thème. Vocabulaire du quotidien, 12 mots au plus. N'emploie aucun mot qui indique le moment (hier, demain, aujourd'hui, maintenant, bientôt, autrefois, ce matin, la semaine prochaine…) : seul le verbe doit montrer le temps. Si la combinaison est étrange, écris une phrase amusante mais correcte. Mets uniquement la phrase finale dans le champ phrase.";
 
 export const PROMPT_CONTROLE =
-  "Tu aides un enfant de CE1. Dis si cette phrase est au passé, au présent ou au futur, d'après ses verbes conjugués. Le passé composé et l'imparfait sont du passé. Si la phrase contient des verbes conjugués de catégories différentes, réponds ambigu.";
+  "Tu aides un enfant de CE1. Relève TOUS les verbes conjugués de la phrase, y compris ceux des propositions subordonnées (après qui, que, quand, si, pendant que…). Pour un temps composé, donne l'auxiliaire et le participe ensemble (ex. « a mangé »). Ne relève ni les infinitifs, ni les participes présents, ni les gérondifs. Pour chaque verbe, donne sa catégorie : passe (passé composé, imparfait), present ou futur.";
 
 const SCHEMA_GENERATION = {
   type: 'object',
@@ -71,14 +71,45 @@ const SCHEMA_GENERATION = {
 export const SCHEMA_CONTROLE = {
   type: 'object',
   properties: {
-    categorie: {
-      type: 'string',
-      enum: ['passe', 'present', 'futur', 'ambigu'],
+    verbes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          verbe: { type: 'string' },
+          categorie: { type: 'string', enum: ['passe', 'present', 'futur'] },
+        },
+        required: ['verbe', 'categorie'],
+        additionalProperties: false,
+      },
     },
   },
-  required: ['categorie'],
+  required: ['verbes'],
   additionalProperties: false,
 };
+
+/** Le contrôle est accepté si tous les verbes relevés (au moins un, présents dans la phrase) sont de la catégorie attendue. */
+export function controleAccepte(
+  phrase: string,
+  reponse: unknown,
+  attendue: Categorie,
+): boolean {
+  const verbes = (reponse as { verbes?: unknown } | null)?.verbes;
+  if (!Array.isArray(verbes) || verbes.length === 0) return false;
+  const minuscule = phrase.toLowerCase();
+  return verbes.every((v) => {
+    const { verbe, categorie } = (v ?? {}) as {
+      verbe?: unknown;
+      categorie?: unknown;
+    };
+    return (
+      categorie === attendue &&
+      typeof verbe === 'string' &&
+      verbe.trim() !== '' &&
+      minuscule.includes(verbe.trim().toLowerCase())
+    );
+  });
+}
 
 const LIBELLE_TEMPS: Record<Temps, string> = {
   passe_compose: 'passé composé',
@@ -104,15 +135,10 @@ export function creerGenerateur(
       )) as { phrase?: unknown } | null;
       const phrase = generee?.phrase;
       if (typeof phrase !== 'string' || !phraseValide(phrase)) continue;
-      const controle = (await demander(
-        PROMPT_CONTROLE,
-        phrase,
-        SCHEMA_CONTROLE,
-      )) as {
-        categorie?: unknown;
-      } | null;
-      if (controle?.categorie === CATEGORIE_DU_TEMPS[t.temps]) {
-        return { phrase, categorie: CATEGORIE_DU_TEMPS[t.temps] };
+      const controle = await demander(PROMPT_CONTROLE, phrase, SCHEMA_CONTROLE);
+      const attendue = CATEGORIE_DU_TEMPS[t.temps];
+      if (controleAccepte(phrase, controle, attendue)) {
+        return { phrase, categorie: attendue };
       }
     }
     return null;
