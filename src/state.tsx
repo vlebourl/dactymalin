@@ -434,7 +434,7 @@ export function aSauvegarder(etat: EtatApp): Sauvegarde {
  * parent à la racine ; sans cette lecture il atterrirait sur l'accueil de
  * l'enfant, sans savoir si son geste a abouti.
  */
-function retourDeRattachement(): boolean {
+export function retourDeRattachement(): boolean {
   if (typeof location === 'undefined') return false;
   return new URLSearchParams(location.search).has(MARQUEUR_RATTACHEMENT);
 }

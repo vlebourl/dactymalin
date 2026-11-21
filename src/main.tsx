@@ -1,12 +1,15 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { grammaireDisponible } from './core/grammaire';
 import { profilInitial } from './core/profils';
 import lettresAudio from './data/voix-lettres.json';
 import { compteCourant, listesDistantes, synchroniserProfils, type Compte } from './core/sync';
-import { FournisseurApp } from './state';
+import { FournisseurApp, retourDeRattachement } from './state';
 import { BandeauCompte } from './ui/BandeauCompte';
 import { Garde } from './ui/Garde';
+import { ContexteMode } from './ui/mode';
+import { ChoixMode } from './views/ChoixMode';
 import { Connexion } from './views/Connexion';
 import { V0Profils } from './views/V0Profils';
 import u from './ui/ui.module.css';
@@ -15,8 +18,17 @@ import './styles/tokens.css';
 /* Le choix du joueur précède tout : l'état de l'app se charge depuis la clé
    du profil choisi — son identifiant SERVEUR. `key` remonte l'arbre entier au
    changement de joueur. */
-function Joueur({ compte }: { compte: Compte }) {
+function Joueur({ compte, grammaire }: { compte: Compte; grammaire: boolean }) {
   const [idProfil, setIdProfil] = useState<string | null>(() => profilInitial());
+  /* Sans grammaire (ou au retour d'un rattachement), on joue l'orthographe
+     d'emblée : aucun écran de plus, comportement d'avant. */
+  const [mode, setMode] = useState<'orthographe' | 'grammaire' | null>(() =>
+    grammaire && !retourDeRattachement() ? null : 'orthographe',
+  );
+  const choisirProfil = (id: string) => {
+    setMode(grammaire ? null : 'orthographe');
+    setIdProfil(id);
+  };
   /* Le bandeau est posé ICI, au-dessus du choix du joueur ET du commutateur de
      vues : il couvre donc tous les écrans, n'est écrit qu'une fois, et ne se
      démonte à aucun changement de vue ni de joueur. */
@@ -25,13 +37,22 @@ function Joueur({ compte }: { compte: Compte }) {
       <BandeauCompte compte={compte} />
       <div className={u.contenuAppli}>
         {!idProfil ? (
-          <V0Profils onChoix={setIdProfil} />
+          <V0Profils onChoix={choisirProfil} />
+        ) : mode === null ? (
+          <ChoixMode onChoix={setMode} />
+        ) : mode === 'grammaire' ? (
+          // ponytail: l'écran de grammaire arrive à la tâche 6
+          <p>Bientôt</p>
         ) : (
-          <FournisseurApp idProfil={idProfil} key={idProfil}>
-            <Garde>
-              <App />
-            </Garde>
-          </FournisseurApp>
+          <ContexteMode.Provider
+            value={{ changerDeMode: grammaire ? () => setMode(null) : null }}
+          >
+            <FournisseurApp idProfil={idProfil} key={idProfil}>
+              <Garde>
+                <App />
+              </Garde>
+            </FournisseurApp>
+          </ContexteMode.Provider>
         )}
       </div>
     </div>
@@ -43,6 +64,7 @@ function Joueur({ compte }: { compte: Compte }) {
    parent déjà connecté. */
 function Racine() {
   const [compte, setCompte] = useState<Compte | null | undefined>(undefined);
+  const [grammaire, setGrammaire] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -52,6 +74,7 @@ function Racine() {
          un stockage qu'on est en train de réécrire. Un échec (hors ligne) ne
          doit jamais empêcher de jouer : le cache local prend alors le relais. */
       if (c) await synchroniserProfils().catch(() => {});
+      if (c) setGrammaire(await grammaireDisponible());
       setCompte(c);
     })();
   }, []);
@@ -66,12 +89,13 @@ function Racine() {
        joue ? » repartirait sinon avec la bibliothèque de sa session d'avant.
        On ne fait qu'emplir le cache — l'écran la lira au montage. */
     await listesDistantes().catch(() => {});
+    setGrammaire(await grammaireDisponible());
     setCompte(c);
   };
 
   if (compte === undefined) return <Attente />;
   if (!compte) return <Connexion onConnecte={(c) => void entrer(c)} />;
-  return <Joueur compte={compte} />;
+  return <Joueur compte={compte} grammaire={grammaire} />;
 }
 
 function Attente() {
