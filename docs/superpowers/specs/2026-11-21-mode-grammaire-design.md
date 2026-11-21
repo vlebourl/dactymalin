@@ -95,6 +95,20 @@ Les appels sont faits un par un avec `claude-haiku-5-5`, effort `low` :
    longueur (16 mots). On y trouve souvent des adverbes d'habitude (« souvent »,
    « chaque soir »). Ils vont avec tous les temps, donc ne donnent pas la
    réponse.
+6. **Appel de contrôle, version 1** (enum `passe|present|futur|ambigu`,
+   `eval-controle-v1.txt`) : sur 179 phrases, 172 sont acceptées. Le contrôle
+   repère 2 mélanges sur 3, mais **rate « dessinera un volcan qui crache »**.
+   Il rejette aussi à tort 5 phrases justes. Rejeté.
+7. **Appel de contrôle, version 2**, retenue par Vincent (liste des verbes
+   conjugués, décision prise par le code avec `controleAccepte`,
+   `eval-controle-v2.txt`) : sur 179 phrases, 174 sont acceptées, sans aucune
+   erreur d'API. **Les 3 vrais mélanges sont refusés**, dont celui du volcan.
+   Il reste 2 faux rejets, soit environ 1 %, sans gravité puisqu'on refait
+   simplement un tirage :
+   - « Elle a **bien** dormi » : l'adverbe sépare l'auxiliaire du participe ;
+   - « Vous gonfliez » : le modèle l'a lu comme du présent.
+
+   Le critère de la tâche 3 du plan est tenu.
 
 Le coût est d'environ 330 tokens en entrée et 30 en sortie par phrase, soit à peu
 près 0,005 centime. Avec l'appel de contrôle, on arrive à environ 0,01 centime par phrase.

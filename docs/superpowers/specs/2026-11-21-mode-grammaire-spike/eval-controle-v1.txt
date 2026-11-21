@@ -1,0 +1,11 @@
+accords : 172/179
+désaccords : 7 (dont ambigu : 6)
+present → ambigu : Les enfants dorment sur un banc de la gare en attendant le train.
+futur → ambigu : Inès criera très fort si le volcan se réveille soudainement.
+futur → ambigu : Malo criera très fort si la confiture tombe sur son bol de chocolat.
+passe → ambigu : Vous êtes allés au jardin pour arroser les fleurs.
+present → ambigu : Maël arrose les fleurs du jardin, même quand la neige tombe doucement sur la terre.
+futur → ambigu : Emma ira à l'école à pied avec son frère.
+passe → present : Vous gonfliez le ballon rouge sur la plage.
+
+Phrase mixte « Mon grand-père dessinera un volcan qui crache des étoiles orange. » : futur attendu → futur
