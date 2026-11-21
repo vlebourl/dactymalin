@@ -1,0 +1,62 @@
+   · généré : "La tortue fabrique un gâteau d'anniversaire."   [Sujet : la tortue. Verbe : fabriquer. Thème : un anniversaire. Temps : présent de l'indicatif.]
+present 	2 appels	La tortue fabrique un gâteau d'anniversaire.
+   · généré : "Le cheval a soufflé le sable chaud."   [Sujet : le cheval. Verbe : souffler. Thème : l'été. Temps : passé composé.]
+passe   	2 appels	Le cheval a soufflé le sable chaud.
+   · généré : "Jade range une chaise."   [Sujet : Jade. Verbe : ranger. Thème : le cinéma. Temps : présent de l'indicatif.]
+present 	2 appels	Jade range une chaise.
+   · généré : "Les oiseaux prennent un bain."   [Sujet : les oiseaux. Verbe : prendre. Thème : la pluie. Temps : présent de l'indicatif.]
+present 	2 appels	Les oiseaux prennent un bain.
+   · généré : "Le pilote a cueilli une pomme."   [Sujet : le pilote. Verbe : cueillir. Thème : la ferme. Temps : passé composé.]
+passe   	2 appels	Le pilote a cueilli une pomme.
+   · généré : "La pompière secouait le tapis."   [Sujet : la pompière. Verbe : secouer. Thème : la récréation. Temps : imparfait.]
+passe   	2 appels	La pompière secouait le tapis.
+   · généré : "Le pirate préparait un grand bateau."   [Sujet : le pirate. Verbe : préparer. Thème : le zoo. Temps : imparfait.]
+passe   	2 appels	Le pirate préparait un grand bateau.
+   · généré : "Nous secouerons les grands arbres."   [Sujet : nous. Verbe : secouer. Thème : le parc. Temps : futur simple.]
+futur   	2 appels	Nous secouerons les grands arbres.
+   · généré : "La pompière lance un ballon rouge."   [Sujet : la pompière. Verbe : lancer. Thème : la salle de bain. Temps : présent de l'indicatif.]
+present 	2 appels	La pompière lance un ballon rouge.
+   · généré : "Le clown soufflera des bulles."   [Sujet : le clown. Verbe : souffler. Thème : la récréation. Temps : futur simple.]
+futur   	2 appels	Le clown soufflera des bulles.
+   · généré : "Le bébé compte les fleurs."   [Sujet : le bébé. Verbe : compter. Thème : le printemps. Temps : présent de l'indicatif.]
+present 	2 appels	Le bébé compte les fleurs.
+   · généré : "Le géant a compté les manèges."   [Sujet : le géant. Verbe : compter. Thème : la fête foraine. Temps : passé composé.]
+passe   	2 appels	Le géant a compté les manèges.
+   · généré : "Les voisins ont regardé un film."   [Sujet : les voisins. Verbe : regarder. Thème : le cinéma. Temps : passé composé.]
+passe   	2 appels	Les voisins ont regardé un film.
+   · généré : "Le géant plie une grande tartine."   [Sujet : le géant. Verbe : plier. Thème : le goûter. Temps : présent de l'indicatif.]
+present 	2 appels	Le géant plie une grande tartine.
+   · généré : "Maël construit un but."   [Sujet : Maël. Verbe : construire. Thème : le football. Temps : présent de l'indicatif.]
+present 	2 appels	Maël construit un but.
+   · généré : "Les lutins ont réparé une chaise."   [Sujet : les lutins. Verbe : réparer. Thème : le salon. Temps : passé composé.]
+passe   	2 appels	Les lutins ont réparé une chaise.
+   · généré : "La vétérinaire lavera le chien."   [Sujet : la vétérinaire. Verbe : laver. Thème : la bibliothèque. Temps : futur simple.]
+futur   	2 appels	La vétérinaire lavera le chien.
+   · généré : "La princesse cuisinera un gâteau."   [Sujet : la princesse. Verbe : cuisiner. Thème : l'aéroport. Temps : futur simple.]
+futur   	2 appels	La princesse cuisinera un gâteau.
+   · généré : "Mes parents nourrissent un poisson."   [Sujet : mes parents. Verbe : nourrir. Thème : une île. Temps : présent de l'indicatif.]
+present 	2 appels	Mes parents nourrissent un poisson.
+   · généré : "Le robot casse une caméra."   [Sujet : le robot. Verbe : casser. Thème : le cinéma. Temps : présent de l'indicatif.]
+present 	2 appels	Le robot casse une caméra.
+   · généré : "Le pirate a donné un panier."   [Sujet : le pirate. Verbe : donner. Thème : le supermarché. Temps : passé composé.]
+passe   	2 appels	Le pirate a donné un panier.
+   · généré : "Sami mangeait un gros os."   [Sujet : Sami. Verbe : manger. Thème : les dinosaures. Temps : imparfait.]
+passe   	2 appels	Sami mangeait un gros os.
+   · généré : "Ils ont peint un grand lion."   [Sujet : ils. Verbe : peindre. Thème : le zoo. Temps : passé composé.]
+passe   	2 appels	Ils ont peint un grand lion.
+   · généré : "Le maître rangera la craie."   [Sujet : le maître. Verbe : ranger. Thème : la gare. Temps : futur simple.]
+futur   	2 appels	Le maître rangera la craie.
+   · généré : "Le bébé cassait un seau."   [Sujet : le bébé. Verbe : casser. Thème : la plage. Temps : imparfait.]
+passe   	2 appels	Le bébé cassait un seau.
+   · généré : "Jade voit la lune."   [Sujet : Jade. Verbe : voir. Thème : la lune. Temps : présent de l'indicatif.]
+present 	2 appels	Jade voit la lune.
+   · généré : "Malo chantera une chanson."   [Sujet : Malo. Verbe : chanter. Thème : le salon. Temps : futur simple.]
+futur   	2 appels	Malo chantera une chanson.
+   · généré : "Ma cousine chantera une chanson."   [Sujet : ma cousine. Verbe : chanter. Thème : la boulangerie. Temps : futur simple.]
+futur   	2 appels	Ma cousine chantera une chanson.
+   · généré : "Maël roulera un ballon rouge."   [Sujet : Maël. Verbe : rouler. Thème : la forêt. Temps : futur simple.]
+futur   	2 appels	Maël roulera un ballon rouge.
+   · généré : "La vétérinaire touchait un tableau."   [Sujet : la vétérinaire. Verbe : toucher. Thème : un musée. Temps : imparfait.]
+passe   	2 appels	La vétérinaire touchait un tableau.
+
+30/30 phrases, 0 échecs (503), 60 appels au total

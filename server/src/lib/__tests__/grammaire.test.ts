@@ -35,13 +35,38 @@ describe('tirer', () => {
     const exclus = ['savoir', 'vouloir', 'pouvoir', 'dire', 'être', 'avoir'];
     for (let i = 0; i < 3000; i++) expect(exclus).not.toContain(tirer().verbe);
   });
+
+  it("ne garde que des verbes qui prennent un COD (phrase sujet + verbe + COD)", () => {
+    const intransitifs = [
+      'dormir', 'courir', 'marcher', 'nager', 'sauter', 'danser', 'rire', 'crier', 'tomber',
+      'grimper', 'partir', 'arriver', 'venir', 'aller', 'sortir', 'rentrer', 'parler', 'jouer', 'mettre',
+    ];
+    for (const v of intransitifs) expect(VERBES).not.toContain(v);
+    expect(VERBES.length).toBeGreaterThanOrEqual(60);
+  });
 });
 
 describe('phraseValide', () => {
-  it.each(['Il y a un chat.', 'Le hérisson dort sous les feuilles.', 'Mon grand-père répare la passerelle.'])(
-    'accepte %s',
-    (p) => expect(phraseValide(p)).toBe(true),
-  );
+  it.each([
+    'Le chat mange une souris.',
+    'Mon grand-père répare la passerelle.',
+    'Les enfants ont construit un château.',
+    'Maël buvait du lait.',
+    "Tu prendras de l'eau.",
+  ])('accepte %s', (p) => expect(phraseValide(p)).toBe(true));
+
+  it.each([
+    'Le chat mange une souris dans le jardin.',
+    'Léa donne un livre à Tom.',
+    'Le chat mange une souris qui dort.',
+    'Léa mange une pomme et une poire.',
+    'Le chien, très content, mange un os.',
+    'Le hérisson dort sous les feuilles.',
+    'Tom mange une pomme avec sa sœur.',
+    'Il y a un chat.',
+    'Le chat ne mange pas la souris.',
+    'Mon cousin regardait les grands bateaux rouges du port de pêche.',
+  ])('rejette ce qui sort de sujet + verbe + COD : %j', (p) => expect(phraseValide(p)).toBe(false));
 
   it.each([
     'Le géant chantera une chanson joyeuse au marché demain matin.',
