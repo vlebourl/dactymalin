@@ -11,6 +11,13 @@ export async function grammaireDisponible(): Promise<boolean> {
   }
 }
 
+/* Exercices du mode grammaire : le menu les liste tels quels. Ajouter un
+   exercice = une entrée ici (et son id dans IdExercice). */
+export type IdExercice = 'temps';
+export const EXERCICES_GRAMMAIRE: readonly { id: IdExercice; titre: string; consigne: string }[] = [
+  { id: 'temps', titre: 'Passé, présent ou futur ?', consigne: 'Trouve le temps de la phrase.' },
+];
+
 export type Categorie = 'passe' | 'present' | 'futur';
 export type PhraseGrammaire = { phrase: string; categorie: Categorie };
 

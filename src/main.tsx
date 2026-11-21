@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { grammaireDisponible } from './core/grammaire';
+import { grammaireDisponible, type IdExercice } from './core/grammaire';
 import { profilInitial } from './core/profils';
 import lettresAudio from './data/voix-lettres.json';
 import { compteCourant, listesDistantes, synchroniserProfils, type Compte } from './core/sync';
@@ -12,6 +12,7 @@ import { ContexteMode } from './ui/mode';
 import { ChoixMode } from './views/ChoixMode';
 import { Connexion } from './views/Connexion';
 import { VGrammaire } from './views/VGrammaire';
+import { MenuGrammaire } from './views/MenuGrammaire';
 import { V0Profils } from './views/V0Profils';
 import u from './ui/ui.module.css';
 import './styles/tokens.css';
@@ -34,10 +35,17 @@ function Joueur({
   const [mode, setMode] = useState<'orthographe' | 'grammaire' | null>(() =>
     grammaire && !retourDeRattachement() ? null : 'orthographe',
   );
+  /* Exercice de grammaire choisi dans le menu ; null = on est au menu. */
+  const [exercice, setExercice] = useState<IdExercice | null>(null);
   /* La clé vient d'être retirée : plus de grammaire, on revient à
      l'orthographe. L'inverse (clé posée) ne bascule pas l'enfant de lui-même. */
   if (!grammaire && mode !== 'orthographe') setMode('orthographe');
+  const changerMode = (m: 'orthographe' | 'grammaire' | null) => {
+    setExercice(null);
+    setMode(m);
+  };
   const choisirProfil = (id: string) => {
+    setExercice(null);
     setMode(grammaire ? null : 'orthographe');
     setIdProfil(id);
   };
@@ -51,16 +59,28 @@ function Joueur({
         {!idProfil ? (
           <V0Profils onChoix={choisirProfil} />
         ) : mode === null ? (
-          <ChoixMode onChoix={setMode} />
+          <ChoixMode onChoix={changerMode} />
         ) : mode === 'grammaire' ? (
-          <FournisseurApp idProfil={idProfil} key={idProfil} repereVue="GRAMMAIRE">
+          /* Menu et exercice partagent le même FournisseurApp (même clé) : pas de remontage. */
+          <FournisseurApp
+            idProfil={idProfil}
+            key={idProfil}
+            repereVue={exercice ? 'GRAMMAIRE' : 'MENU_GRAMMAIRE'}
+          >
             <Garde>
-              <VGrammaire changerDeMode={() => setMode(null)} />
+              {exercice ? (
+                <VGrammaire
+                  changerDeMode={() => changerMode(null)}
+                  autreExercice={() => setExercice(null)}
+                />
+              ) : (
+                <MenuGrammaire onChoix={setExercice} changerDeMode={() => changerMode(null)} />
+              )}
             </Garde>
           </FournisseurApp>
         ) : (
           <ContexteMode.Provider
-            value={{ changerDeMode: grammaire ? () => setMode(null) : null, rafraichirGrammaire }}
+            value={{ changerDeMode: grammaire ? () => changerMode(null) : null, rafraichirGrammaire }}
           >
             <FournisseurApp idProfil={idProfil} key={idProfil}>
               <Garde>

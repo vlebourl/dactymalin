@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  EXERCICES_GRAMMAIRE,
   grammaireDisponible,
   phraseSuivante,
   repondre,
@@ -104,5 +105,13 @@ describe('phraseSuivante', () => {
   it('une erreur réseau donne null', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('hors ligne')));
     expect(await phraseSuivante(new Set())).toBeNull();
+  });
+});
+
+describe('EXERCICES_GRAMMAIRE', () => {
+  it("ne contient que l'exercice « temps »", () => {
+    expect(EXERCICES_GRAMMAIRE.map((e) => [e.id, e.titre])).toEqual([
+      ['temps', 'Passé, présent ou futur ?'],
+    ]);
   });
 });

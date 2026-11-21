@@ -8,8 +8,8 @@ const FILE = Array.from({ length: 22 }, (_, i) => ({
 }));
 const LIBELLE = { passe: 'Passé', present: 'Présent', futur: 'Futur' };
 
-/* Mène l'app jusqu'à la vue grammaire, `phrase` étant simulé. */
-async function versGrammaire(page: Page, phrase: (n: number) => { status: number; json: unknown }) {
+/* Mène l'app jusqu'au menu des exercices, `phrase` étant simulé. */
+async function versMenu(page: Page, phrase: (n: number) => { status: number; json: unknown }) {
   await ouvrir(page);
   await page.route('**/api/grammaire/etat', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: '{"disponible":true}' }),
@@ -21,8 +21,22 @@ async function versGrammaire(page: Page, phrase: (n: number) => { status: number
   });
   await page.reload();
   await page.getByRole('button', { name: 'Grammaire' }).click();
+  await page.waitForSelector('body[data-vue="MENU_GRAMMAIRE"]');
+}
+/* Puis jusqu'à l'exercice « temps ». */
+async function versGrammaire(page: Page, phrase: (n: number) => { status: number; json: unknown }) {
+  await versMenu(page, phrase);
+  await page.getByRole('button', { name: 'Passé, présent ou futur ?' }).click();
+  await page.waitForSelector('body[data-vue="GRAMMAIRE"]');
 }
 const file = (n: number) => ({ status: 200, json: FILE[n] });
+const finDeSerie = async (page: Page) => {
+  for (let i = 0; i < 10; i++) {
+    await expect(page.getByText(FILE[i].phrase)).toBeVisible();
+    await bouton(page, FILE[i].categorie).click();
+    if (i < 9) await expect(page.getByText(FILE[i + 1].phrase)).toBeVisible();
+  }
+};
 const bouton = (page: Page, c: keyof typeof LIBELLE) =>
   page.getByRole('button', { name: LIBELLE[c], exact: false });
 
@@ -59,13 +73,16 @@ test('série de 10 : score x / 10, puis Encore relance une série', async ({ pag
   await expect(page.getByText(FILE[10].phrase)).toBeVisible();
 });
 
+test('fin de série : Autre exercice ramène au menu', async ({ page }) => {
+  await versGrammaire(page, file);
+  await finDeSerie(page);
+  await page.getByRole('button', { name: 'Autre exercice' }).click();
+  await page.waitForSelector('body[data-vue="MENU_GRAMMAIRE"]');
+});
+
 test('fin de série : Changer de mode', async ({ page }) => {
   await versGrammaire(page, file);
-  for (let i = 0; i < 10; i++) {
-    await expect(page.getByText(FILE[i].phrase)).toBeVisible();
-    await bouton(page, FILE[i].categorie).click();
-    if (i < 9) await expect(page.getByText(FILE[i + 1].phrase)).toBeVisible();
-  }
+  await finDeSerie(page);
   await page.getByRole('button', { name: 'Changer de mode' }).click();
   await page.waitForSelector('body[data-vue="MODE"]');
 });
@@ -84,4 +101,12 @@ test('double-clic rapide : une seule réponse comptée', async ({ page }) => {
   await expect(page.getByText(FILE[1].phrase)).toBeVisible();
   await expect(page.getByText('Phrase 1 sur 10')).toHaveCount(0);
   await expect(page.getByText('Phrase 2 sur 10')).toBeVisible();
+});
+
+test('après Grammaire : le menu propose l’exercice et Changer de mode', async ({ page }) => {
+  await versMenu(page, file);
+  await expect(page.getByRole('heading', { name: 'Quel exercice ?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Passé, présent ou futur ?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Changer de mode' }).click();
+  await page.waitForSelector('body[data-vue="MODE"]');
 });
