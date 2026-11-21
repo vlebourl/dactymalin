@@ -148,7 +148,17 @@ suffit.
 
 1. **Avant chaque migration**, le conteneur déclenche une sauvegarde Coolify et
    attend son succès. Échec, absence de sauvegarde planifiée, ou temps dépassé :
-   le démarrage est refusé et l'ancienne révision reste en ligne.
+   le démarrage est refusé et la migration n'est pas appliquée. **Le site, lui,
+   tombe** : l'application publie un port fixe sur l'hôte, donc Coolify arrête
+   l'ancien conteneur avant de démarrer le nouveau (pas de déploiement sans
+   coupure). Si le nouveau conteneur ne démarre pas, le site répond 502 jusqu'à
+   ce qu'une révision saine soit redéployée. Pour rétablir vite : dans Coolify,
+   fixer `git_commit_sha` sur le dernier commit sain, redéployer, puis remettre
+   `HEAD` une fois la cause corrigée. Chaque déploiement normal provoque aussi
+   une coupure de quelques secondes (502 bref), acceptée.
+   Constat du 21 novembre 2026 : le jeton `COOLIFY_API_TOKEN` révoqué a bloqué
+   la sauvegarde ; le site a renvoyé 502 jusqu'au retour à la révision
+   précédente.
 2. Les migrations sont appliquées par `drizzle-kit migrate`, jamais par un
    `push --force`.
 3. Le workflow `Vérifications` (types, tests unitaires, tests serveur, e2e,
