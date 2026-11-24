@@ -223,7 +223,7 @@ Au début de l'exercice, l'écran « Quels niveaux ? » propose trois cases, tou
 cochées par défaut. Il faut en cocher au moins une pour commencer :
 
 - **Marqueurs de temps** : la phrase commence par un marqueur, suivi d'une
-  virgule (« Hier, Léa a mangé une pomme. »). Au passé, le verbe est au passé
+  virgule (« Hier, Léa a mangé une pomme. », « Il y a 2 jours, … », « Dans 3 ans, … »). Au passé, le verbe est au passé
   composé. Le marqueur est tiré par le serveur selon la catégorie (`MARQUEURS`)
   et le validateur exige qu'il ouvre la phrase. Le reste suit la règle sujet +
   verbe + COD.
