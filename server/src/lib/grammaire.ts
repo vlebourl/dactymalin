@@ -13,11 +13,21 @@ export const NIVEAUX: readonly Niveau[] = ['marqueurs', 'imparfait', 'passe_comp
 /** Sans niveau demandé : le passé composé et l'imparfait, sans marqueur. */
 export const NIVEAUX_PAR_DEFAUT: readonly Niveau[] = ['passe_compose', 'imparfait'];
 
-/* Le marqueur ouvre la phrase, suivi d'une virgule : « Hier, Léa a mangé une pomme. » */
+/* Le marqueur ouvre la phrase, suivi d'une virgule : « Hier, Léa a mangé une pomme. »
+   « Il y a » et « Dans » reçoivent une durée tirée dans DUREES (« Il y a 2 jours »). */
 export const MARQUEURS: Record<Categorie, readonly string[]> = {
-  passe: ['Hier', 'Avant-hier', 'La semaine dernière'],
+  passe: ['Hier', 'Avant-hier', 'La semaine dernière', 'Il y a'],
   present: ["Aujourd'hui", 'Maintenant', 'En ce moment'],
-  futur: ['Demain', 'Après-demain', 'La semaine prochaine'],
+  futur: ['Demain', 'Après-demain', 'La semaine prochaine', 'Dans'],
+};
+export const DUREES: readonly string[] = [
+  '2 jours', '3 jours', '5 jours', '2 semaines', '3 semaines',
+  '2 mois', '6 mois', '2 ans', '3 ans', '10 ans',
+];
+const AVEC_DUREE = ['Il y a', 'Dans'];
+const tirerMarqueur = (c: Categorie, alea: () => number) => {
+  const m = choisir(MARQUEURS[c], alea);
+  return AVEC_DUREE.includes(m) ? `${m} ${choisir(DUREES, alea)}` : m;
 };
 
 export const CATEGORIE_DU_TEMPS: Record<Temps, Categorie> = {
@@ -61,7 +71,7 @@ export function tirer(
         ? 'present'
         : 'futur_simple';
   return {
-    ...(niveau === 'marqueurs' && { marqueur: choisir(MARQUEURS[categorie], alea) }),
+    ...(niveau === 'marqueurs' && { marqueur: tirerMarqueur(categorie, alea) }),
     sujet: choisir(SUJETS, alea),
     verbe: choisir(VERBES, alea),
     theme: choisir(THEMES, alea),

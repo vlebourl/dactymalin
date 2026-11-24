@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SUJETS, THEMES, VERBES } from '../grammaire-banques';
 import {
   CATEGORIE_DU_TEMPS,
+  DUREES,
   MARQUEURS,
   controleAccepte,
   creerGenerateur,
@@ -36,8 +37,19 @@ describe('tirer', () => {
     for (let i = 0; i < 1000; i++) {
       const t = tirer(Math.random, ['marqueurs']);
       const c = CATEGORIE_DU_TEMPS[t.temps];
-      expect(MARQUEURS[c]).toContain(t.marqueur);
+      expect(MARQUEURS[c].some((m) => t.marqueur === m || t.marqueur!.startsWith(`${m} `))).toBe(true);
       expect(t.temps).not.toBe('imparfait');
+    }
+  });
+
+  it('« Il y a » et « Dans » reçoivent une durée, au passé et au futur seulement', () => {
+    const marqueurs = Array.from({ length: 3000 }, () => tirer(Math.random, ['marqueurs']));
+    const duree = new RegExp(`^(Il y a|Dans) (${DUREES.join('|')})$`);
+    const avec = marqueurs.filter((t) => /^(Il y a|Dans)\b/.test(t.marqueur!));
+    expect(avec.length).toBeGreaterThan(0);
+    for (const t of avec) {
+      expect(t.marqueur).toMatch(duree);
+      expect(CATEGORIE_DU_TEMPS[t.temps]).toBe(t.marqueur!.startsWith('Il y a') ? 'passe' : 'futur');
     }
   });
 
@@ -110,6 +122,8 @@ describe('phraseValide avec marqueur', () => {
     ['Hier', 'Hier, Léa a mangé une pomme.'],
     ['La semaine prochaine', 'La semaine prochaine, Tom lavera la voiture.'],
     ["Aujourd'hui", "Aujourd'hui, le chat mange une souris."],
+    ['Il y a 2 jours', 'Il y a 2 jours, Léa a lavé la voiture.'],
+    ['Dans 3 ans', 'Dans 3 ans, Tom construira une maison.'],
   ])('accepte « %s, » + sujet verbe COD', (m, p) => expect(phraseValide(p, m)).toBe(true));
 
   it.each([
