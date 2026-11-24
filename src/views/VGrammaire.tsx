@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  NIVEAUX,
   PHRASES_PAR_SERIE,
   phraseSuivante,
   repondre,
   serieFinie,
   type Categorie,
+  type Niveau,
   type PhraseGrammaire,
   type Serie,
 } from '../core/grammaire';
@@ -36,12 +38,15 @@ export function VGrammaire({
   const app = useApp();
   const [serie, setSerie] = useState<Serie>(SERIE_VIDE);
   const [indisponible, setIndisponible] = useState(false);
+  /* Niveaux cochés ; la série démarre sur « Commencer ». */
+  const [niveaux, setNiveaux] = useState<Niveau[]>(NIVEAUX.map((n) => n.id));
+  const [demarre, setDemarre] = useState(false);
   const vues = useRef(new Set<string>());
   /* Phrase d'après, demandée dès qu'une phrase s'affiche. */
   const suivante = useRef<Promise<PhraseGrammaire | null> | null>(null);
   const minuteur = useRef<number | undefined>(undefined);
 
-  const demander = () => (suivante.current ??= phraseSuivante(vues.current));
+  const demander = () => (suivante.current ??= phraseSuivante(vues.current, niveaux));
 
   /* Prend la phrase préchargée (ou la demande) et l'affiche. Le `.then` ne
      vide la réserve que si elle contient encore CETTE promesse : le double
@@ -55,11 +60,7 @@ export function VGrammaire({
     });
   };
 
-  useEffect(() => {
-    afficherSuivante(SERIE_VIDE);
-    return () => window.clearTimeout(minuteur.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => () => window.clearTimeout(minuteur.current), []);
 
   const courante = serie.courante;
   useEffect(() => {
@@ -86,6 +87,49 @@ export function VGrammaire({
     setSerie(SERIE_VIDE);
     afficherSuivante(SERIE_VIDE);
   };
+
+  const commencer = () => {
+    setDemarre(true);
+    afficherSuivante(SERIE_VIDE);
+  };
+  const basculer = (id: Niveau) =>
+    setNiveaux((n) => (n.includes(id) ? n.filter((x) => x !== id) : [...n, id]));
+
+  if (!demarre) {
+    return (
+      <div className={v.ecran}>
+        <div className={v.centre}>
+          <h1 className={v.titre}>Quels niveaux ?</h1>
+          <div className={v.niveauxGrammaire}>
+            {NIVEAUX.map((n) => (
+              <label key={n.id} className={v.niveauGrammaire}>
+                <input
+                  type="checkbox"
+                  checked={niveaux.includes(n.id)}
+                  onChange={() => basculer(n.id)}
+                />
+                <span>
+                  <strong>{n.libelle}</strong>
+                  <br />
+                  <span>{n.exemple}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <button
+            className={[u.bouton, u.primaire, u.geant].join(' ')}
+            disabled={niveaux.length === 0}
+            onClick={commencer}
+          >
+            Commencer
+          </button>
+          <button className={u.bouton} onClick={autreExercice}>
+            Autre exercice
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (indisponible) {
     return (

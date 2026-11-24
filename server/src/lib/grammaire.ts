@@ -3,7 +3,22 @@ import { MOTS_INTERDITS, SUJETS, THEMES, VERBES } from './grammaire-banques';
 
 export type Categorie = 'passe' | 'present' | 'futur';
 export type Temps = 'passe_compose' | 'imparfait' | 'present' | 'futur_simple';
-export type Tirage = { sujet: string; verbe: string; theme: string; temps: Temps };
+export type Tirage = { sujet: string; verbe: string; theme: string; temps: Temps; marqueur?: string };
+
+/* Niveaux cochés au début de la série. Présent et futur sont de tous les
+   niveaux (sinon la réponse serait toujours « Passé ») ; le niveau dit quel
+   passé on tire, et si la phrase commence par un marqueur de temps. */
+export type Niveau = 'marqueurs' | 'imparfait' | 'passe_compose';
+export const NIVEAUX: readonly Niveau[] = ['marqueurs', 'imparfait', 'passe_compose'];
+/** Sans niveau demandé : le passé composé et l'imparfait, sans marqueur. */
+export const NIVEAUX_PAR_DEFAUT: readonly Niveau[] = ['passe_compose', 'imparfait'];
+
+/* Le marqueur ouvre la phrase, suivi d'une virgule : « Hier, Léa a mangé une pomme. » */
+export const MARQUEURS: Record<Categorie, readonly string[]> = {
+  passe: ['Hier', 'Avant-hier', 'La semaine dernière'],
+  present: ["Aujourd'hui", 'Maintenant', 'En ce moment'],
+  futur: ['Demain', 'Après-demain', 'La semaine prochaine'],
+};
 
 export const CATEGORIE_DU_TEMPS: Record<Temps, Categorie> = {
   passe_compose: 'passe',
@@ -29,16 +44,24 @@ const HORS_STRUCTURE = [
 const choisir = <T>(liste: readonly T[], alea: () => number): T =>
   liste[Math.floor(alea() * liste.length)]!;
 
-/** Tire la catégorie (1/3 chacune), puis pour le passé composé ou imparfait (1/2 chacun). */
-export function tirer(alea: () => number = Math.random): Tirage {
+/** Tire un niveau parmi ceux cochés, puis la catégorie (1/3 chacune). Le passé
+    est à l'imparfait pour le niveau imparfait, au passé composé sinon. */
+export function tirer(
+  alea: () => number = Math.random,
+  niveaux: readonly Niveau[] = NIVEAUX_PAR_DEFAUT,
+): Tirage {
+  const niveau = choisir(niveaux, alea);
   const categorie = choisir<Categorie>(['passe', 'present', 'futur'], alea);
   const temps: Temps =
     categorie === 'passe'
-      ? choisir<Temps>(['passe_compose', 'imparfait'], alea)
+      ? niveau === 'imparfait'
+        ? 'imparfait'
+        : 'passe_compose'
       : categorie === 'present'
         ? 'present'
         : 'futur_simple';
   return {
+    ...(niveau === 'marqueurs' && { marqueur: choisir(MARQUEURS[categorie], alea) }),
     sujet: choisir(SUJETS, alea),
     verbe: choisir(VERBES, alea),
     theme: choisir(THEMES, alea),
@@ -53,9 +76,15 @@ const INTERDITS = [...MOTS_INTERDITS, ...HORS_STRUCTURE].map(
 
 /**
  * Une seule ligne, 8 mots au plus, sans virgule, sans mot qui donne le temps
- * ni mot qui ouvre un groupe de plus (mots entiers, sans casse).
+ * ni mot qui ouvre un groupe de plus (mots entiers, sans casse). Avec un
+ * marqueur : la phrase commence par « <marqueur>, » et le reste suit la même règle.
  */
-export function phraseValide(phrase: string): boolean {
+export function phraseValide(phrase: string, marqueur?: string): boolean {
+  if (marqueur) {
+    const debut = `${marqueur}, `;
+    if (phrase.slice(0, debut.length).toLowerCase() !== debut.toLowerCase()) return false;
+    return phraseValide(phrase.slice(debut.length));
+  }
   if (!phrase.trim() || phrase.includes('\n') || phrase.includes(',')) return false;
   const mots = phrase.split(/[\s']+/).filter(Boolean);
   if (mots.length > MOTS_MAX) return false;
@@ -69,10 +98,10 @@ export type Demander = (
   schema: object,
 ) => Promise<unknown | null>;
 export type PhraseGrammaire = { phrase: string; categorie: Categorie };
-export type Generateur = () => Promise<PhraseGrammaire | null>;
+export type Generateur = (niveaux?: readonly Niveau[]) => Promise<PhraseGrammaire | null>;
 
 export const PROMPT_GENERATION =
-  "Tu écris des phrases d'exercice de grammaire pour un enfant de 7 ans (CE1). On te donne un sujet, un verbe à l'infinitif, un thème et un temps. Écris UNE phrase très simple en français, construite EXACTEMENT ainsi : le sujet donné, puis le verbe donné conjugué au temps demandé, puis un complément d'objet direct (COD). Le COD est un groupe nominal court : un déterminant et un nom, avec au plus un adjectif, choisi en rapport avec le thème. La phrase doit avoir du sens : si le thème ne va pas avec le verbe, ignore le thème et choisis un COD logique pour ce verbe. Rien d'autre : pas de complément d'objet indirect (à…, au…), pas de complément de lieu, de temps ou de manière, pas d'adverbe, pas de proposition relative ou subordonnée, pas de « et », pas de négation, pas de virgule. 8 mots au plus, vocabulaire du quotidien. Exemples de la forme attendue : « Le chat mange une souris. », « Ma sœur a peint un grand soleil. », « Les enfants rangeront leurs jouets. ». Mets uniquement la phrase finale dans le champ phrase.";
+  "Tu écris des phrases d'exercice de grammaire pour un enfant de 7 ans (CE1). On te donne un sujet, un verbe à l'infinitif, un thème et un temps. Écris UNE phrase très simple en français, construite EXACTEMENT ainsi : le sujet donné, puis le verbe donné conjugué au temps demandé, puis un complément d'objet direct (COD). Le COD est un groupe nominal court : un déterminant et un nom, avec au plus un adjectif, choisi en rapport avec le thème. La phrase doit avoir du sens : si le thème ne va pas avec le verbe, ignore le thème et choisis un COD logique pour ce verbe. Rien d'autre : pas de complément d'objet indirect (à…, au…), pas de complément de lieu, de temps ou de manière, pas d'adverbe, pas de proposition relative ou subordonnée, pas de « et », pas de négation, pas de virgule. 8 mots au plus, vocabulaire du quotidien. Exemples de la forme attendue : « Le chat mange une souris. », « Ma sœur a peint un grand soleil. », « Les enfants rangeront leurs jouets. ». Si on te donne un marqueur de temps, c'est la seule exception : la phrase commence par ce marqueur, écrit tel quel, suivi d'une virgule, puis le sujet, le verbe et le COD (ex. « Hier, le chat a mangé une souris. »). Mets uniquement la phrase finale dans le champ phrase.";
 
 export const PROMPT_CONTROLE =
   "Tu aides un enfant de CE1. Relève TOUS les verbes conjugués de la phrase, y compris ceux des propositions subordonnées (après qui, que, quand, si, pendant que…). Pour un temps composé, donne l'auxiliaire et le participe ensemble (ex. « a mangé »). Ne relève ni les infinitifs, ni les participes présents, ni les gérondifs. Pour chaque verbe, donne sa catégorie : passe (passé composé, imparfait), present ou futur.";
@@ -140,16 +169,17 @@ export function creerGenerateur(
   demander: Demander,
   alea: () => number = Math.random,
 ): Generateur {
-  return async () => {
+  return async (niveaux = NIVEAUX_PAR_DEFAUT) => {
     for (let essai = 0; essai < ESSAIS_MAX; essai++) {
-      const t = tirer(alea);
+      const t = tirer(alea, niveaux);
       const generee = (await demander(
         PROMPT_GENERATION,
-        `Sujet : ${t.sujet}. Verbe : ${t.verbe}. Thème : ${t.theme}. Temps : ${LIBELLE_TEMPS[t.temps]}.`,
+        `Sujet : ${t.sujet}. Verbe : ${t.verbe}. Thème : ${t.theme}. Temps : ${LIBELLE_TEMPS[t.temps]}.` +
+          (t.marqueur ? ` Marqueur de temps : ${t.marqueur}.` : ''),
         SCHEMA_GENERATION,
       )) as { phrase?: unknown } | null;
       const phrase = generee?.phrase;
-      if (typeof phrase !== 'string' || !phraseValide(phrase)) continue;
+      if (typeof phrase !== 'string' || !phraseValide(phrase, t.marqueur)) continue;
       const controle = await demander(PROMPT_CONTROLE, phrase, SCHEMA_CONTROLE);
       const attendue = CATEGORIE_DU_TEMPS[t.temps];
       if (controleAccepte(phrase, controle, attendue)) {

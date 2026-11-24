@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SUJETS, THEMES, VERBES } from '../grammaire-banques';
 import {
   CATEGORIE_DU_TEMPS,
+  MARQUEURS,
   controleAccepte,
   creerGenerateur,
   phraseValide,
@@ -29,6 +30,29 @@ describe('tirer', () => {
     const passes = tirages.filter((t) => CATEGORIE_DU_TEMPS[t.temps] === 'passe');
     const imparfait = passes.filter((t) => t.temps === 'imparfait').length / passes.length;
     expect(Math.abs(imparfait - 0.5)).toBeLessThan(0.07);
+  });
+
+  it('niveau marqueurs seul : toujours un marqueur de la bonne catégorie, passé au passé composé', () => {
+    for (let i = 0; i < 1000; i++) {
+      const t = tirer(Math.random, ['marqueurs']);
+      const c = CATEGORIE_DU_TEMPS[t.temps];
+      expect(MARQUEURS[c]).toContain(t.marqueur);
+      expect(t.temps).not.toBe('imparfait');
+    }
+  });
+
+  it.each([
+    ['imparfait', 'imparfait'],
+    ['passe_compose', 'passe_compose'],
+  ] as const)('niveau %s seul : passés à ce temps, sans marqueur, présent et futur gardés', (niveau, temps) => {
+    const tirages = Array.from({ length: 1000 }, () => tirer(Math.random, [niveau]));
+    for (const t of tirages) {
+      expect(t.marqueur).toBeUndefined();
+      if (CATEGORIE_DU_TEMPS[t.temps] === 'passe') expect(t.temps).toBe(temps);
+    }
+    for (const c of ['passe', 'present', 'futur']) {
+      expect(tirages.some((t) => CATEGORIE_DU_TEMPS[t.temps] === c)).toBe(true);
+    }
   });
 
   it('ne tire jamais de verbe exclu', () => {
@@ -79,6 +103,23 @@ describe('phraseValide', () => {
     '',
     '   ',
   ])('rejette %j', (p) => expect(phraseValide(p)).toBe(false));
+});
+
+describe('phraseValide avec marqueur', () => {
+  it.each([
+    ['Hier', 'Hier, Léa a mangé une pomme.'],
+    ['La semaine prochaine', 'La semaine prochaine, Tom lavera la voiture.'],
+    ["Aujourd'hui", "Aujourd'hui, le chat mange une souris."],
+  ])('accepte « %s, » + sujet verbe COD', (m, p) => expect(phraseValide(p, m)).toBe(true));
+
+  it.each([
+    ['Hier', 'Léa a mangé une pomme.'],
+    ['Hier', 'Demain, Léa mangera une pomme.'],
+    ['Hier', 'Hier Léa a mangé une pomme.'],
+    ['Hier', 'Hier, Léa a mangé une pomme dans le jardin.'],
+    ['Hier', 'Hier, Léa a mangé une pomme, puis une poire.'],
+    ['Demain', 'Demain, Léa mangera une pomme demain.'],
+  ])('rejette avec « %s » : %j', (m, p) => expect(phraseValide(p, m)).toBe(false));
 });
 
 describe('creerGenerateur', () => {
@@ -174,6 +215,37 @@ describe('creerGenerateur', () => {
     expect(controle).not.toMatch(
       /passé composé|imparfait|futur|présent|passe/i,
     );
+  });
+});
+
+describe('creerGenerateur : niveaux', () => {
+  it('niveau marqueurs : le marqueur est demandé, puis exigé en tête de phrase', async () => {
+    const appels: string[] = [];
+    const reponses: unknown[] = [
+      { phrase: 'Léa a mangé une pomme.' }, // marqueur oublié : rejetée
+      { phrase: 'Hier, Léa a mangé une pomme.' },
+      { verbes: [{ verbe: 'a mangé', categorie: 'passe' }] },
+    ];
+    const demander: Demander = async (_s, u) => {
+      appels.push(u);
+      return reponses.shift() ?? null;
+    };
+    // alea à 0 : niveau marqueurs, catégorie passé, marqueur « Hier »
+    const r = await creerGenerateur(demander, () => 0)(['marqueurs']);
+    expect(r).toEqual({ phrase: 'Hier, Léa a mangé une pomme.', categorie: 'passe' });
+    expect(appels[0]).toContain('Marqueur de temps : Hier.');
+    expect(appels).toHaveLength(3);
+  });
+
+  it('sans marqueur, la consigne ne parle pas de marqueur', async () => {
+    const appels: string[] = [];
+    const demander: Demander = async (_s, u) => {
+      appels.push(u);
+      return null;
+    };
+    await creerGenerateur(demander, () => 0)(['imparfait']);
+    expect(appels[0]).toContain('Temps : imparfait.');
+    expect(appels[0]).not.toContain('Marqueur');
   });
 });
 

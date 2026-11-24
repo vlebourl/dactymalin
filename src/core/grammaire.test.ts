@@ -46,9 +46,9 @@ describe('phraseSuivante : délai', () => {
       throw new DOMException('délai', 'TimeoutError');
     });
     vi.stubGlobal('fetch', fetchSimule);
-    expect(await phraseSuivante(new Set())).toBeNull();
+    expect(await phraseSuivante(new Set(), ['imparfait'])).toBeNull();
     expect(fetchSimule).toHaveBeenCalledWith(
-      '/api/grammaire/phrase',
+      '/api/grammaire/phrase?niveaux=imparfait',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
@@ -88,23 +88,23 @@ describe('phraseSuivante', () => {
     const f = vi.fn().mockResolvedValueOnce(reponse(courante)).mockResolvedValueOnce(reponse(autre));
     vi.stubGlobal('fetch', f);
     const vues = new Set([courante.phrase]);
-    expect(await phraseSuivante(vues)).toEqual(autre);
+    expect(await phraseSuivante(vues, ['imparfait'])).toEqual(autre);
     expect(f).toHaveBeenCalledTimes(2);
     expect(vues.has(autre.phrase)).toBe(true);
   });
   it('ne redemande qu’une fois', async () => {
     const f = vi.fn().mockResolvedValue(reponse(courante));
     vi.stubGlobal('fetch', f);
-    await phraseSuivante(new Set([courante.phrase]));
+    await phraseSuivante(new Set([courante.phrase]), ['imparfait']);
     expect(f).toHaveBeenCalledTimes(2);
   });
   it('une réponse 503 donne null', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reponse({ code: 'GRAMMAIRE_INDISPONIBLE' }, 503)));
-    expect(await phraseSuivante(new Set())).toBeNull();
+    expect(await phraseSuivante(new Set(), ['imparfait'])).toBeNull();
   });
   it('une erreur réseau donne null', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('hors ligne')));
-    expect(await phraseSuivante(new Set())).toBeNull();
+    expect(await phraseSuivante(new Set(), ['imparfait'])).toBeNull();
   });
 });
 

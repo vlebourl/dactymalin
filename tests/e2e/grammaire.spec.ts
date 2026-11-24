@@ -8,14 +8,20 @@ const FILE = Array.from({ length: 22 }, (_, i) => ({
 }));
 const LIBELLE = { passe: 'Passé', present: 'Présent', futur: 'Futur' };
 
-/* Mène l'app jusqu'au menu des exercices, `phrase` étant simulé. */
-async function versMenu(page: Page, phrase: (n: number) => { status: number; json: unknown }) {
+/* Mène l'app jusqu'au menu des exercices, `phrase` étant simulé. `urls` reçoit
+   chaque URL de phrase demandée. */
+async function versMenu(
+  page: Page,
+  phrase: (n: number) => { status: number; json: unknown },
+  urls: string[] = [],
+) {
   await ouvrir(page);
   await page.route('**/api/grammaire/etat', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: '{"disponible":true}' }),
   );
   let n = 0;
-  await page.route('**/api/grammaire/phrase', (r) => {
+  await page.route('**/api/grammaire/phrase?*', (r) => {
+    urls.push(r.request().url());
     const { status, json } = phrase(n++);
     return r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
   });
@@ -23,11 +29,16 @@ async function versMenu(page: Page, phrase: (n: number) => { status: number; jso
   await page.getByRole('button', { name: 'Grammaire' }).click();
   await page.waitForSelector('body[data-vue="MENU_GRAMMAIRE"]');
 }
-/* Puis jusqu'à l'exercice « temps ». */
-async function versGrammaire(page: Page, phrase: (n: number) => { status: number; json: unknown }) {
-  await versMenu(page, phrase);
+/* Puis jusqu'à l'exercice « temps », niveaux par défaut (tous cochés). */
+async function versNiveaux(page: Page, phrase: (n: number) => { status: number; json: unknown }, urls?: string[]) {
+  await versMenu(page, phrase, urls);
   await page.getByRole('button', { name: 'Passé, présent ou futur ?' }).click();
   await page.waitForSelector('body[data-vue="GRAMMAIRE"]');
+  await expect(page.getByRole('heading', { name: 'Quels niveaux ?' })).toBeVisible();
+}
+async function versGrammaire(page: Page, phrase: (n: number) => { status: number; json: unknown }) {
+  await versNiveaux(page, phrase);
+  await page.getByRole('button', { name: 'Commencer' }).click();
 }
 const file = (n: number) => ({ status: 200, json: FILE[n] });
 const finDeSerie = async (page: Page) => {
@@ -109,4 +120,21 @@ test('après Grammaire : le menu propose l’exercice et Changer de mode', async
   await expect(page.getByRole('button', { name: 'Passé, présent ou futur ?' })).toBeVisible();
   await page.getByRole('button', { name: 'Changer de mode' }).click();
   await page.waitForSelector('body[data-vue="MODE"]');
+});
+
+test('niveaux : tous cochés au départ, au moins un exigé, envoyés au serveur', async ({ page }) => {
+  const urls: string[] = [];
+  await versNiveaux(page, file, urls);
+  const cases = ['Marqueurs de temps', 'Imparfait', 'Passé composé'].map((n) =>
+    page.getByRole('checkbox', { name: new RegExp(n) }),
+  );
+  for (const c of cases) await expect(c).toBeChecked();
+  for (const c of cases) await c.uncheck();
+  await expect(page.getByRole('button', { name: 'Commencer' })).toBeDisabled();
+  expect(urls).toHaveLength(0);
+  await cases[0]!.check();
+  await cases[1]!.check();
+  await page.getByRole('button', { name: 'Commencer' }).click();
+  await expect(page.getByText(FILE[0].phrase)).toBeVisible();
+  expect(new URL(urls[0]!).searchParams.get('niveaux')).toBe('marqueurs,imparfait');
 });
