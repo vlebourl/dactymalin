@@ -227,6 +227,9 @@ cochées par défaut. Il faut en cocher au moins une pour commencer :
   composé. Le marqueur est tiré par le serveur selon la catégorie (`MARQUEURS`)
   et le validateur exige qu'il ouvre la phrase. Le reste suit la règle sujet +
   verbe + COD.
+  Une fois sur deux, le marqueur ferme la phrase au lieu de l'ouvrir (« Léa a
+  mangé une pomme hier. ») : la phrase est alors demandée et contrôlée sans
+  marqueur, et le serveur l'ajoute en minuscules avant le point final.
 - **Imparfait** : sans marqueur, passé à l'imparfait.
 - **Passé composé** : sans marqueur, passé au passé composé.
 

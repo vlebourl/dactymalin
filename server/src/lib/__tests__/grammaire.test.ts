@@ -6,6 +6,7 @@ import {
   MARQUEURS,
   controleAccepte,
   creerGenerateur,
+  marqueurEnFin,
   phraseValide,
   tirer,
   type Demander,
@@ -53,6 +54,12 @@ describe('tirer', () => {
     }
   });
 
+  it('niveau marqueurs : le marqueur va en fin de phrase une fois sur deux', () => {
+    const N = 3000;
+    const enFin = Array.from({ length: N }, () => tirer(Math.random, ['marqueurs'])).filter((t) => t.enFin);
+    expect(Math.abs(enFin.length / N - 0.5)).toBeLessThan(0.05);
+  });
+
   it.each([
     ['imparfait', 'imparfait'],
     ['passe_compose', 'passe_compose'],
@@ -60,6 +67,7 @@ describe('tirer', () => {
     const tirages = Array.from({ length: 1000 }, () => tirer(Math.random, [niveau]));
     for (const t of tirages) {
       expect(t.marqueur).toBeUndefined();
+      expect(t.enFin).toBeUndefined();
       if (CATEGORIE_DU_TEMPS[t.temps] === 'passe') expect(t.temps).toBe(temps);
     }
     for (const c of ['passe', 'present', 'futur']) {
@@ -134,6 +142,17 @@ describe('phraseValide avec marqueur', () => {
     ['Hier', 'Hier, Léa a mangé une pomme, puis une poire.'],
     ['Demain', 'Demain, Léa mangera une pomme demain.'],
   ])('rejette avec « %s » : %j', (m, p) => expect(phraseValide(p, m)).toBe(false));
+});
+
+describe('marqueurEnFin', () => {
+  it.each([
+    ['Hier', 'Léa a mangé une pomme.', 'Léa a mangé une pomme hier.'],
+    ['Il y a 2 jours', 'Léa a lavé la voiture.', 'Léa a lavé la voiture il y a 2 jours.'],
+    ['Dans 3 ans', 'Tom construira une maison.', 'Tom construira une maison dans 3 ans.'],
+    ["Aujourd'hui", 'Le chat mange une souris.', "Le chat mange une souris aujourd'hui."],
+    ['La semaine dernière', 'On a visité un musée', 'On a visité un musée la semaine dernière.'],
+    ['Demain', 'Tu gagneras la course ! ', 'Tu gagneras la course demain.'],
+  ])('« %s » après %j', (m, p, attendu) => expect(marqueurEnFin(p, m)).toBe(attendu));
 });
 
 describe('creerGenerateur', () => {
@@ -248,6 +267,25 @@ describe('creerGenerateur : niveaux', () => {
     const r = await creerGenerateur(demander, () => 0)(['marqueurs']);
     expect(r).toEqual({ phrase: 'Hier, Léa a mangé une pomme.', categorie: 'passe' });
     expect(appels[0]).toContain('Marqueur de temps : Hier.');
+    expect(appels).toHaveLength(3);
+  });
+
+  it('marqueur en fin : phrase demandée et contrôlée sans marqueur, puis le serveur l\'ajoute', async () => {
+    const appels: string[] = [];
+    const reponses: unknown[] = [
+      { phrase: 'Maintenant, Léa mange une pomme.' }, // marqueur en tête : rejetée
+      { phrase: 'Léa mange une pomme.' },
+      { verbes: [{ verbe: 'mange', categorie: 'present' }] },
+    ];
+    const demander: Demander = async (_s, u) => {
+      appels.push(u);
+      return reponses.shift() ?? null;
+    };
+    // alea à 0,5 : catégorie présent, marqueur « Maintenant », en fin de phrase
+    const r = await creerGenerateur(demander, () => 0.5)(['marqueurs']);
+    expect(r).toEqual({ phrase: 'Léa mange une pomme maintenant.', categorie: 'present' });
+    expect(appels[0]).not.toContain('Marqueur');
+    expect(appels[2]).toBe('Léa mange une pomme.');
     expect(appels).toHaveLength(3);
   });
 
