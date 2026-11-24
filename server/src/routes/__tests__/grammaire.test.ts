@@ -21,7 +21,11 @@ d('route /api/grammaire', () => {
   let enPanne: ReturnType<typeof creerApp>;
   let base: ReturnType<typeof creerBase>;
   const SECRET = 'x'.repeat(40);
-  const generateur: Generateur = async () => ({ phrase: 'Le chat dort.', categorie: 'present' });
+  let niveauxRecus: unknown = 'jamais appelé';
+  const generateur: Generateur = async (niveaux) => {
+    niveauxRecus = niveaux;
+    return { phrase: 'Le chat dort.', categorie: 'present' };
+  };
 
   /* `avecCle` : le compte reçoit une clé (factice) chiffrée, posée en base comme
      la route PUT le ferait — la vérification est testée dans cle-anthropic. */
@@ -54,6 +58,14 @@ d('route /api/grammaire', () => {
   it('refuse tout accès sans session', async () => {
     expect((await avec.request('/api/grammaire/etat')).status).toBe(401);
     expect((await avec.request('/api/grammaire/phrase')).status).toBe(401);
+  });
+
+  it('transmet les niveaux connus au générateur, ignore les autres', async () => {
+    const h = await inscrire(courrielUnique());
+    await avec.request('/api/grammaire/phrase?niveaux=marqueurs,inconnu,imparfait,marqueurs', { headers: h });
+    expect(niveauxRecus).toEqual(['marqueurs', 'imparfait']);
+    await avec.request('/api/grammaire/phrase?niveaux=inconnu', { headers: h });
+    expect(niveauxRecus).toBeUndefined();
   });
 
   it('rend une phrase, sans cache', async () => {

@@ -4,7 +4,7 @@ import type { Auth } from '../auth';
 import type { Base } from '../db/client';
 import { cleAnthropic } from '../db/schema';
 import { dechiffrer } from '../lib/chiffrement';
-import { creerGenerateur, demanderAvecAnthropic, type Generateur } from '../lib/grammaire';
+import { creerGenerateur, demanderAvecAnthropic, NIVEAUX, type Generateur, type Niveau } from '../lib/grammaire';
 import { exigeSession, type AvecCompte } from '../lib/session';
 import { limiterDebit } from '../lib/debit';
 
@@ -38,7 +38,12 @@ export function routesGrammaire(
     /* Un chiffré illisible (secret du serveur changé) vaut « pas de clé ». */
     const cle = chiffre === undefined ? null : dechiffrer(chiffre, secret);
     /* ponytail: un client Anthropic neuf par phrase ; un cache par compte si ça pèse un jour. */
-    const phrase = cle ? await fabrique(cle)() : null;
+    /* `?niveaux=marqueurs,imparfait` : on ne garde que les niveaux connus ;
+       aucun → les niveaux par défaut du générateur. */
+    const niveaux = [...new Set((c.req.query('niveaux') ?? '').split(','))].filter((n): n is Niveau =>
+      (NIVEAUX as readonly string[]).includes(n),
+    );
+    const phrase = cle ? await fabrique(cle)(niveaux.length ? niveaux : undefined) : null;
     if (!phrase) {
       return c.json({ erreur: 'phrases indisponibles', code: 'GRAMMAIRE_INDISPONIBLE' }, 503);
     }

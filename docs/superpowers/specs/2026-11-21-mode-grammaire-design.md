@@ -217,6 +217,24 @@ l'exercice.
 - **Hors ligne, ou 503 en cours de série** : un message simple (« Les phrases ne
   sont pas disponibles pour le moment ») et un retour au choix du mode.
 
+### Niveaux (ajout du 2026-11-24)
+
+Au début de l'exercice, l'écran « Quels niveaux ? » propose trois cases, toutes
+cochées par défaut. Il faut en cocher au moins une pour commencer :
+
+- **Marqueurs de temps** : la phrase commence par un marqueur, suivi d'une
+  virgule (« Hier, Léa a mangé une pomme. »). Au passé, le verbe est au passé
+  composé. Le marqueur est tiré par le serveur selon la catégorie (`MARQUEURS`)
+  et le validateur exige qu'il ouvre la phrase. Le reste suit la règle sujet +
+  verbe + COD.
+- **Imparfait** : sans marqueur, passé à l'imparfait.
+- **Passé composé** : sans marqueur, passé au passé composé.
+
+Chaque phrase tire un niveau parmi les cases cochées, puis la catégorie (1/3
+chacune). Le présent et le futur sont de tous les niveaux. Le client envoie
+`/api/grammaire/phrase?niveaux=a,b`. Le serveur ignore les niveaux inconnus. Sans
+niveau valide, il revient au passé composé et à l'imparfait, sans marqueur.
+
 ### Tests
 
 - vitest, serveur :

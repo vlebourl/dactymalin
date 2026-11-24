@@ -1388,6 +1388,31 @@
   border-color: var(--orange-vif);
 }
 
+.niveauxGrammaire {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.niveauGrammaire {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-radius: 16px;
+  font-size: clamp(18px, 2vw, 24px);
+  cursor: pointer;
+}
+
+.niveauGrammaire input {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  accent-color: var(--teal-vif);
+  cursor: pointer;
+}
+
 .retourGrammaire {
   min-height: 1.5em;
   font-size: clamp(18px, 2vw, 24px);

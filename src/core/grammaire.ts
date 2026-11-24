@@ -23,9 +23,19 @@ export type PhraseGrammaire = { phrase: string; categorie: Categorie };
 
 export const PHRASES_PAR_SERIE = 10;
 
-async function demander(): Promise<PhraseGrammaire | null> {
+/* Niveaux de l'exercice « temps », cochés au début (même liste que le serveur). */
+export type Niveau = 'marqueurs' | 'imparfait' | 'passe_compose';
+export const NIVEAUX: readonly { id: Niveau; libelle: string; exemple: string }[] = [
+  { id: 'marqueurs', libelle: 'Marqueurs de temps', exemple: 'Hier, Léa a mangé une pomme.' },
+  { id: 'imparfait', libelle: 'Imparfait', exemple: 'Léa mangeait une pomme.' },
+  { id: 'passe_compose', libelle: 'Passé composé', exemple: 'Léa a mangé une pomme.' },
+];
+
+async function demander(niveaux: readonly Niveau[]): Promise<PhraseGrammaire | null> {
   try {
-    const r = await fetch('/api/grammaire/phrase', { signal: AbortSignal.timeout(20_000) });
+    const r = await fetch(`/api/grammaire/phrase?niveaux=${niveaux.join(',')}`, {
+      signal: AbortSignal.timeout(20_000),
+    });
     if (!r.ok) return null;
     const p = (await r.json()) as Partial<PhraseGrammaire>;
     if (typeof p.phrase !== 'string' || !['passe', 'present', 'futur'].includes(p.categorie ?? '')) {
@@ -39,9 +49,12 @@ async function demander(): Promise<PhraseGrammaire | null> {
 
 /* Une phrase déjà vue dans la série est redemandée une fois ; si le serveur
    persiste, on la garde plutôt que de bloquer l'enfant. */
-export async function phraseSuivante(dejaVues: Set<string>): Promise<PhraseGrammaire | null> {
-  let p = await demander();
-  if (p && dejaVues.has(p.phrase)) p = await demander();
+export async function phraseSuivante(
+  dejaVues: Set<string>,
+  niveaux: readonly Niveau[],
+): Promise<PhraseGrammaire | null> {
+  let p = await demander(niveaux);
+  if (p && dejaVues.has(p.phrase)) p = await demander(niveaux);
   if (p) dejaVues.add(p.phrase);
   return p;
 }
