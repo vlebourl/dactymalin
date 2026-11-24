@@ -3,17 +3,26 @@ import { MOTS_INTERDITS, SUJETS, THEMES, VERBES } from './grammaire-banques';
 
 export type Categorie = 'passe' | 'present' | 'futur';
 export type Temps = 'passe_compose' | 'imparfait' | 'present' | 'futur_simple';
-export type Tirage = { sujet: string; verbe: string; theme: string; temps: Temps; marqueur?: string };
+export type Tirage = {
+  sujet: string;
+  verbe: string;
+  theme: string;
+  temps: Temps;
+  marqueur?: string;
+  /** Le marqueur ferme la phrase au lieu de l'ouvrir (une fois sur deux). */
+  enFin?: boolean;
+};
 
 /* Niveaux cochés au début de la série. Présent et futur sont de tous les
    niveaux (sinon la réponse serait toujours « Passé ») ; le niveau dit quel
-   passé on tire, et si la phrase commence par un marqueur de temps. */
+   passé on tire, et si la phrase porte un marqueur de temps. */
 export type Niveau = 'marqueurs' | 'imparfait' | 'passe_compose';
 export const NIVEAUX: readonly Niveau[] = ['marqueurs', 'imparfait', 'passe_compose'];
 /** Sans niveau demandé : le passé composé et l'imparfait, sans marqueur. */
 export const NIVEAUX_PAR_DEFAUT: readonly Niveau[] = ['passe_compose', 'imparfait'];
 
-/* Le marqueur ouvre la phrase, suivi d'une virgule : « Hier, Léa a mangé une pomme. »
+/* Une fois sur deux le marqueur ouvre la phrase, suivi d'une virgule (« Hier,
+   Léa a mangé une pomme. »), sinon il la ferme (« Léa a mangé une pomme hier. »).
    « Il y a » et « Dans » reçoivent une durée tirée dans DUREES (« Il y a 2 jours »). */
 export const MARQUEURS: Record<Categorie, readonly string[]> = {
   passe: ['Hier', 'Avant-hier', 'La semaine dernière', 'Il y a'],
@@ -29,6 +38,9 @@ const tirerMarqueur = (c: Categorie, alea: () => number) => {
   const m = choisir(MARQUEURS[c], alea);
   return AVEC_DUREE.includes(m) ? `${m} ${choisir(DUREES, alea)}` : m;
 };
+/** « Léa a mangé une pomme. » + « Hier » → « Léa a mangé une pomme hier. » */
+export const marqueurEnFin = (phrase: string, marqueur: string): string =>
+  `${phrase.replace(/[\s.!?…]+$/u, '')} ${marqueur[0]!.toLowerCase()}${marqueur.slice(1)}.`;
 
 export const CATEGORIE_DU_TEMPS: Record<Temps, Categorie> = {
   passe_compose: 'passe',
@@ -71,7 +83,10 @@ export function tirer(
         ? 'present'
         : 'futur_simple';
   return {
-    ...(niveau === 'marqueurs' && { marqueur: tirerMarqueur(categorie, alea) }),
+    ...(niveau === 'marqueurs' && {
+      marqueur: tirerMarqueur(categorie, alea),
+      enFin: alea() >= 0.5,
+    }),
     sujet: choisir(SUJETS, alea),
     verbe: choisir(VERBES, alea),
     theme: choisir(THEMES, alea),
@@ -174,7 +189,9 @@ const LIBELLE_TEMPS: Record<Temps, string> = {
 
 const ESSAIS_MAX = 3;
 
-/** Génère une phrase puis la fait contrôler à l'aveugle (sans lui dire le temps visé). */
+/** Génère une phrase puis la fait contrôler à l'aveugle (sans lui dire le temps visé).
+    Un marqueur en fin de phrase est ajouté par le serveur, après le contrôle : la
+    phrase est demandée et contrôlée sans marqueur, comme aux autres niveaux. */
 export function creerGenerateur(
   demander: Demander,
   alea: () => number = Math.random,
@@ -182,18 +199,19 @@ export function creerGenerateur(
   return async (niveaux = NIVEAUX_PAR_DEFAUT) => {
     for (let essai = 0; essai < ESSAIS_MAX; essai++) {
       const t = tirer(alea, niveaux);
+      const enTete = t.enFin ? undefined : t.marqueur;
       const generee = (await demander(
         PROMPT_GENERATION,
         `Sujet : ${t.sujet}. Verbe : ${t.verbe}. Thème : ${t.theme}. Temps : ${LIBELLE_TEMPS[t.temps]}.` +
-          (t.marqueur ? ` Marqueur de temps : ${t.marqueur}.` : ''),
+          (enTete ? ` Marqueur de temps : ${enTete}.` : ''),
         SCHEMA_GENERATION,
       )) as { phrase?: unknown } | null;
       const phrase = generee?.phrase;
-      if (typeof phrase !== 'string' || !phraseValide(phrase, t.marqueur)) continue;
+      if (typeof phrase !== 'string' || !phraseValide(phrase, enTete)) continue;
       const controle = await demander(PROMPT_CONTROLE, phrase, SCHEMA_CONTROLE);
       const attendue = CATEGORIE_DU_TEMPS[t.temps];
       if (controleAccepte(phrase, controle, attendue)) {
-        return { phrase, categorie: attendue };
+        return { phrase: t.enFin ? marqueurEnFin(phrase, t.marqueur!) : phrase, categorie: attendue };
       }
     }
     return null;
